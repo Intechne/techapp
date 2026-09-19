@@ -1,4 +1,5 @@
 import type { Session } from '@supabase/supabase-js';
+import * as Linking from 'expo-linking';
 import { getSupabase } from '../../lib/supabase';
 import { makeError, toAppError } from '../../lib/errors';
 import { clearLocalData } from '../../lib/localPrefs';
@@ -11,8 +12,26 @@ export const isValidEmail = (email: string) => EMAIL.test(normaliseEmail(email))
 /** Real e-mail OTP through Supabase Auth. There is no client-side "logged in" flag anywhere in the app. */
 export async function signInWithEmailOtp(email: string): Promise<void> {
   if (!isValidEmail(email)) throw makeError('email_invalid', 422, { fieldErrors: { email: 'Geçerli bir e-posta adresi yaz.' } });
-  const { error } = await getSupabase().auth.signInWithOtp({ email: normaliseEmail(email), options: { shouldCreateUser: true } });
+  const { error } = await getSupabase().auth.signInWithOtp({ email: normaliseEmail(email), options: { shouldCreateUser: true, emailRedirectTo: AUTH_CALLBACK_URL } });
   if (error) throw toAppError(error);
+}
+
+/** Where the e-mailed sign-in link returns to: techapp://auth-callback on devices, <origin>/auth-callback on the dev web target. */
+export const AUTH_CALLBACK_URL = Linking.createURL('auth-callback');
+
+/**
+ * The e-mail may carry a 6-digit code, a sign-in link, or both (depends on the project's mail template).
+ * Links come back as <callback>#access_token=…&refresh_token=… — tokens issued by Supabase Auth, which we hand to the client.
+ * Returns true when the URL was an auth callback (whether or not it succeeded).
+ */
+export async function completeSignInFromUrl(url: string | null): Promise<boolean> {
+  if (!url || !url.includes('auth-callback')) return false;
+  const params = new URLSearchParams(url.split('#')[1] ?? url.split('?')[1] ?? '');
+  const access_token = params.get('access_token'); const refresh_token = params.get('refresh_token');
+  if (!access_token || !refresh_token) return true; // expired / already used link: stay signed out, the OTP screen explains
+  const { error } = await getSupabase().auth.setSession({ access_token, refresh_token });
+  if (error) throw toAppError(error);
+  return true;
 }
 
 export async function verifyOtp(email: string, token: string): Promise<Session> {

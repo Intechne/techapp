@@ -17,6 +17,7 @@ Son güncelleme: 2026-09-19. Bu liste bilinçli olarak eksiksiz tutulur; buradak
 
 ## Remote Supabase ile ilgili açıklar
 
+- **Doğrulandı (2026-09-19):** Supabase'in varsayılan e-postası yalnız giriş bağlantısı içeriyor, 6 haneli kod içermiyor. Uygulama artık ikisini de kabul ediyor (web: URL'den oturum, cihaz: `techapp://auth-callback` deep link). Bağlantı, e-postanın açıldığı cihazda uygulama kurulu değilse çalışmaz; bu yüzden kodlu şablon yine de hedef.
 - OTP e-posta şablonu (`supabase/templates/otp.html`) **uygulanamadı**: özel SMTP gerekli. Halka açık yayından önce özel SMTP zorunlu (varsayılan servis saatte birkaç e-posta ile sınırlı).
 - Veli e-postası gönderilemiyor (Resend/SMTP anahtarı ve yayınlanmış veli sayfası adresi yok).
 - Tek Supabase projesi var ve örnek veri içeriyor; production için **ayrı proje** açılmalı, seed uygulanmamalı.

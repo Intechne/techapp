@@ -13,7 +13,7 @@ export function getSupabase(): SupabaseClient<Database> {
   if (!env.isConfigured) throw makeError('not_configured', 0, { retryable: false });
   if (!client) {
     client = createClient<Database>(env.supabaseUrl, env.supabasePublishableKey, {
-      auth: { storage: secureSessionStorage, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false },
+      auth: { storage: secureSessionStorage, autoRefreshToken: true, persistSession: true, detectSessionInUrl: Platform.OS === 'web' },
     });
     if (Platform.OS !== 'web') {
       const c = client;

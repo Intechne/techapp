@@ -8,7 +8,7 @@ import { accountStateSchema } from '../../lib/database.types';
 import { getSupabase } from '../../lib/supabase';
 import type { RootStackParamList } from '../../navigation/types';
 import { signInWithEmailOtp, verifyOtp } from './authService';
-import { accountStateKey } from './SessionProvider';
+import { accountStateKey, useAccountState, useSession } from './SessionProvider';
 
 const RESEND_SECONDS = 60;
 
@@ -42,12 +42,20 @@ export function AuthOtpScreen({ navigation, route }: NativeStackScreenProps<Root
   const resend = useMutation({ mutationFn: () => signInWithEmailOtp(email), onSuccess: () => setWait(RESEND_SECONDS) });
   const error = verify.error ?? resend.error;
 
+  // Signed in through the e-mailed link while this screen was open: continue exactly like a verified code.
+  const { userId } = useSession();
+  const account = useAccountState();
+  useEffect(() => {
+    if (!userId || verify.isPending || verify.isSuccess || !account.data) return;
+    if (account.data.profile_complete) navigation.popTo('Main'); else navigation.replace('ProfileBootstrap');
+  }, [userId, account.data, verify.isPending, verify.isSuccess, navigation]);
+
   return (
     <Screen header={<AppHeader onBack={navigation.goBack} title="Doğrulama" />}
       footer={<Button label="Doğrula" loading={verify.isPending} disabled={code.length < 6} onPress={() => verify.mutate()} />}>
       <Text variant="eyebrow" color="textSecondary">SON ADIM</Text>
       <Text variant="display" style={{ marginTop: space[2] }}>Kodunu gir.</Text>
-      <Text variant="body" color="textSecondary" style={{ marginTop: space[3] }}>{email} adresine gönderdiğimiz 6 haneli kodu yaz.</Text>
+      <Text variant="body" color="textSecondary" style={{ marginTop: space[3] }}>{email} adresine bir e-posta gönderdik. İçindeki 6 haneli kodu buraya yaz ya da e-postadaki bağlantıya bu cihazdan dokun; girişin kendiliğinden tamamlanır.</Text>
       <View style={{ marginTop: space[6], gap: space[4] }}>
         <Input label="Doğrulama kodu" value={code} onChangeText={(t) => setCode(t.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad"
           textContentType="oneTimeCode" autoComplete="one-time-code" maxLength={6} autoFocus style={{ letterSpacing: 8, fontSize: 22 }} />
