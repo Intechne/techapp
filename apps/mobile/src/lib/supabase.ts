@@ -8,11 +8,11 @@ import type { Database } from './database.types';
 
 let client: SupabaseClient<Database> | null = null;
 
-/** The only Supabase client. Uses the public anon key; authorisation is enforced by RLS and RPCs on the server. */
+/** The only Supabase client. Uses the public publishable key (never a secret/service-role key); authorisation is enforced by RLS and RPCs on the server. */
 export function getSupabase(): SupabaseClient<Database> {
   if (!env.isConfigured) throw makeError('not_configured', 0, { retryable: false });
   if (!client) {
-    client = createClient<Database>(env.supabaseUrl, env.supabaseAnonKey, {
+    client = createClient<Database>(env.supabaseUrl, env.supabasePublishableKey, {
       auth: { storage: secureSessionStorage, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false },
     });
     if (Platform.OS !== 'web') {

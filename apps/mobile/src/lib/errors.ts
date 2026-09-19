@@ -44,6 +44,7 @@ const COPY: Record<string, string> = {
   ticket_malformed: 'Bu bir TechApp katılım kodu değil.',
   ticket_unknown: 'Bu kodla eşleşen bir kayıt yok.',
   outside_checkin_window: 'Giriş kontrolü etkinlikten 3 saat önce açılır.',
+  contract_mismatch: 'Uygulama ile sunucu uyumsuz görünüyor. Uygulamayı güncelleyip tekrar dener misin?',
   server_error: 'Bizim tarafta bir sorun oluştu. Birazdan tekrar dener misin?',
   unknown: 'Beklenmedik bir sorun oluştu. Tekrar dener misin?',
 };
@@ -94,4 +95,11 @@ export function toAppError(input: unknown): AppError {
 
 export function isAppError(value: unknown): value is AppError {
   return typeof value === 'object' && value !== null && 'retryable' in value && 'code' in value && 'status' in value;
+}
+
+/** Validate a jsonb RPC payload at the boundary: a contract drift becomes a clear error, not a crash deep in a screen. */
+export function parsePayload<T>(schema: { safeParse: (v: unknown) => { success: true; data: T } | { success: false } }, value: unknown): T {
+  const result = schema.safeParse(value);
+  if (!result.success) throw makeError('contract_mismatch', 500, { retryable: false });
+  return result.data;
 }

@@ -1,6 +1,6 @@
 import { getSupabase } from '../../lib/supabase';
-import { toAppError } from '../../lib/errors';
-import type { EventEligibility, EventRegistrationRow, EventSessionRow, EventType, MyGuardianRequestRow, ParticipationCard } from '../../lib/database.types';
+import { parsePayload, toAppError } from '../../lib/errors';
+import { eventEligibilitySchema, participationCardSchema, type EventEligibility, type EventRegistrationRow, type EventSessionRow, type EventType, type MyGuardianRequestRow, type ParticipationCard } from '../../lib/database.types';
 import type { EventWithOrg } from './labels';
 
 const EVENT_SELECT = '*, organization:organizations(id, name, verification)';
@@ -44,7 +44,7 @@ export async function fetchEvent(eventId: string): Promise<EventDetail> {
 export async function fetchEligibility(eventId: string): Promise<EventEligibility> {
   const { data, error } = await getSupabase().rpc('event_eligibility', { p_event_id: eventId });
   if (error) throw toAppError(error);
-  return data;
+  return parsePayload(eventEligibilitySchema, data);
 }
 
 /** The server decides status atomically. The same idempotency key is reused on retry, so no duplicates. */
@@ -81,13 +81,13 @@ export async function fetchMyRegistrations(): Promise<RegistrationWithEvent[]> {
 export async function fetchParticipationCard(registrationId: string): Promise<ParticipationCard> {
   const { data, error } = await getSupabase().rpc('get_participation_card', { p_registration_id: registrationId });
   if (error) throw toAppError(error);
-  return data;
+  return parsePayload(participationCardSchema, data);
 }
 
 export async function fetchGuardianRequest(registrationId: string): Promise<MyGuardianRequestRow | null> {
   const { data, error } = await getSupabase().from('my_guardian_requests').select('*')
     .eq('subject_type', 'event_registration').eq('subject_id', registrationId)
-    .order('requested_at', { ascending: false }).limit(1).maybeSingle();
+    .order('requested_at', { ascending: false }).limit(1).maybeSingle().overrideTypes<MyGuardianRequestRow, { merge: false }>();
   if (error) throw toAppError(error);
   return data;
 }

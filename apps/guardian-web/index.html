@@ -25,7 +25,7 @@
 </main>
 <script>
 // Deployed as a static page. The token travels in the URL fragment, so it never reaches server logs or referrers.
-const SUPABASE_URL = '__SUPABASE_URL__', ANON_KEY = '__SUPABASE_ANON_KEY__';
+const SUPABASE_URL = '__SUPABASE_URL__', PUBLISHABLE_KEY = '__SUPABASE_PUBLISHABLE_KEY__';
 const params = location.hash.slice(1).split('&'); const token = params[0] || ''; const revokeMode = params.includes('revoke');
 const app = document.getElementById('app');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -37,7 +37,7 @@ const MESSAGES = {
 };
 async function rpc(name, args) {
   let res;
-  try { res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, { method: 'POST', headers: { apikey: ANON_KEY, authorization: `Bearer ${ANON_KEY}`, 'content-type': 'application/json' }, body: JSON.stringify(args) }); }
+  try { res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, { method: 'POST', headers: { apikey: PUBLISHABLE_KEY, 'content-type': 'application/json' }, body: JSON.stringify(args) }); }
   catch { throw new Error('Bağlantı kurulamadı. İnternetinizi kontrol edip tekrar deneyin. İşleminiz kaydedilmedi.'); }
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(MESSAGES[body.message] || 'İşlem tamamlanamadı. Lütfen daha sonra tekrar deneyin.');

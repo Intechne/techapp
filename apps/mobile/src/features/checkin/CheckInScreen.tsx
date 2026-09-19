@@ -5,15 +5,15 @@ import { useMutation } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppHeader, Button, Card, Input, Notice, Screen, Tag, Text, colors, radius, space } from '../../design-system';
 import { formatTime } from '../../lib/dates';
-import { toAppError } from '../../lib/errors';
+import { parsePayload, toAppError } from '../../lib/errors';
 import { getSupabase } from '../../lib/supabase';
-import type { CheckInResult } from '../../lib/database.types';
+import { checkInResultSchema, type CheckInResult } from '../../lib/database.types';
 import type { ProfileStackParamList } from '../../navigation/types';
 
 async function checkIn(token: string): Promise<CheckInResult> {
   const { data, error } = await getSupabase().rpc('check_in_participant', { p_token: token.trim() });
   if (error) throw toAppError(error);
-  return data;
+  return parsePayload(checkInResultSchema, data);
 }
 
 /** Organizer check-in. The scan only reads an opaque token; validity and the staff member's permission are decided by the server. */

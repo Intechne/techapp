@@ -168,14 +168,14 @@ http.createServer(async (req, res) => {
     if (url.pathname.startsWith('/functions/v1')) return await functions(req, res, url.pathname.slice('/functions/v1'.length));
     if (url.pathname === '/guardian') {
       const html = readFileSync(join(root, 'apps/guardian-web/index.html'), 'utf8')
-        .replace('__SUPABASE_URL__', `http://127.0.0.1:${GATEWAY_PORT}`).replace('__SUPABASE_ANON_KEY__', ANON_KEY);
+        .replace('__SUPABASE_URL__', `http://127.0.0.1:${GATEWAY_PORT}`).replace('__SUPABASE_PUBLISHABLE_KEY__', ANON_KEY);
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); return res.end(html);
     }
     send(res, 404, { message: 'not found' });
   } catch (e) { console.error(e); send(res, 500, { code: 'server_error' }); }
 }).listen(GATEWAY_PORT, '127.0.0.1');
 
-writeFileSync(join(root, 'apps/mobile/.env.local'), `EXPO_PUBLIC_APP_ENV=local\nEXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:${GATEWAY_PORT}\nEXPO_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY}\n`);
+writeFileSync(join(root, 'apps/mobile/.env.local'), `EXPO_PUBLIC_APP_ENV=local\nEXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:${GATEWAY_PORT}\nEXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}\n`);
 console.log(`TechApp local stack ready → http://127.0.0.1:${GATEWAY_PORT}  (apps/mobile/.env.local written)\nOrganiser test login: organizator@techapp.test — OTP codes appear in this terminal.`);
 
 const shutdown = async () => { postgrest.kill(); await db.end().catch(() => {}); await server.stop().catch(() => {}); process.exit(0); };

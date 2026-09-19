@@ -3,7 +3,8 @@ import { View } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppHeader, Button, Input, Notice, Screen, Text, TextButton, space } from '../../design-system';
-import { toAppError } from '../../lib/errors';
+import { parsePayload, toAppError } from '../../lib/errors';
+import { accountStateSchema } from '../../lib/database.types';
 import { getSupabase } from '../../lib/supabase';
 import type { RootStackParamList } from '../../navigation/types';
 import { signInWithEmailOtp, verifyOtp } from './authService';
@@ -29,8 +30,9 @@ export function AuthOtpScreen({ navigation, route }: NativeStackScreenProps<Root
       // Decide the next step from the server's view of the account, not from local assumptions.
       const { data, error } = await getSupabase().rpc('my_account_state');
       if (error) throw toAppError(error);
-      qc.setQueryData(accountStateKey(session.user.id), data);
-      return data;
+      const state = data === null ? null : parsePayload(accountStateSchema, data);
+      qc.setQueryData(accountStateKey(session.user.id), state);
+      return state;
     },
     onSuccess: (state) => {
       if (state?.profile_complete) navigation.popTo('Main');

@@ -3,8 +3,8 @@ import type { Session } from '@supabase/supabase-js';
 import { useQuery } from '@tanstack/react-query';
 import { env } from '../../lib/env';
 import { getSupabase } from '../../lib/supabase';
-import { toAppError } from '../../lib/errors';
-import type { AccountState } from '../../lib/database.types';
+import { parsePayload, toAppError } from '../../lib/errors';
+import { accountStateSchema, type AccountState } from '../../lib/database.types';
 
 interface SessionValue { session: Session | null; userId: string | null; ready: boolean }
 const SessionContext = createContext<SessionValue>({ session: null, userId: null, ready: false });
@@ -39,7 +39,7 @@ export function useAccountState() {
     queryFn: async (): Promise<AccountState | null> => {
       const { data, error } = await getSupabase().rpc('my_account_state');
       if (error) throw toAppError(error);
-      return data;
+      return data === null ? null : parsePayload(accountStateSchema, data);
     },
   });
 }

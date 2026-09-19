@@ -1,0 +1,27 @@
+# Supabase project configuration for TechApp. The remote project is selected with `supabase link` (ref is stored
+# in supabase/.temp, not here). Local Docker stack is not used in this repo: see supabase/dev/start.mjs.
+project_id = "techapp"
+
+[api]
+schemas = ["public"]
+max_rows = 200
+
+[auth]
+site_url = "techapp://"
+additional_redirect_urls = ["techapp://**"]
+enable_signup = true
+minimum_password_length = 12
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+otp_length = 6
+otp_expiry = 600
+max_frequency = "60s"
+
+# Both functions act on behalf of a signed-in user: the platform verifies the JWT before our code runs.
+[functions.guardian-dispatch]
+verify_jwt = true
+
+[functions.delete-account]
+verify_jwt = true

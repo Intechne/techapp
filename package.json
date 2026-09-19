@@ -7,7 +7,12 @@
     "db:test": "vitest run --config supabase/tests/vitest.config.mts",
     "db:dev": "node supabase/dev/start.mjs",
     "mobile": "npm --prefix apps/mobile run start",
-    "verify": "npm run db:test && npm --prefix apps/mobile run verify"
+    "verify": "npm run db:test && npm --prefix apps/mobile run verify",
+    "db:types": "supabase gen types typescript --linked --schema public > apps/mobile/src/lib/database.generated.ts",
+    "db:types:local": "PG_META_DB_URL=postgres://postgres:postgres@127.0.0.1:54322/techapp PG_META_GENERATE_TYPES=typescript PG_META_GENERATE_TYPES_INCLUDED_SCHEMAS=public npx -y -p @supabase/postgres-meta node -e \"require('@supabase/postgres-meta/dist/server/server.js')\" > apps/mobile/src/lib/database.generated.ts",
+    "db:types:check": "npm run db:types && git diff --exit-code apps/mobile/src/lib/database.generated.ts",
+    "db:push": "supabase db push --dry-run && echo 'Review the plan above, then run: npx supabase db push'",
+    "functions:deploy": "supabase functions deploy guardian-dispatch && supabase functions deploy delete-account"
   },
   "engines": {
     "node": ">=22"
@@ -16,6 +21,7 @@
     "@types/pg": "^8.23.1",
     "embedded-postgres": "^18.4.0-beta.17",
     "pg": "^8.23.0",
+    "supabase": "^2.117.0",
     "typescript": "^7.0.2",
     "vitest": "^5.0.1"
   }
