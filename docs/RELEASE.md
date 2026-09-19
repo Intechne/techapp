@@ -71,8 +71,8 @@ npx supabase link --project-ref pacvhcnawtnkauvguoaw   # bir kez
 npm run db:push                                        # plan (dry-run) → sonra: npx supabase db push
 npm run db:types                                       # şema değiştiyse
 npm run functions:deploy
-npm --prefix apps/mobile run web:remote                # .env.remote ile (git-ignored; URL + publishable key)
-npm --prefix apps/admin run dev:remote
+npm run env:remote    # iki uygulamanın .env.local dosyasını .env.remote'tan yazar (geri dönüş: npm run env:local)
+npm run mobile:web && npm run admin
 # Uçtan uca doğrulama (secret key yalnız ortam değişkeninde; dosyaya yazma):
 SUPABASE_URL=… SUPABASE_PUBLISHABLE_KEY=… SUPABASE_SECRET_KEY=… npm --prefix apps/mobile run e2e:remote
 ```

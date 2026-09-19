@@ -73,7 +73,7 @@ npm run admin           # 3. terminal — yönetim paneli → http://127.0.0.1:5
 `npm run db:dev` ne yapar?
 
 - Gömülü PostgreSQL (`:54322`) + PostgREST (`:54323`) + Supabase uyumlu gateway (`:54321`) başlatır; ilk açılışta migration'ları ve örnek veriyi yükler.
-- `apps/mobile/.env.local` ve `apps/admin/.env.local` dosyalarını kendisi yazar.
+- `.env.localstack` dosyalarını yazar; `npm run env:local` uygulamaları yerel backend'e, `npm run env:remote` gerçek Supabase projesine bağlar (Expo/Vite `.env.local`'ı kabuk değişkenlerinden üstün tutar, bu yüzden geçiş dosya üzerinden yapılır).
 - E-posta göndermez: **giriş (OTP) kodları ve veli onay bağlantıları bu terminale yazılır.**
 - Hazır ekip hesabı: `organizator@techapp.test` (örnek kurumların sahibi + platform yöneticisi).
 - Sıfırlamak için: `npm run db:dev -- --reset`

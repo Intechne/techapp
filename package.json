@@ -14,7 +14,9 @@
     "db:push": "supabase db push --dry-run && echo 'Review the plan above, then run: npx supabase db push'",
     "functions:deploy": "supabase functions deploy guardian-dispatch && supabase functions deploy delete-account",
     "admin": "npm --prefix apps/admin run dev",
-    "mobile:web": "npm --prefix apps/mobile run web"
+    "mobile:web": "npm --prefix apps/mobile run web",
+    "env:local": "node supabase/dev/use-env.mjs local",
+    "env:remote": "node supabase/dev/use-env.mjs remote"
   },
   "engines": {
     "node": ">=22"

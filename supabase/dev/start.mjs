@@ -178,9 +178,9 @@ http.createServer(async (req, res) => {
   } catch (e) { console.error(e); send(res, 500, { code: 'server_error' }); }
 }).listen(GATEWAY_PORT, '127.0.0.1');
 
-writeFileSync(join(root, 'apps/mobile/.env.local'), `EXPO_PUBLIC_APP_ENV=local\nEXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:${GATEWAY_PORT}\nEXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}\n`);
-writeFileSync(join(root, 'apps/admin/.env.local'), `VITE_SUPABASE_URL=http://127.0.0.1:${GATEWAY_PORT}\nVITE_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}\n`);
-console.log(`TechApp local stack ready → http://127.0.0.1:${GATEWAY_PORT}  (apps/mobile/.env.local written)\nOrganiser test login: organizator@techapp.test — OTP codes appear in this terminal.`);
+writeFileSync(join(root, 'apps/mobile/.env.localstack'), `EXPO_PUBLIC_APP_ENV=local\nEXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:${GATEWAY_PORT}\nEXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}\n`);
+writeFileSync(join(root, 'apps/admin/.env.localstack'), `VITE_SUPABASE_URL=http://127.0.0.1:${GATEWAY_PORT}\nVITE_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}\n`);
+console.log(`TechApp local stack ready → http://127.0.0.1:${GATEWAY_PORT}  (.env.localstack written; `npm run env:local` points the apps here)\nOrganiser test login: organizator@techapp.test — OTP codes appear in this terminal.`);
 
 const shutdown = async () => { postgrest.kill(); await db.end().catch(() => {}); await server.stop().catch(() => {}); process.exit(0); };
 process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);
