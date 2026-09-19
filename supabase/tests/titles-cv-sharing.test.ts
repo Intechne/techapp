@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { asAnon, asUser, createOrg, createUser, expectFail } from './helpers';
+import { admin, asAnon, asUser, createOrg, createUser, expectFail } from './helpers';
 
 describe('team titles and task priority', () => {
   it('managers set a title; it grants nothing and members cannot write it', async () => {
@@ -76,5 +76,21 @@ describe('shareable verified CV', () => {
     await expectFail(asAnon((q) => q(`select public.public_cv($1)`, [token])), 404, 'cv_not_found');
     const next = (await asUser(user, (q) => q(`select public.set_cv_sharing(true) t`))).rows[0].t;
     expect(next).not.toBe(token);
+  });
+});
+
+describe('organizations column privacy', () => {
+  it('anon reads a verified org as public branding but never who verified it', async () => {
+    const admin_user = await createUser();
+    const org = await createOrg({ [admin_user]: 'owner' });
+    // stamp internal review metadata as a platform action would
+    await admin(`update public.organizations set verified_by = $2, verified_at = now() where id = $1`, [org, admin_user]);
+
+    const pub = (await asAnon((q) => q(`select name, verification from public.organizations where id = $1`, [org]))).rows[0];
+    expect(pub).toMatchObject({ verification: 'verified' }); // branding stays public
+    for (const col of ['verified_by', 'verified_at']) {
+      await expect(asAnon((q) => q(`select ${col} from public.organizations where id = $1`, [org]))).rejects.toThrow(/permission denied/);
+    }
+    await expect(asAnon((q) => q(`select * from public.organizations where id = $1`, [org]))).rejects.toThrow(/permission denied/);
   });
 });
