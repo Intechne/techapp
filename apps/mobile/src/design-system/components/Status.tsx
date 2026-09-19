@@ -37,8 +37,16 @@ export const applicationStatusView = {
   closed: { label: 'KAPANDI', tone: 'neutral' },
 } as const satisfies Record<string, StatusView>;
 
+export const volunteerStatusView = {
+  pending: { label: 'GÖNÜLLÜ BAŞVURUN DEĞERLENDİRİLİYOR', tone: 'iris', icon: 'clock' },
+  approved: { label: 'GÖNÜLLÜ EKİPTESİN', tone: 'moss', icon: 'check' },
+  rejected: { label: 'GÖNÜLLÜ BAŞVURUN KABUL EDİLMEDİ', tone: 'neutral' },
+  withdrawn: { label: 'GÖNÜLLÜLÜKTEN ÇEKİLDİN', tone: 'neutral' },
+} as const satisfies Record<string, StatusView>;
+
 export function StatusBadge({ view }: { view: StatusView }) {
   return <Tag label={view.label} tone={view.tone} icon={view.icon} />;
 }
 export const RegistrationStatus = ({ status }: { status: RegStatus }) => <StatusBadge view={registrationStatusView[status]} />;
 export const ApplicationStatus = ({ status }: { status: keyof typeof applicationStatusView }) => <StatusBadge view={applicationStatusView[status]} />;
+export const VolunteerStatus = ({ status }: { status: keyof typeof volunteerStatusView }) => <StatusBadge view={volunteerStatusView[status]} />;

@@ -1,43 +1,38 @@
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { AppHeader, Chip, ChipRail, EmptyState, ErrorState, LoadingSkeleton, Notice, OpportunityCard, Screen, Text, space } from '../../design-system';
-import { formatDate } from '../../lib/dates';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { AppHeader, Chip, ChipRail, EmptyState, ErrorState, LoadingSkeleton, ResponsiveGrid, Screen, Text, TextButton, space } from '../../design-system';
+import { track } from '../../lib/analytics';
 import { toAppError } from '../../lib/errors';
-import { getSupabase } from '../../lib/supabase';
-import type { OpportunityRow } from '../../lib/database.types';
+import type { OpportunityType } from '../../lib/database.types';
+import type { OpportunitiesStackParamList } from '../../navigation/types';
+import { fetchOpportunities, opportunityKeys } from './api';
+import { OPPORTUNITY_TYPE, TYPE_FILTERS } from './labels';
+import { OpportunityCardView } from './OpportunityCardView';
+import { useFollowedOpportunities } from './useFollow';
 
-const TYPES: readonly { value: OpportunityRow['type'] | 'all'; label: string }[] = [
-  { value: 'all', label: 'Tümü' }, { value: 'internship', label: 'Staj' }, { value: 'volunteering', label: 'Gönüllülük' },
-  { value: 'entrepreneurship', label: 'Girişimcilik' }, { value: 'talent_program', label: 'Yetenek programı' }, { value: 'project_call', label: 'Proje çağrısı' },
-];
+export function OpportunitiesScreen({ navigation }: NativeStackScreenProps<OpportunitiesStackParamList, 'OpportunitiesHome'>) {
+  const [type, setType] = useState<OpportunityType | 'all'>('all');
+  const q = useQuery({ queryKey: opportunityKeys.list(type, false), queryFn: () => fetchOpportunities(type) });
+  const follow = useFollowedOpportunities();
+  const open = (id: string) => { track('opportunity_opened', { opportunity_id: id }); navigation.navigate('OpportunityDetail', { opportunityId: id }); };
 
-/** Phase 6 foundation: real published opportunities from the backend. The application flow ships with Phase 6. */
-export function OpportunitiesScreen() {
-  const [type, setType] = useState<(typeof TYPES)[number]['value']>('all');
-  const q = useQuery({
-    queryKey: ['opportunities', type],
-    queryFn: async () => {
-      let query = getSupabase().from('opportunities').select('*').eq('status', 'published').gte('closes_at', new Date().toISOString()).order('closes_at').limit(30);
-      if (type !== 'all') query = query.eq('type', type);
-      const { data, error } = await query;
-      if (error) throw toAppError(error);
-      return data;
-    },
-  });
   return (
-    <Screen header={<AppHeader brand />} refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
+    <Screen wide header={<AppHeader brand />} refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
       <Text variant="eyebrow" color="textSecondary">SIRADAKİ ADIMIN BURADA</Text>
       <Text variant="display" style={{ marginTop: space[2] }}>Potansiyeline{'\n'}bir kapı aç.</Text>
-      <View style={{ marginVertical: space[4] }}>
-        <ChipRail>{TYPES.map((t) => <Chip key={t.value} label={t.label} selected={type === t.value} onPress={() => setType(t.value)} />)}</ChipRail>
+      <Text variant="body" color="textSecondary" style={{ marginTop: space[2] }}>Yarışmalar, hibeler, ödüller, burslar, stajlar ve programlar. Son tarihi kaçırma.</Text>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', marginTop: space[3] }}>
+        <TextButton icon="clock" label="Son tarihler" onPress={() => navigation.navigate('Deadlines')} />
+        <TextButton icon="check" label="Başvurularım" onPress={() => navigation.navigate('MyApplications')} />
       </View>
-      <View style={{ marginBottom: space[4] }}><Notice tone="info">Uygulama içinden başvuru bir sonraki sürümde açılıyor. Şimdilik fırsatları inceleyebilirsin.</Notice></View>
+      <View style={{ marginBottom: space[4] }}>
+        <ChipRail>{TYPE_FILTERS.map((t) => <Chip key={t} label={t === 'all' ? 'Tümü' : OPPORTUNITY_TYPE[t].label} selected={type === t} onPress={() => setType(t)} />)}</ChipRail>
+      </View>
       {q.isPending ? <LoadingSkeleton /> : q.isError ? <ErrorState error={toAppError(q.error)} onRetry={() => void q.refetch()} />
-        : q.data.length === 0 ? <EmptyState icon="opportunity" title={type === 'all' ? 'Şu an açık fırsat yok' : 'Bu türde açık fırsat yok'} body="Yeni fırsatlar eklendiğinde burada göreceksin." actionLabel={type === 'all' ? undefined : 'Tümünü göster'} onAction={() => setType('all')} />
-          : <View style={{ gap: space[3] }}>{q.data.map((o) => (
-            <OpportunityCard key={o.id} icon={o.type === 'volunteering' ? 'leaf' : o.type === 'entrepreneurship' ? 'rocket' : 'opportunity'} title={o.title} body={o.summary}
-              footnote={[o.is_remote ? 'Çevrim içi' : o.city, o.audience_note, `Son başvuru: ${formatDate(o.closes_at)}`].filter(Boolean).join(' · ')} />))}</View>}
+        : q.data.length === 0 ? <EmptyState icon="opportunity" title={type === 'all' ? 'Şu an açık çağrı yok' : 'Bu türde açık çağrı yok'} body="Yeni çağrılar eklendiğinde burada göreceksin." actionLabel={type === 'all' ? undefined : 'Tümünü göster'} onAction={() => setType('all')} />
+          : <ResponsiveGrid>{q.data.map((o) => <OpportunityCardView key={o.id} item={o} followed={follow.ids.has(o.id)} onPress={() => open(o.id)} onToggleFollow={follow.requiresAuth ? undefined : () => follow.toggle(o.id)} />)}</ResponsiveGrid>}
     </Screen>
   );
 }

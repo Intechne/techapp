@@ -11,6 +11,7 @@ import type { SharedEventParamList } from '../../navigation/types';
 import { useSession } from '../auth/SessionProvider';
 import { usePendingIntent } from '../auth/pendingIntent';
 import { eventKeys, fetchEligibility, fetchEvent } from './api';
+import { VolunteerSection } from '../volunteers/VolunteerSection';
 import { ELIGIBILITY_REASON, EVENT_TYPE_LABEL, audienceLabel, availability, feeLabel, placeLabel } from './labels';
 
 export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<SharedEventParamList, 'EventDetail'>) {
@@ -94,6 +95,11 @@ export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<
             ))}
           </View></>
       )}
+
+      <View style={{ marginTop: space[6] }}>
+        <VolunteerSection eventId={eventId} accepts={e.accepts_volunteers} ended={new Date(e.ends_at) <= new Date()}
+          onSignIn={() => navigation.getParent()?.getParent()?.navigate('AuthEmail')} onOpenHub={() => navigation.navigate('VolunteerHub', { eventId })} />
+      </View>
 
       {(e.cancellation_policy || e.support_contact) && (
         <><Divider /><Text variant="section">Bilmen gerekenler</Text>

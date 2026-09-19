@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, View } from 'react-native';
+import { View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
@@ -32,7 +32,7 @@ function Gate() {
 
 export default function App() {
   return (
-    <SafeAreaProvider style={Platform.OS === 'web' ? { flex: 1, maxWidth: 430, width: '100%', marginHorizontal: 'auto' } : undefined}>
+    <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <PrefsProvider><SessionProvider><PendingIntentProvider><ToastProvider>
           <StatusBar style="dark" />

@@ -1,6 +1,6 @@
 # TechApp — Implementation Status
 
-Son güncelleme: 2026-09-19 (2. oturum) · Dal: `main` · ✅ Completed · 🟡 Partial · ⛔ Blocked · ⚪ Not started
+Son güncelleme: 2026-09-19 (3. oturum) · Dal: `feat/release-readiness` · ✅ Completed · 🟡 Partial · ⛔ Blocked · ⚪ Not started
 
 "Doğrulandı" = bu makinede otomatik test ve/veya çalışan uygulamada gözle kontrol edildi. Native cihaz doğrulaması ayrıca belirtilir.
 
@@ -18,6 +18,28 @@ Son güncelleme: 2026-09-19 (2. oturum) · Dal: `main` · ✅ Completed · 🟡 
 | 8 · Profile / experience | 🟡 | Şema + attestation (ayrı kayıt, revoke) testli. Mobilde temel profil + hesap |
 | 9 · Learning | 🟡 | Şema + `complete_lesson` testli, seed'de 3 kurs. Mobil ekran ⚪ |
 | 10 · Release hardening | ⚪ | Analytics soyutlaması var; crash reporting, push, offline cache, mağaza varlıkları yok |
+
+## 3. oturum — yayına hazırlık (2026-09-19)
+"Doğrulandı" aynı anlamda: otomatik test ve/veya çalışan uygulamada gözle kontrol. Hepsi **yerel yığında**; remote'a henüz uygulanmadı (aşağıya bak).
+
+| Alan | Durum | Ne yapıldı · kanıt |
+|---|---|---|
+| Admin paneli (masaüstü) | ✅ | Eksik 5 sayfa yazıldı: Fırsatlar listesi/formu/detayı (başvuru incelemesi, dondurulmuş paylaşım verisi, durum geçişleri), Doğrulama talepleri (talep edenin adı, kapsam/dayanak/geçerlilik, iptal, kanıt dosyası imzalı bağlantıyla), Intechne yayın onayı kuyruğu. 1024 px altı yalnız giriş kontrolü. `tsc` + `vite build` temiz; tarayıcıda gerçek seed verisiyle gezildi, konsol hatasız |
+| Gönüllü etkinlik alanı | ✅ | Mobil: etkinlik sayfasında "Gönüllü ol" (misafir → giriş → form geri açılır), başvuru/çekilme, onaylı gönüllüye `VolunteerHub` (görev, program, gönüllü duyuruları, takım adları, sayılar). Katılımcı kimliği yok: DB testiyle kanıtlı |
+| Doğrulanmış dijital CV | ✅ | `app.cv_document` tek kaynak; `my_cv()` (özel) + `public_cv(token)` (herkese açık, anon). Uygulamada paylaşım kartı (aç/kapat, her açılışta yeni bağlantı), web'de `/cv/<token>` sayfası (noindex, no-referrer, önbelleksiz, yazdırılabilir). Taslak/gizli kayıt, kimlik, karar notu ve geçersiz doğrulama sızmıyor; iptal anında yansıyor: DB testi. Yalnız 18+ (hukuk kararı bekliyor) |
+| Takım yönetimi | ✅ | Kanban (3 sütun), görev atama, son tarih, **öncelik**, "Bana atananlar" filtresi, ilerleme özeti, roller, katılma istekleri ve **unvan atama** (`set_team_member_title`; unvan yetki vermez, CV'de görünür). DB + jest testli |
+| Responsive | 🟡 | Web kökündeki 430 px sabitleme kaldırıldı (pencere genişliğiyle çelişip içeriği ~250 px'e sıkıştırıyordu). Yeni `xlarge` sınıfı (≥1600: TV / geniş masaüstü, 4 sütun, 1480 px sınır). 900 px'te yan gezinme + tam genişlik gözle doğrulandı. ⛔ ≥1200 ve gerçek TV/tablet cihazında bakılamadı (bu makinede pencere 900 css px'i geçmiyor; native build yok) |
+| Amblem / uygulama ikonu | ✅ | Expo'nun varsayılan ikonu değiştirildi. "Açık devre T." amblemi: `design-source/brand/build.mjs` tek geometriden iOS, Android adaptive (ön/arka/monokrom), splash, favicon, web `icon.svg`/`apple-icon.png`, admin favicon ve 1024/512 mağaza ikonlarını üretir. iOS maskesi, Android dairesi, temalı ikon ve 16 px'te gözle kontrol edildi |
+| Lint borcu | ✅ | Üç form ekranındaki `set-state-in-effect` hataları "yükle → formu mount et" kalıbıyla giderildi |
+
+Test toplamı: DB **52/52**, mobil jest **41/41**, mobil typecheck + lint temiz, admin build temiz, web typecheck temiz.
+
+### Bu oturumdan sonra yayın için kalan adımlar
+1. `supabase/migrations/20260920000100_*` ve `20260920000200_*` **remote'a uygulanmadı**. `npm run db:push` (dry-run planını oku) → `npm run db:types` → `npm --prefix apps/mobile run e2e:remote`. Uygulanana kadar canlıda CV paylaşımı, unvan ve gönüllü alanı çalışmaz (mobil şema eski sunucuyu da okur).
+2. Vercel: `apps/web` yeniden deploy (yeni `/cv/[token]` rotası), `apps/admin` ayrı proje olarak deploy (`VITE_SUPABASE_*`).
+3. Native build hâlâ ⛔ (EAS Build ya da ≥15 GB disk). Yeni ikonlar `expo prebuild` ile alınır; cihazda bakılmadı.
+4. Hukuk: reşit olmayanların CV bağlantısı paylaşımı ve gönüllülüğü (ikisi de şimdilik 18+).
+5. Bilinen küçükler: web'de `/profile` derin bağlantısı oturum açılışından sonra Keşfet'e düşüyor; admin paket boyutu uyarısı (>500 kB, kod bölme yapılmadı).
 
 ## İlk milestone kabul kriterleri (§47)
 | | Kriter | Durum | Kanıt |

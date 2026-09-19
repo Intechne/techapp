@@ -3,8 +3,8 @@ import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { space } from '../tokens';
 import { useLayout } from '../useLayout';
 
-/** Lays children out in 1–3 equal columns depending on the size class. On phones it is a plain vertical stack. */
-export function ResponsiveGrid({ children, gap = space[3], maxColumns = 3, style }: { children: React.ReactNode; gap?: number; maxColumns?: number; style?: StyleProp<ViewStyle> }) {
+/** Lays children out in 1–4 equal columns depending on the size class. On phones it is a plain vertical stack. */
+export function ResponsiveGrid({ children, gap = space[3], maxColumns = 4, style }: { children: React.ReactNode; gap?: number; maxColumns?: number; style?: StyleProp<ViewStyle> }) {
   const { columns } = useLayout();
   const n = Math.min(columns, maxColumns);
   const items = React.Children.toArray(children);

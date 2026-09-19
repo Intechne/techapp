@@ -1423,6 +1423,7 @@ export type Database = {
           birth_date: string | null
           birth_date_set_at: string | null
           created_at: string
+          cv_share_token: string | null
           legal_name: string | null
           phone: string | null
           school_name: string | null
@@ -1433,6 +1434,7 @@ export type Database = {
           birth_date?: string | null
           birth_date_set_at?: string | null
           created_at?: string
+          cv_share_token?: string | null
           legal_name?: string | null
           phone?: string | null
           school_name?: string | null
@@ -1443,6 +1445,7 @@ export type Database = {
           birth_date?: string | null
           birth_date_set_at?: string | null
           created_at?: string
+          cv_share_token?: string | null
           legal_name?: string | null
           phone?: string | null
           school_name?: string | null
@@ -1651,6 +1654,7 @@ export type Database = {
           role: Database["public"]["Enums"]["team_role"]
           status: Database["public"]["Enums"]["membership_status"]
           team_id: string
+          title: string | null
           updated_at: string
           user_id: string
         }
@@ -1663,6 +1667,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["team_role"]
           status?: Database["public"]["Enums"]["membership_status"]
           team_id: string
+          title?: string | null
           updated_at?: string
           user_id: string
         }
@@ -1675,6 +1680,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["team_role"]
           status?: Database["public"]["Enums"]["membership_status"]
           team_id?: string
+          title?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -1696,6 +1702,7 @@ export type Database = {
           description: string | null
           due_date: string | null
           id: string
+          priority: Database["public"]["Enums"]["task_priority"]
           status: Database["public"]["Enums"]["task_status"]
           team_id: string
           title: string
@@ -1709,6 +1716,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          priority?: Database["public"]["Enums"]["task_priority"]
           status?: Database["public"]["Enums"]["task_status"]
           team_id: string
           title: string
@@ -1722,6 +1730,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          priority?: Database["public"]["Enums"]["task_priority"]
           status?: Database["public"]["Enums"]["task_status"]
           team_id?: string
           title?: string
@@ -1921,6 +1930,13 @@ export type Database = {
       }
     }
     Functions: {
+      admin_attestation_requesters: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          attestation_id: string
+          display_name: string
+        }[]
+      }
       admin_event_registrations: {
         Args: { p_event_id: string }
         Returns: {
@@ -2184,6 +2200,7 @@ export type Database = {
           role: Database["public"]["Enums"]["team_role"]
           status: Database["public"]["Enums"]["membership_status"]
           team_id: string
+          title: string | null
           updated_at: string
           user_id: string
         }
@@ -2243,6 +2260,7 @@ export type Database = {
           role: Database["public"]["Enums"]["team_role"]
           status: Database["public"]["Enums"]["membership_status"]
           team_id: string
+          title: string | null
           updated_at: string
           user_id: string
         }
@@ -2255,6 +2273,7 @@ export type Database = {
       }
       my_account_state: { Args: Record<PropertyKey, never>; Returns: Json }
       my_cv: { Args: Record<PropertyKey, never>; Returns: Json }
+      public_cv: { Args: { p_token: string }; Returns: Json }
       register_device: {
         Args: {
           p_app_version?: string
@@ -2322,6 +2341,7 @@ export type Database = {
           role: Database["public"]["Enums"]["team_role"]
           status: Database["public"]["Enums"]["membership_status"]
           team_id: string
+          title: string | null
           updated_at: string
           user_id: string
         }
@@ -2371,6 +2391,7 @@ export type Database = {
           role: Database["public"]["Enums"]["team_role"]
           status: Database["public"]["Enums"]["membership_status"]
           team_id: string
+          title: string | null
           updated_at: string
           user_id: string
         }
@@ -2464,6 +2485,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_cv_sharing: { Args: { p_enabled: boolean }; Returns: string }
       set_team_member_role: {
         Args: {
           p_membership_id: string
@@ -2478,6 +2500,29 @@ export type Database = {
           role: Database["public"]["Enums"]["team_role"]
           status: Database["public"]["Enums"]["membership_status"]
           team_id: string
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "team_memberships"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_team_member_title: {
+        Args: { p_membership_id: string; p_title: string }
+        Returns: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          message: string | null
+          role: Database["public"]["Enums"]["team_role"]
+          status: Database["public"]["Enums"]["membership_status"]
+          team_id: string
+          title: string | null
           updated_at: string
           user_id: string
         }
@@ -2501,6 +2546,7 @@ export type Database = {
           description: string | null
           due_date: string | null
           id: string
+          priority: Database["public"]["Enums"]["task_priority"]
           status: Database["public"]["Enums"]["task_status"]
           team_id: string
           title: string
@@ -2548,6 +2594,7 @@ export type Database = {
           message: string
           role: Database["public"]["Enums"]["team_role"]
           status: Database["public"]["Enums"]["membership_status"]
+          title: string
           user_id: string
         }[]
       }
@@ -2587,6 +2634,7 @@ export type Database = {
           role: Database["public"]["Enums"]["team_role"]
           status: Database["public"]["Enums"]["membership_status"]
           team_id: string
+          title: string | null
           updated_at: string
           user_id: string
         }
@@ -2707,6 +2755,7 @@ export type Database = {
         | "cancelled"
         | "rejected"
         | "expired"
+      task_priority: "low" | "normal" | "high"
       task_status: "todo" | "doing" | "done"
       team_kind: "team" | "community"
       team_role: "captain" | "mentor" | "member"
@@ -2942,6 +2991,7 @@ export const Constants = {
         "rejected",
         "expired",
       ],
+      task_priority: ["low", "normal", "high"],
       task_status: ["todo", "doing", "done"],
       team_kind: ["team", "community"],
       team_role: ["captain", "mentor", "member"],
