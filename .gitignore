@@ -13,3 +13,5 @@ supabase/.temp/
 supabase/dev/.pgdata/
 secrets/
 coverage/
+supabase/dev/.last-*
+supabase/dev/.jwt-secret

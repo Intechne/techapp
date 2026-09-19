@@ -67,6 +67,24 @@ describe('event registration', () => {
   });
 });
 
+describe('eligibility preview', () => {
+  it('reports every blocking reason without failing, for guests and members', async () => {
+    const org = await createOrg();
+    const event = await createEvent(org, { min_age: 18, capacity: 1, registration_closes_at: new Date(Date.now() - 1000) });
+    const guest = (await asAnon((q) => q(`select public.event_eligibility($1) j`, [event]))).rows[0].j;
+    expect(guest).toMatchObject({ authenticated: false, eligible: false, reasons: ['registration_closed'] });
+    const incomplete = await createUser({ age: null });
+    expect((await asUser(incomplete, (q) => q(`select public.event_eligibility($1) j`, [event]))).rows[0].j.reasons).toEqual(['registration_closed', 'profile_incomplete']);
+    const minor = await createUser({ age: 16 });
+    expect((await asUser(minor, (q) => q(`select public.event_eligibility($1) j`, [event]))).rows[0].j.reasons).toEqual(['registration_closed', 'below_min_age']);
+    const open = await createEvent(org);
+    const ok = (await asUser(minor, (q) => q(`select public.event_eligibility($1) j`, [open]))).rows[0].j;
+    expect(ok).toMatchObject({ eligible: true, guardian_required: true, registration_id: null });
+    const reg = await register(minor, open);
+    expect((await asUser(minor, (q) => q(`select public.event_eligibility($1) j`, [open]))).rows[0].j).toMatchObject({ registration_id: reg.id, registration_status: 'pending_guardian' });
+  });
+});
+
 describe('guardian consent', () => {
   async function minorPending() {
     const org = await createOrg(); const event = await createEvent(org, { capacity: 5 });

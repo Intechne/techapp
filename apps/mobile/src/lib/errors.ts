@@ -59,7 +59,7 @@ export function makeError(code: string, status = 0, extra: Partial<AppError> = {
     code: known ? code : resolved,
     message: COPY[canonical] ?? COPY.unknown!,
     status,
-    retryable: status === 0 || status === 429 || status >= 500,
+    retryable: code === 'network_unreachable' || status === 429 || status >= 500,
     ...extra,
   };
 }

@@ -40,8 +40,8 @@ export function HeroCard({ eyebrow, title, accent, meta, cta, onPress }: HeroCar
       style={({ pressed }) => [styles.hero, pressed && { backgroundColor: colors.primaryPressed }]}>
       <View style={styles.orbit} /><View style={styles.orbitInner} /><View style={styles.orb} />
       <View style={styles.heroRule}><View style={styles.rule} /><Text variant="eyebrow" color="white">{eyebrow}</Text></View>
-      <Text variant="title" color="white" style={{ marginTop: space[6], maxWidth: '78%' }}>
-        {parts[0]}{accent && parts.length > 1 && <Text variant="title" color="lime">{accent}</Text>}{parts[1]}
+      <Text variant="title" color="white" accessibilityRole="text" style={{ marginTop: space[6], maxWidth: '78%' }}>
+        {parts[0]}{accent && parts.length > 1 && <Text variant="title" color="lime" accessibilityRole="text">{accent}</Text>}{parts[1]}
       </Text>
       {meta && <Text variant="caption" color="white" style={{ marginTop: space[3], opacity: 0.85 }}>{meta}</Text>}
       {cta && (

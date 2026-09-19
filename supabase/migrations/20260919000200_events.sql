@@ -371,17 +371,17 @@ begin
   if not found then perform app.fail(404, 'event_not_found'); end if;
 
   if e.registration_opens_at is not null and now() < e.registration_opens_at then
-    v_reasons := v_reasons || 'registration_not_open'; end if;
-  if now() >= e.registration_closes_at then v_reasons := v_reasons || 'registration_closed'; end if;
-  if e.registration_mode = 'team' then v_reasons := v_reasons || 'team_registration_only'; end if;
+    v_reasons := array_append(v_reasons, 'registration_not_open'); end if;
+  if now() >= e.registration_closes_at then v_reasons := array_append(v_reasons, 'registration_closed'); end if;
+  if e.registration_mode = 'team' then v_reasons := array_append(v_reasons, 'team_registration_only'); end if;
 
   if v_uid is not null then
     v_age := app.age_years(v_uid);
     if v_age is null then
-      v_reasons := v_reasons || 'profile_incomplete';
+      v_reasons := array_append(v_reasons, 'profile_incomplete');
     else
-      if e.min_age is not null and v_age < e.min_age then v_reasons := v_reasons || 'below_min_age'; end if;
-      if e.max_age is not null and v_age > e.max_age then v_reasons := v_reasons || 'above_max_age'; end if;
+      if e.min_age is not null and v_age < e.min_age then v_reasons := array_append(v_reasons, 'below_min_age'); end if;
+      if e.max_age is not null and v_age > e.max_age then v_reasons := array_append(v_reasons, 'above_max_age'); end if;
     end if;
     select * into v_reg from public.event_registrations
       where event_id = e.id and user_id = v_uid

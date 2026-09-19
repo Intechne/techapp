@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { Platform } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { colors } from './tokens';
 import { iconPaths, type TechIconName } from './icons.generated';
@@ -20,5 +21,7 @@ export function TechIcon({ name, size = 24, color = colors.ink, filled = false }
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="${filled ? color : 'none'}" stroke="${color}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${iconPaths[name]}</svg>`,
     [name, color, filled],
   );
-  return <SvgXml xml={xml} width={size} height={size} accessibilityElementsHidden importantForAccessibility="no" />;
+  // Decorative: hidden from screen readers (native props are not valid DOM attributes on the dev web target).
+  const hidden = Platform.OS === 'web' ? {} : ({ accessibilityElementsHidden: true, importantForAccessibility: 'no' } as const);
+  return <SvgXml xml={xml} width={size} height={size} {...hidden} />;
 }
