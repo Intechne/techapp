@@ -17,10 +17,10 @@ create table auth.users (
   created_at timestamptz not null default now()
 );
 create or replace function auth.uid() returns uuid language sql stable as $$
-  select nullif(coalesce(current_setting('request.jwt.claims', true), '{}')::jsonb ->> 'sub', '')::uuid
+  select nullif(coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb ->> 'sub', '')::uuid
 $$;
 create or replace function auth.role() returns text language sql stable as $$
-  select coalesce(current_setting('request.jwt.claims', true), '{}')::jsonb ->> 'role'
+  select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb ->> 'role'
 $$;
 grant execute on function auth.uid(), auth.role() to anon, authenticated, service_role;
 
