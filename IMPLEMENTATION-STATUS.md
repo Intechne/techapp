@@ -76,3 +76,8 @@ Son güncelleme: 2026-09-19 (2. oturum) · Dal: `techapp/rebuild` · ✅ Complet
 3. Apple / Google Play / Huawei geliştirici hesapları, EAS projectId.
 4. HMS'li (GMS'siz) Huawei test cihazı.
 5. Hukuk: asgari yaş, veli onay metni ve doğrulama yöntemi, saklama süreleri.
+
+## Build durumu (2. oturum)
+- `expo prebuild --platform all` başarılı: iOS ve Android native projeleri config plugin'lerle üretildi (sonra silindi; repo CNG kullanır). Android Gradle dosyalarında GMS/Firebase bağımlılığı yok. Gereksiz depolama/mikrofon izinleri `blockedPermissions` ile kapatıldı.
+- ⛔ Derleme/çalıştırma yapılmadı: diskte ~3 GB boş. Seçenekler: (a) ≥15 GB yer açıp `npm --prefix apps/mobile run ios|android`, (b) `npx eas-cli login && npx eas-cli init && npx eas-cli build --profile development --platform android` (Expo hesabı gerekir; iOS cihaz build'i için Apple Developer hesabı).
+- ⚪ Erişilebilirlik turu (VoiceOver/TalkBack, font ölçeği, 320 px) dev build'e bağlı; yapılmadı.
