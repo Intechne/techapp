@@ -38,8 +38,8 @@ Kaynak: `design-source/TEKNIK-VE-YAYIN.md`.
 
 ## Bilinen eksikler
 
-- **Uygulama ikonu, adaptive icon ve splash görseli hâlâ Expo şablonunun yer tutucularıdır** (`apps/mobile/assets/`). Open Circuit logo işaretinden (`design-source/icons/mark.svg`) üretilmeli; marka için final görsel kimlik onayı gerekir.
-- iOS ve Android development build bu makinede **derlenmedi** (disk alanı). `expo-doctor` 21/21 geçiyor; bu, derlemenin çalıştığını kanıtlamaz.
+- ~~Uygulama ikonu placeholder~~ **Tamam:** "oyulmuş T." amblemi `design-source/brand/build.mjs` ile üretiliyor (iOS/Android/splash/favicon/mağaza); değişince tek komutla yeniden üret.
+- ~~Yerel build alınamadı~~ **EAS bulut build kullanılıyor** (yerel disk yetmiyor). EAS projesi: `@intechne/techapp` (`da99e9ee-4f05-4283-9a75-ed71051575e1`).
 - Crash raporlama, gerçek analytics sink'i, OTA güncelleme (`expo-updates`) henüz eklenmedi; `channel` alanları bunun için hazır.
 - Kamera izni metni yalnız check-in içindir; mikrofon izni Android'de bilinçli olarak engellenir (`blockedPermissions`).
 - Push bildirimi yok → mağaza formlarında bildirim beyanı şimdilik gerekmez.
@@ -77,3 +77,28 @@ npm run mobile:web && npm run admin
 SUPABASE_URL=… SUPABASE_PUBLISHABLE_KEY=… SUPABASE_SECRET_KEY=… npm --prefix apps/mobile run e2e:remote
 ```
 `.env.remote` içeriği Dashboard → Settings → API Keys'ten alınır: proje URL'i ve **publishable** key.
+
+## Native build ve yayın — mevcut durum (2026-09-19, 3. oturum)
+
+EAS projesi kuruldu (`@intechne/techapp`), owner `intechne`, projectId app.json'da. `preview` / `production` / `development`
+ortam değişkenleri EAS'te remote Supabase'e (`pacvhcnawtnkauvguoaw`) işaret ediyor (yalnız publishable key; secret yok).
+
+**Alınan iç test buildleri (hesap gerektirmez, remote backend'e bağlı):**
+- Android preview **APK** (`preview` profili) — herhangi bir Android cihaza kurulabilir.
+- iOS **Simulator** build (`development` profili) — Mac Simulator'da açılır (dev-client: Metro ile).
+
+**Platform gerçeği:** iOS + Android + (Android tabanlı) Huawei AppGallery mümkün. **HarmonyOS NEXT (ArkTS) native binary
+bu Expo/RN kod tabanından üretilemez** — ayrı bir proje gerektirir. Huawei yolu = GMS'siz (HMS) Android AAB → AppGallery.
+
+**Production'a geçiş — sırayla, her biri Intechne'nin bir dış girdisini bekler:**
+1. **Remote migrations (ZORUNLU, ilk).** Canlı Supabase'de son 3 migration yok (`public_cv` fonksiyonu bulunmuyor —
+   doğrulandı). Uygulanmadan alınan production build, CV paylaşımı / gönüllü / unvan özellikleri kırık çıkar.
+   `npx supabase link` (linkli) → `npx supabase db push` (DB parolası ya da `SUPABASE_ACCESS_TOKEN` gerekir) →
+   `npm --prefix apps/mobile run db:types` → `npm --prefix apps/mobile run e2e:remote` (26/26 beklenir).
+2. **iOS production (Apple Developer hazır).** `eas build -p ios --profile production` → interaktif Apple girişi ister
+   (EAS kimlikleri yönetir). Sonra `eas submit -p ios` (App Store Connect App ID).
+3. **Android production (Play Console hazır).** `eas build -p android --profile production` (AAB) →
+   `eas submit -p android` için Play servis hesabı anahtarı (repo dışı, `secrets/`).
+4. **Huawei AppGallery (hesap sonra).** Aynı Android AAB; AGC hesabı açılınca elle ya da `eas submit` özel hedefiyle.
+5. **Mağaza paketi ve inceleme:** ekran görüntüleri, açıklama, gizlilik/veri güvenliği formu, ve OTP girişli uygulama için
+   **inceleme ekibine çalışan test hesabı** çözümü (Apple/Google inceleyicisi e-posta OTP alamaz — sabit inceleme hesabı gerekir).
