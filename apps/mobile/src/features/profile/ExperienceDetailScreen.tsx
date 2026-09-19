@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { Linking, View } from 'react-native';
+import { View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppHeader, BottomSheet, Button, Card, Divider, EmptyState, ErrorState, LoadingSkeleton, MetadataRow, Modal, Notice, Radio, Screen, Tag, Text, TextButton, space, useToast } from '../../design-system';
 import { formatDate } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
+import { openExternalUrl } from '../../lib/links';
 import type { ProfileStackParamList } from '../../navigation/types';
 import { useAttestingOrganizations, useDeleteExperience, useMyCv, useRequestAttestation, useSetExperiencePublication } from './api';
 import { KIND_ICON, KIND_LABEL, PROVENANCE_VIEW } from './labels';
@@ -42,7 +43,7 @@ export function ExperienceDetailScreen({ navigation, route }: NativeStackScreenP
         {!!range && <MetadataRow icon="clock" strong>{range}</MetadataRow>}
       </View>
       {!!item.contribution && (<><Divider /><Text variant="section">Katkım</Text><Text variant="body" color="textSecondary" style={{ marginTop: space[2] }}>{item.contribution}</Text></>)}
-      {!!item.link_url && <View style={{ marginTop: space[3] }}><TextButton icon="link" label="Çıktıyı aç" onPress={() => { void Linking.openURL(item.link_url!).catch(() => toast.show('Bağlantı açılamadı.', 'danger')); }} /></View>}
+      {!!item.link_url && <View style={{ marginTop: space[3] }}><TextButton icon="link" label="Çıktıyı aç" onPress={() => { void openExternalUrl(item.link_url, () => toast.show('Bağlantı açılamadı.', 'danger')); }} /></View>}
 
       <Divider />
       <Text variant="section">Bu bilginin kaynağı</Text>

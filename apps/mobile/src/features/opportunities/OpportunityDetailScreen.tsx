@@ -1,11 +1,12 @@
 import React, { useCallback } from 'react';
-import { Linking, View } from 'react-native';
+import { View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppHeader, ApplicationStatus, Button, Divider, ErrorState, IconButton, LoadingSkeleton, MetadataRow, Notice, OrganizerRow, Poster, Screen, Tag, Text, colors, space, useToast } from '../../design-system';
 import { formatDate } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
+import { openExternalUrl } from '../../lib/links';
 import type { OpportunitiesStackParamList } from '../../navigation/types';
 import { useSession } from '../auth/SessionProvider';
 import { usePendingIntent } from '../auth/pendingIntent';
@@ -31,7 +32,7 @@ export function OpportunityDetailScreen({ navigation, route }: NativeStackScreen
   const external = !!o.apply_url;
 
   const apply = () => {
-    if (external) { void Linking.openURL(o.apply_url!).catch(() => toast.show('Bağlantı açılamadı.', 'danger')); return; }
+    if (external) { void openExternalUrl(o.apply_url, () => toast.show('Bağlantı açılamadı.', 'danger')); return; }
     if (!userId) { intent.set({ type: 'apply_opportunity', opportunityId }); navigation.getParent()?.getParent()?.navigate('AuthEmail'); return; }
     navigation.navigate('OpportunityApply', { opportunityId });
   };

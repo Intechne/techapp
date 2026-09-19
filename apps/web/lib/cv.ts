@@ -32,6 +32,11 @@ export async function getPublicCv(token: string): Promise<PublicCv | null> {
   } catch { return null; }
 }
 
+/** Host of a stored https link, or null for anything malformed — so one bad value can never 500 the whole CV page. */
+export function safeHost(url: string): string | null {
+  try { const u = new URL(url); return u.protocol === 'https:' ? u.host : null; } catch { return null; }
+}
+
 const monthFmt = new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric', timeZone: 'Europe/Istanbul' });
 export const formatMonth = (iso: string) => monthFmt.format(new Date(iso));
 export function formatRange(start: string | null, end: string | null): string {

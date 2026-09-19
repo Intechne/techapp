@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Footer, Header } from '@/components/Chrome';
-import { EDUCATION_LABEL, KIND_LABEL, TEAM_ROLE_LABEL, formatMonth, formatRange, getPublicCv, type PublicCvExperience } from '@/lib/cv';
+import { EDUCATION_LABEL, KIND_LABEL, TEAM_ROLE_LABEL, formatMonth, formatRange, getPublicCv, safeHost, type PublicCvExperience } from '@/lib/cv';
 
 type Props = { params: Promise<{ token: string }> };
 export const dynamic = 'force-dynamic';
@@ -23,7 +23,7 @@ function Experience({ x }: { x: PublicCvExperience }) {
       <h3>{x.title}</h3>
       <p className="cv-sub">{[KIND_LABEL[x.kind] ?? x.kind, x.role, x.organization_name].filter(Boolean).join(' · ')}</p>
       {x.contribution && <p>{x.contribution}</p>}
-      {x.link_url && <p><a href={x.link_url} rel="noopener noreferrer nofollow" target="_blank">{new URL(x.link_url).host}</a></p>}
+      {x.link_url && safeHost(x.link_url) && <p><a href={x.link_url} rel="noopener noreferrer nofollow" target="_blank">{safeHost(x.link_url)}</a></p>}
       {a && (
         <div className="cv-proof">
           <b>Doğrulanan:</b> {a.scope ?? 'Kapsam belirtilmemiş'}

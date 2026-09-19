@@ -89,5 +89,5 @@ export function substanceChanged(before: ExperienceSubstance, after: ExperienceS
   return keys.some((k) => (before[k] ?? null) !== (after[k] ?? null));
 }
 
-export const isHttpsUrl = (value: string) => /^https:\/\/[^\s.]+\.[^\s]+$/.test(value.trim());
+export { isHttpsUrl } from '../../lib/links';
 export const emptyToNull = (value: string) => (value.trim() ? value.trim() : null);
