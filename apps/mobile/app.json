@@ -54,6 +54,12 @@
           "backgroundColor": "#F6F7F2"
         }
       ]
-    ]
+    ],
+    "owner": "intechne",
+    "extra": {
+      "eas": {
+        "projectId": "da99e9ee-4f05-4283-9a75-ed71051575e1"
+      }
+    }
   }
 }
