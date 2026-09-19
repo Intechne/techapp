@@ -1,6 +1,6 @@
 # TechApp — Implementation Status
 
-Son güncelleme: 2026-09-19 · Dal: `techapp/rebuild` · ✅ Completed · 🟡 Partial · ⛔ Blocked · ⚪ Not started
+Son güncelleme: 2026-09-19 (2. oturum) · Dal: `techapp/rebuild` · ✅ Completed · 🟡 Partial · ⛔ Blocked · ⚪ Not started
 
 "Doğrulandı" = bu makinede otomatik test ve/veya çalışan uygulamada gözle kontrol edildi. Native cihaz doğrulaması ayrıca belirtilir.
 
@@ -12,7 +12,7 @@ Son güncelleme: 2026-09-19 · Dal: `techapp/rebuild` · ✅ Completed · 🟡 P
 | 2 · Auth + onboarding | 🟡 | Misafir onboarding, e-posta OTP, güvenli oturum, profil bootstrap, hesap silme akışı yazıldı ve yerel yığında uçtan uca çalıştı. ⛔ Gerçek Supabase Auth + SMTP ile doğrulanmadı |
 | 3 · Discovery | 🟡 | Keşfet gerçek backend'den: ilgi alanına göre etkinlik, arama, fırsat/takım önizleme. Arama yalnız etkinlik; bildirimler yok |
 | 4 · Event pilot | 🟡 | Liste (cursor pagination, filtre), detay, sunucu uygunluğu, atomik/idempotent kayıt, bekleme listesi, veli akışı, QR katılım kartı, check-in. Takım kaydı ⚪. Native build ⛔ |
-| 5 · Admin pilot | ⚪ | `apps/admin` boş. Şema/RLS/RPC tarafı (yayın onayı, review, check-in, audit) hazır ve testli |
+| 5 · Admin pilot | 🟡 | `apps/admin` (Vite + React + TS): OTP ekip girişi (hesap oluşturmaz), rol kapısı, etkinlik listesi/oluştur/düzenle, yayın akışı (taslak→inceleme→Intechne onayı→yayın/iptal/arşiv, DB durum makinesi + audit), kayıt listesi (filtre/arama/değerlendirme, minimum PII), web check-in (kamera/okuyucu/elle; geçerli · tekrar · yanlış etkinlik · geçersiz). Yerel yığında tarayıcıda uçtan uca doğrulandı; 5 DB entegrasyon testi. ⛔ Gerçek Supabase'e karşı denenmedi; kapak görseli, kurum/üye yönetimi, audit ekranı yok |
 | 6 · Opportunities | 🟡 | Şema + `submit_application` (snapshot, idempotent, durum geçmişi) testli. Mobilde salt-okunur liste |
 | 7 · Community / teams | 🟡 | Şema + join/rol/görev RPC'leri testli. Mobilde salt-okunur liste |
 | 8 · Profile / experience | 🟡 | Şema + attestation (ayrı kayıt, revoke) testli. Mobilde temel profil + hesap |
@@ -37,7 +37,7 @@ Son güncelleme: 2026-09-19 · Dal: `techapp/rebuild` · ✅ Completed · 🟡 P
 | M | Gerçek katılım kartı | ✅ | HMAC imzalı opak QR, PII yok; iptalde geçersiz |
 | N | Yetkili organizer check-in | ✅ | HTTP: 200 `checked_in`, tekrar → `already_checked_in` |
 | O | Yetkisiz check-in yapamaz | ✅ | HTTP 403 (yabancı, katılımcının kendisi, başka kurum) |
-| P | Kritik RLS testleri | ✅ | 37/37 DB testi |
+| P | Kritik RLS testleri | ✅ | 47/47 DB testi (RLS denetim + admin paketi dahil) |
 | Q | iOS + Android dev build açılır | ⛔ | Denenmedi: diskte ~4 GB boş (Pods + Gradle build sığmıyor). Statik olarak hazırlandı, gerçek cihaz doğrulaması bekliyor |
 | R | Huawei/GMS durumu belgeli | 🟡 | `docs/HUAWEI.md`; HMS cihaz testi ve push sağlayıcısı yok |
 
@@ -57,6 +57,18 @@ Son güncelleme: 2026-09-19 · Dal: `techapp/rebuild` · ✅ Completed · 🟡 P
 | Takvim dışı / gelecek doğum tarihi | ✅ İstemci + sunucu; testli |
 | Client `verified=true` | ✅ Yok; attestation ayrı tablo |
 | EAS `REPLACE_*` | ✅ Placeholder yok; gerekenler `docs/RELEASE.md` |
+
+## 2. oturum — remote Supabase hedefi
+| Kriter | Durum | Not |
+|---|---|---|
+| Remote Supabase linked | ⛔ | CLI kuruldu (devDependency, v2.117). `supabase login` TTY + tarayıcı istiyor; kullanıcı adımı bekleniyor. Hiçbir remote projeye dokunulmadı |
+| Migrations applied (remote) | ⛔ | 6 migration hazır, yıkıcı ifade yok (yalnız `0600` içinde imzası değişen `check_in_participant` için `drop function`). `npm run db:push` önce `--dry-run` gösterir |
+| RLS enabled/tested | ✅ yerel · ⛔ remote | Tüm public tablolarda RLS açık (test), anon denetimi, doğrudan yazma denemeleri, tenant izolasyonu |
+| Generated DB types active | ✅ | `database.generated.ts` aynı üreteçle (postgres-meta) yerel DB'den; `createClient<Database>`; jsonb RPC yanıtları zod ile sınırda doğrulanıyor. Remote'a bağlanınca `npm run db:types` + `db:types:check` |
+| Edge Functions deployed | ⛔ | `config.toml`'da ikisi de `verify_jwt = true`; deploy login bekliyor |
+| Real OTP / session restore / remote E2E | ⛔ | Remote proje bekliyor. Yerel yığında tamamı çalışıyor |
+| Publishable key standardı | ✅ | `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (legacy anon yalnız fallback); repo gizli anahtar taraması temiz |
+| typecheck · lint · test | ✅ | mobil 30 jest, admin typecheck, DB 47 |
 
 ## Blocker'lar (dış girdi gerekir)
 1. Supabase projesi (URL + anon key; `supabase db push` yetkisi) ve SMTP/Resend anahtarı.

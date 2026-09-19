@@ -90,6 +90,9 @@ async function auth(req, res, path, url) {
   if (path === '/otp' && req.method === 'POST') {
     const email = String(body.email ?? '').toLowerCase();
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return send(res, 422, { code: 422, error_code: 'validation_failed', msg: 'invalid email' });
+    if (body.create_user === false && !(await db.query(`select 1 from auth.users where email = $1`, [email])).rowCount) {
+      return send(res, 422, { code: 422, error_code: 'otp_disabled', msg: 'Signups not allowed for otp' });
+    }
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
     otps.set(email, { code, expires: Date.now() + 10 * 60_000 });
     writeFileSync(join(here, '.last-otp'), code);
@@ -176,6 +179,7 @@ http.createServer(async (req, res) => {
 }).listen(GATEWAY_PORT, '127.0.0.1');
 
 writeFileSync(join(root, 'apps/mobile/.env.local'), `EXPO_PUBLIC_APP_ENV=local\nEXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:${GATEWAY_PORT}\nEXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}\n`);
+writeFileSync(join(root, 'apps/admin/.env.local'), `VITE_SUPABASE_URL=http://127.0.0.1:${GATEWAY_PORT}\nVITE_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}\n`);
 console.log(`TechApp local stack ready → http://127.0.0.1:${GATEWAY_PORT}  (apps/mobile/.env.local written)\nOrganiser test login: organizator@techapp.test — OTP codes appear in this terminal.`);
 
 const shutdown = async () => { postgrest.kill(); await db.end().catch(() => {}); await server.stop().catch(() => {}); process.exit(0); };

@@ -7,7 +7,7 @@ Son güncelleme: 2026-09-19. Bu liste bilinçli olarak eksiksiz tutulur; buradak
 | # | Konu | Durum |
 |---|---|---|
 | 1 | iOS / Android development build | **Hiç derlenmedi.** Makinede ~4 GB boş alan vardı. `expo-doctor` 21/21 ve web önizleme çalışıyor; bu native doğrulama yerine geçmez. |
-| 2 | Gerçek Supabase projesi | Yok. Tüm backend doğrulaması gömülü Postgres + PostgREST + shim üzerinde. Gerçek Supabase Auth ile hiç konuşulmadı. |
+| 2 | Gerçek Supabase projesi | Bağlanmadı (CLI girişi kullanıcı adımı bekliyor). Tüm backend doğrulaması gömülü Postgres + PostgREST + shim üzerinde. Gerçek Supabase Auth ile hiç konuşulmadı. |
 | 3 | Edge Functions (`guardian-dispatch`, `delete-account`) | Statik olarak hazırlandı, **hiç çalıştırılmadı** (Deno yok). Yerel yığındaki eşdeğerleri aynı sözleşmeyi uygular ama aynı kod değildir. |
 | 4 | `…000500_storage.sql` | Testlerde no-op. `storage.buckets` sütunları ve `storage.foldername()` canlı projeye karşı denenmedi. |
 | 5 | Gerçek e-posta teslimi (OTP, veli) | Denenmedi; SMTP / Resend kimlik bilgisi gerekli. |
@@ -17,7 +17,10 @@ Son güncelleme: 2026-09-19. Bu liste bilinçli olarak eksiksiz tutulur; buradak
 
 ## Teknik borç
 
-- **`database.types.ts` elle yazıldı** ve yalnız kullanılan alt kümeyi içerir; şemayla ayrışabilir. Proje bağlanınca `supabase gen types` ile değiştirilmeli.
+- `database.generated.ts` şu an **yerel** veritabanından üretildi (Supabase'in kullandığı aynı üreteç). Remote proje bağlanınca `npm run db:types` ile yeniden üretilip fark kontrol edilmeli; şema değişen her PR'da `db:types:check` çalışmalı.
+- Admin paneli bir SPA'dır: oturum tarayıcı `localStorage`'ında durur (httpOnly cookie değil). Yetki tamamen RLS/RPC'de olduğu için veri sızıntısı yaratmaz; XSS yüzeyini küçük tutmak için panelde üçüncü taraf script yok. Disk kısıtı nedeniyle Next.js yerine Vite seçildi; SSR gerekirse taşınabilir.
+- Admin panelinde eksikler: kapak görseli yükleme, oturum (session) programı düzenleme, kurum/üye yönetimi, audit log ekranı, etiketler. Rol kapısı ekranı (rolsüz kullanıcı) görsel olarak denenmedi; veri tarafı DB testleriyle kanıtlı.
+- Yerel auth gateway gerçek GoTrue değildir (hız sınırı, kod süresi, e-posta şablonu farklıdır).
 - **Web geliştirme hedefi rota parametrelerini URL'ye koyar** (ör. `AuthOtp?email=…`). Native uygulamada URL yoktur, etkilenmez. Web bir yayın hedefi değildir; olacaksa e-posta parametreden çıkarılmalı.
 - Veli isteklerinin süre dolumu tembel çalışır; `pg_cron` zamanlaması dağıtımda eklenmeli.
 - `app.current_policy_version()` sabit bir taslak sürüm döner; gerçek sürümleme tablosu yok.

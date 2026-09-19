@@ -53,3 +53,14 @@ Kaynak: `design-source/TEKNIK-VE-YAYIN.md`.
 - [ ] VoiceOver / TalkBack, büyük yazı, 320 pt genişlik denetimi
 - [ ] Hukuk: onay metni, en küçük yaş, saklama süreleri
 - [ ] İkon / splash / mağaza varlıkları
+
+## Remote Supabase'e ilk bağlanma (sırayla)
+1. `npx supabase login` (kendi terminalinde; tarayıcı açılır). Token'ı sohbete/repoya yapıştırma.
+2. `npx supabase projects list` → `npx supabase link --project-ref <ref>` (ref gizli değildir). Yanlış projeye push etmemek için ref'i iki kez kontrol et.
+3. `npm run db:push` → yalnızca **dry-run** planını gösterir. Plan beklenen 6 migration ise `npx supabase db push`. Remote'ta **asla** `supabase db reset` çalıştırma.
+4. Geliştirme projesine örnek veri: `psql "$DB_URL" -f supabase/seed.sql` (idempotent, tüm satırlar `is_demo = true`). Production'a seed uygulanmaz.
+5. `npx supabase secrets set --env-file supabase/.env.functions` (git-ignored; `RESEND_API_KEY`, `GUARDIAN_PAGE_URL`, `MAIL_FROM`) → `npm run functions:deploy`.
+6. Dashboard → Auth: Email OTP açık, 6 hane; e-posta şablonunda `{{ .Token }}` kullan (magic link değil). **Custom SMTP, halka açık yayından önce zorunlu**: Supabase'in varsayılan e-posta servisi düşük hız limitlidir ve yalnız geliştirme içindir.
+7. `apps/mobile/.env.local` ve `apps/admin/.env.local`: proje URL'i + **publishable** key. `npm run db:types && npm run verify`.
+8. İlk platform yöneticisi: SQL Editor'da `insert into public.platform_admins (user_id) values ('<auth user id>')`.
+9. `pg_cron`: `select cron.schedule('expire-guardian', '*/10 * * * *', $$select app.expire_guardian_requests()$$);`

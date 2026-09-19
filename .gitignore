@@ -16,3 +16,4 @@ coverage/
 supabase/dev/.last-*
 supabase/dev/.jwt-secret
 supabase/dev/.pgmeta/
+supabase/.env.functions
