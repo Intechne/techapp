@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "TechApp",
+    "slug": "techapp",
+    "version": "5.0.0",
+    "scheme": "techapp",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": { "image": "./assets/splash-icon.png", "resizeMode": "contain", "backgroundColor": "#F6F7F2" },
+    "ios": {
+      "bundleIdentifier": "com.intechne.techapp",
+      "supportsTablet": false,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Etkinlik girişinde katılım kartlarındaki QR kodu okutmak için kamera kullanılır."
+      }
+    },
+    "android": {
+      "package": "com.intechne.techapp",
+      "adaptiveIcon": {
+        "backgroundColor": "#4B46D6",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": ["android.permission.CAMERA"],
+      "blockedPermissions": ["android.permission.RECORD_AUDIO"]
+    },
+    "web": { "favicon": "./assets/favicon.png", "bundler": "metro" },
+    "plugins": [
+      "expo-font",
+      "expo-secure-store",
+      ["expo-camera", { "cameraPermission": "Etkinlik girişinde katılım kartlarındaki QR kodu okutmak için kamera kullanılır.", "recordAudioAndroid": false }]
+    ]
+  }
+}
