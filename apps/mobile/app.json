@@ -4,12 +4,12 @@
     "slug": "techapp",
     "version": "5.0.0",
     "scheme": "techapp",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "bundleIdentifier": "com.intechne.techapp",
-      "supportsTablet": false,
+      "supportsTablet": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "Etkinlik girişinde katılım kartlarındaki QR kodu okutmak için kamera kullanılır."

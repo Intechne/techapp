@@ -8,13 +8,32 @@ export type SharedEventParamList = {
   GuardianRequest: { registrationId: string };
   ParticipationCard: { registrationId: string };
   MyRegistrations: undefined;
+  VolunteerHub: { eventId: string };
 };
 
 export type DiscoverStackParamList = SharedEventParamList & { DiscoverHome: undefined };
 export type EventsStackParamList = SharedEventParamList & { EventsList: undefined };
-export type OpportunitiesStackParamList = { OpportunitiesHome: undefined };
-export type CommunityStackParamList = { CommunityHome: undefined };
-export type ProfileStackParamList = SharedEventParamList & { ProfileHome: undefined; CheckIn: undefined };
+export type OpportunitiesStackParamList = {
+  OpportunitiesHome: undefined;
+  Deadlines: undefined;
+  OpportunityDetail: { opportunityId: string };
+  OpportunityApply: { opportunityId: string };
+  MyApplications: undefined;
+};
+export type CommunityStackParamList = {
+  CommunityHome: undefined;
+  TeamDetail: { teamId: string };
+  TeamWorkspace: { teamId: string };
+  TeamTaskEditor: { teamId: string; taskId?: string };
+  CreateTeam: undefined;
+};
+export type ProfileStackParamList = SharedEventParamList & {
+  ProfileHome: undefined;
+  CheckIn: undefined;
+  EditProfile: undefined;
+  ExperienceEditor: { experienceId?: string };
+  ExperienceDetail: { experienceId: string };
+};
 
 export type MainTabParamList = {
   DiscoverTab: NavigatorScreenParams<DiscoverStackParamList>;

@@ -19,6 +19,19 @@ import { OnboardingScreen } from '../features/onboarding/OnboardingScreen';
 import { usePrefs } from '../features/onboarding/PrefsProvider';
 import { OpportunitiesScreen } from '../features/opportunities/OpportunitiesScreen';
 import { ProfileScreen } from '../features/profile/ProfileScreen';
+import { EditProfileScreen } from '../features/profile/EditProfileScreen';
+import { ExperienceEditorScreen } from '../features/profile/ExperienceEditorScreen';
+import { ExperienceDetailScreen } from '../features/profile/ExperienceDetailScreen';
+import { TeamDetailScreen } from '../features/teams/TeamDetailScreen';
+import { TeamWorkspaceScreen } from '../features/teams/TeamWorkspaceScreen';
+import { TeamTaskEditorScreen } from '../features/teams/TeamTaskEditorScreen';
+import { CreateTeamScreen } from '../features/teams/CreateTeamScreen';
+import { DeadlinesScreen } from '../features/opportunities/DeadlinesScreen';
+import { OpportunityDetailScreen } from '../features/opportunities/OpportunityDetailScreen';
+import { OpportunityApplyScreen } from '../features/opportunities/OpportunityApplyScreen';
+import { MyApplicationsScreen } from '../features/opportunities/MyApplicationsScreen';
+import { VolunteerHubScreen } from '../features/volunteers/VolunteerHubScreen';
+import { useLayout } from '../design-system';
 import type { CommunityStackParamList, DiscoverStackParamList, EventsStackParamList, MainTabParamList, OpportunitiesStackParamList, ProfileStackParamList, RootStackParamList } from './types';
 
 const Root = createNativeStackNavigator<RootStackParamList>();
@@ -42,15 +55,16 @@ function eventJourney<T extends typeof Discover | typeof Events | typeof Profile
       <S.Screen name="GuardianRequest" component={GuardianRequestScreen} />
       <S.Screen name="ParticipationCard" component={ParticipationCardScreen} />
       <S.Screen name="MyRegistrations" component={MyRegistrationsScreen} />
+      <S.Screen name="VolunteerHub" component={VolunteerHubScreen} />
     </>
   );
 }
 
 const DiscoverStack = () => <Discover.Navigator screenOptions={stackOptions}><Discover.Screen name="DiscoverHome" component={DiscoverScreen} />{eventJourney(Discover)}</Discover.Navigator>;
 const EventsStack = () => <Events.Navigator screenOptions={stackOptions}><Events.Screen name="EventsList" component={EventsListScreen} />{eventJourney(Events)}</Events.Navigator>;
-const OpportunitiesStack = () => <Opportunities.Navigator screenOptions={stackOptions}><Opportunities.Screen name="OpportunitiesHome" component={OpportunitiesScreen} /></Opportunities.Navigator>;
-const CommunityStack = () => <Community.Navigator screenOptions={stackOptions}><Community.Screen name="CommunityHome" component={CommunityScreen} /></Community.Navigator>;
-const ProfileStack = () => <Profile.Navigator screenOptions={stackOptions}><Profile.Screen name="ProfileHome" component={ProfileScreen} /><Profile.Screen name="CheckIn" component={CheckInScreen} />{eventJourney(Profile)}</Profile.Navigator>;
+const OpportunitiesStack = () => <Opportunities.Navigator screenOptions={stackOptions}><Opportunities.Screen name="OpportunitiesHome" component={OpportunitiesScreen} /><Opportunities.Screen name="Deadlines" component={DeadlinesScreen} /><Opportunities.Screen name="OpportunityDetail" component={OpportunityDetailScreen} /><Opportunities.Screen name="OpportunityApply" component={OpportunityApplyScreen} /><Opportunities.Screen name="MyApplications" component={MyApplicationsScreen} /></Opportunities.Navigator>;
+const CommunityStack = () => <Community.Navigator screenOptions={stackOptions}><Community.Screen name="CommunityHome" component={CommunityScreen} /><Community.Screen name="TeamDetail" component={TeamDetailScreen} /><Community.Screen name="TeamWorkspace" component={TeamWorkspaceScreen} /><Community.Screen name="TeamTaskEditor" component={TeamTaskEditorScreen} /><Community.Screen name="CreateTeam" component={CreateTeamScreen} /></Community.Navigator>;
+const ProfileStack = () => <Profile.Navigator screenOptions={stackOptions}><Profile.Screen name="ProfileHome" component={ProfileScreen} /><Profile.Screen name="CheckIn" component={CheckInScreen} /><Profile.Screen name="EditProfile" component={EditProfileScreen} /><Profile.Screen name="ExperienceEditor" component={ExperienceEditorScreen} /><Profile.Screen name="ExperienceDetail" component={ExperienceDetailScreen} />{eventJourney(Profile)}</Profile.Navigator>;
 
 const TABS: Record<keyof MainTabParamList, { label: string; icon: TechIconName }> = {
   DiscoverTab: { label: 'Keşfet', icon: 'discover' },
@@ -61,16 +75,22 @@ const TABS: Record<keyof MainTabParamList, { label: string; icon: TechIconName }
 };
 
 function MainTabs() {
+  const { sideNavigation } = useLayout();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
+        tabBarPosition: sideNavigation ? 'left' : 'bottom',
+        tabBarVariant: sideNavigation ? 'material' : 'uikit',
+        tabBarLabelPosition: sideNavigation ? 'below-icon' : undefined,
         tabBarLabel: TABS[route.name].label, // always visible: icons never stand alone
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarLabelStyle: { fontFamily: fonts.bodySemibold, fontSize: 12 },
         tabBarAllowFontScaling: false,
-        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border, minHeight: layout.bottomNavHeight, paddingTop: 6 },
+        tabBarStyle: sideNavigation
+          ? { backgroundColor: colors.surface, borderRightColor: colors.border, borderRightWidth: 1, minWidth: 96, paddingTop: 24 }
+          : { backgroundColor: colors.surface, borderTopColor: colors.border, minHeight: layout.bottomNavHeight, paddingTop: 6 },
         tabBarIcon: ({ color }) => <TechIcon name={TABS[route.name].icon} color={color} size={22} />,
       })}
     >
