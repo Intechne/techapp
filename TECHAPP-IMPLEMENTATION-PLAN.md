@@ -13,7 +13,7 @@
 - **SDK:** v4'ün Expo 52'si destek dışı ve hiç build almamış → "upgrade" yerine Expo SDK 57 (npm `latest`, RN 0.86, React 19) temiz iskelet + taşıma. Sürümler `expo install` ile çözüldü, `expo-doctor` 21/21.
 - **Router:** React Navigation korunur (6→7, SDK gereği). expo-router'a geçilmez.
 - **Reuse:** v4'ün ekran kapsamı, alan modelleri (takım rolleri, görev durumları, amaç bazlı izin fikri), Türkçe içerik tonu, `secure.ts` niyeti. **Replace:** `AppContext` (otorite olan yerel state), mock veri, tema (Be Vietnam/Fraunces → Open Circuit), Ionicons, auth/guardian/verify/billing/matching demo mantıkları.
-- **Repo:** hafif monorepo, workspace aracı yok: `apps/mobile`, `apps/guardian-web`, `apps/admin` (Faz 5), `supabase/`, `design-source/`, `docs/`.
+- **Repo:** hafif monorepo, workspace aracı yok: `apps/mobile`, `apps/web (/veli)`, `apps/admin` (Faz 5), `supabase/`, `design-source/`, `docs/`.
 - **Backend:** Supabase (Auth + Postgres + Storage + Edge Functions). Yetki = RLS + `SECURITY DEFINER` RPC. Docker olmadığı için testler gömülü Postgres + Supabase shim ile, yerel geliştirme PostgREST + GoTrue-uyumlu dev gateway ile yapılır; staging/production gerçek Supabase projesidir.
 
 ## 3. Target architecture
@@ -25,7 +25,7 @@ apps/mobile (Expo dev build: iOS · Android/GMS · Android/HMS)      apps/admin 
                          |                         |
               Edge Functions (guardian-dispatch, delete-account)   Storage (private: evidence, avatars)
                          |
-        apps/guardian-web (statik veli onay sayfası; token URL fragment'ında)
+        apps/web (/veli) (statik veli onay sayfası; token URL fragment'ında)
 ```
 State: sunucu verisi TanStack Query; yerel yalnız UI (filtre, sheet, form, onboarding tercihleri, pending intent).
 

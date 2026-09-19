@@ -3,7 +3,7 @@
 ## Genel görünüm
 
 ```text
-apps/mobile (Expo / RN)            apps/guardian-web (statik)      apps/admin (Phase 5, boş)
+apps/mobile (Expo / RN)            apps/web (/veli) (statik)      apps/admin (Phase 5, boş)
         │  supabase-js (anon key + kullanıcı JWT)      │ fetch + anon key
         └───────────────┬──────────────────────────────┘
                  Supabase: Auth (e-posta OTP) · PostgREST · Edge Functions · Storage

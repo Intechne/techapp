@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 const target = process.argv[2];
 if (!['local', 'remote'].includes(target)) { console.error('usage: use-env.mjs local|remote'); process.exit(2); }
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-for (const app of ['apps/mobile', 'apps/admin']) {
+for (const app of ['apps/mobile', 'apps/admin', 'apps/web']) {
   const source = join(root, app, target === 'local' ? '.env.localstack' : '.env.remote');
   if (!existsSync(source)) { console.error(`missing ${source}${target === 'local' ? ' — run `npm run db:dev` once' : ' — see docs/RELEASE.md'}`); process.exit(1); }
   copyFileSync(source, join(root, app, '.env.local'));

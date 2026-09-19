@@ -7,7 +7,7 @@
     "db:test": "vitest run --config supabase/tests/vitest.config.mts",
     "db:dev": "node supabase/dev/start.mjs",
     "mobile": "npm --prefix apps/mobile run start",
-    "verify": "npm run db:test && npm --prefix apps/mobile run verify && npm --prefix apps/admin run typecheck",
+    "verify": "npm run db:test && npm --prefix apps/mobile run verify && npm --prefix apps/admin run typecheck && npm --prefix apps/web run typecheck",
     "db:types": "supabase gen types typescript --linked --schema public > /tmp/techapp-db-types.ts && mv /tmp/techapp-db-types.ts apps/mobile/src/lib/database.generated.ts",
     "db:types:local": "node supabase/dev/gen-types.mjs",
     "db:types:check": "npm run db:types && git diff --exit-code apps/mobile/src/lib/database.generated.ts",
@@ -16,7 +16,8 @@
     "admin": "npm --prefix apps/admin run dev",
     "mobile:web": "npm --prefix apps/mobile run web",
     "env:local": "node supabase/dev/use-env.mjs local",
-    "env:remote": "node supabase/dev/use-env.mjs remote"
+    "env:remote": "node supabase/dev/use-env.mjs remote",
+    "web": "npm --prefix apps/web run dev"
   },
   "engines": {
     "node": ">=22"

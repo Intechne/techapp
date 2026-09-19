@@ -6,7 +6,7 @@ Hoş geldin. Bu belge, depoda ilk kez çalışan birinin **sormadan** iş çıka
 
 1. `main` her zaman yeşil kalır. Doğrudan `main`'e push edilmez; her değişiklik PR ile gelir.
 2. Dal adı: `feat/<kısa-konu>`, `fix/<kısa-konu>`, `docs/<…>`, `chore/<…>` — ör. `feat/opportunity-application`.
-3. Commit mesajı [Conventional Commits](https://www.conventionalcommits.org/): `feat(mobile): …`, `fix(db): …`, `docs: …`. Kapsamlar: `mobile`, `admin`, `db`, `functions`, `guardian-web`, `docs`.
+3. Commit mesajı [Conventional Commits](https://www.conventionalcommits.org/): `feat(mobile): …`, `fix(db): …`, `docs: …`. Kapsamlar: `mobile`, `admin`, `db`, `functions`, `web`, `docs`.
 4. PR açmadan önce: **`npm run verify`** yeşil olmalı. CI aynı komutları çalıştırır.
 5. PR küçük ve tek konulu olsun. Şablondaki kontrol listesini doldur. UI değişikliğinde ekran görüntüsü ekle.
 6. Bir fazı/özelliği bitirdiysen [`IMPLEMENTATION-STATUS.md`](IMPLEMENTATION-STATUS.md) ve ilgili `docs/*.md` dosyasını **aynı PR'da** güncelle. Doğrulamadığın şeyi ✅ işaretleme.

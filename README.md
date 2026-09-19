@@ -5,7 +5,7 @@
 
 TechApp, [Intechne](https://github.com/Intechne)'nin gençler için geliştirdiği platformdur: teknoloji, girişimcilik, robotik ve sosyal etki alanlarında etkinlik ve fırsat keşfi, takım/topluluk katılımı ve kurumlarca doğrulanabilen bir deneyim profili.
 
-Bu depo ürünün **tamamını** içerir: mobil uygulama, yönetim paneli, veli onay sayfası ve Supabase backend'i.
+Bu depo ürünün **tamamını** içerir: mobil uygulama, yönetim paneli, web sitesi (tanıtım + veli onayı) ve Supabase backend'i.
 
 | | |
 |---|---|
@@ -30,7 +30,7 @@ Bu depo ürünün **tamamını** içerir: mobil uygulama, yönetim paneli, veli 
 apps/
   mobile/          Mobil uygulama — Expo SDK 57 · React Native · TypeScript
   admin/           Yönetim paneli (etkinlik, kayıt, giriş kontrolü) — Vite · React · TypeScript
-  guardian-web/    Veli onay sayfası — tek dosyalık statik HTML
+  web/             techapp.intechne.com.tr — tanıtım sitesi, etkinlik paylaşım sayfaları, veli onayı (/veli) — Next.js · Vercel
 supabase/
   migrations/      Veritabanı şeması + RLS + sunucu fonksiyonları (tek doğruluk kaynağı)
   functions/       Edge Functions (Deno): guardian-dispatch, delete-account
@@ -42,7 +42,7 @@ docs/              Mimari, veritabanı, auth, veli onayı, yayın, test, bilinen
 .github/           CI, PR ve issue şablonları
 ```
 
-Her uygulamanın kendi `README.md` dosyası vardır: [`apps/mobile`](apps/mobile/README.md) · [`apps/admin`](apps/admin/README.md) · [`supabase`](supabase/README.md)
+Her uygulamanın kendi `README.md` dosyası vardır: [`apps/mobile`](apps/mobile/README.md) · [`apps/admin`](apps/admin/README.md) · [`apps/web`](apps/web/README.md) · [`supabase`](supabase/README.md)
 
 ## Teknoloji
 
@@ -51,6 +51,7 @@ Her uygulamanın kendi `README.md` dosyası vardır: [`apps/mobile`](apps/mobile
 | Mobil | React Native 0.86 · Expo SDK 57 (development build) · React Navigation 7 · TanStack Query · React Hook Form + Zod |
 | Backend | Supabase: PostgreSQL + Row Level Security · Auth (e-posta OTP) · Storage · Edge Functions |
 | Panel | Vite · React 19 · Supabase JS (yetki tamamen sunucuda) |
+| Web | Next.js (App Router) · Vercel · `techapp.intechne.com.tr` |
 | Test | Vitest + gömülü PostgreSQL (backend) · Jest + Testing Library (mobil) |
 
 Temel ilke: **istemci hiçbir zaman yetki kaynağı değildir.** Rol, yaş, kontenjan, kayıt durumu, veli onayı ve doğrulama kararlarını veritabanı (RLS + `SECURITY DEFINER` fonksiyonlar) verir.
@@ -64,10 +65,12 @@ git clone https://github.com/Intechne/techapp.git && cd techapp
 npm install
 npm --prefix apps/mobile install
 npm --prefix apps/admin install
+npm --prefix apps/web install
 
 npm run db:dev          # 1. terminal — yerel backend (açık kalır)
 npm run mobile:web      # 2. terminal — mobil uygulama, tarayıcı önizlemesi → http://localhost:8081
 npm run admin           # 3. terminal — yönetim paneli → http://127.0.0.1:5180
+npm run web             # 4. terminal — web sitesi + veli sayfası → http://localhost:3100
 ```
 
 `npm run db:dev` ne yapar?

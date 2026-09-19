@@ -48,7 +48,7 @@ UI durumları (`guardianStatusView`): gerekli değil (kart gösterilmez) · veli
 
 ## Veli sayfası
 
-`apps/guardian-web/index.html` — tek dosyalık statik sayfa, Open Circuit görünümünde. Token URL **fragment**'ında taşınır (`…/guardian#<token>`), böylece sunucu loglarına ve referrer'a girmez; sayfada `noindex` ve `no-referrer` vardır. Sayfa yalnız anon key ile üç RPC'yi çağırır. Dağıtımda `__SUPABASE_URL__` ve `__SUPABASE_ANON_KEY__` yer tutucuları doldurulur. Geri çekme bağlantısı: `#<revoke_token>&revoke`.
+`apps/web/app/veli` — tek dosyalık statik sayfa, Open Circuit görünümünde. Token URL **fragment**'ında taşınır (`…/guardian#<token>`), böylece sunucu loglarına ve referrer'a girmez; sayfada `noindex` ve `no-referrer` vardır. Sayfa yalnız anon key ile üç RPC'yi çağırır. Dağıtımda `__SUPABASE_URL__` ve `__SUPABASE_ANON_KEY__` yer tutucuları doldurulur. Geri çekme bağlantısı: `#<revoke_token>&revoke`.
 
 ## `guardian-dispatch` için sırlar
 

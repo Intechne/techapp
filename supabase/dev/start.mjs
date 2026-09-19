@@ -5,8 +5,8 @@
  *   embedded PostgreSQL (:54322)  ←  PostgREST (:54323)  ←  gateway (:54321, Supabase-compatible paths)
  *
  * The gateway serves /rest/v1 (PostgREST), a minimal GoTrue-compatible /auth/v1 (e-mail OTP; the code is printed
- * to this terminal instead of being e-mailed), dev versions of our Edge Functions under /functions/v1, and the
- * guardian consent page under /guardian. The mobile app runs unmodified against it with the real supabase-js client.
+ * to this terminal instead of being e-mailed), dev versions of our Edge Functions under /functions/v1, (the guardian
+ * consent page is apps/web → http://localhost:3100/veli). The mobile app runs unmodified against it with the real supabase-js client.
  * Binds to 127.0.0.1 only. Requires `brew install postgrest`. Use `--reset` to recreate the database.
  */
 import EmbeddedPostgres from 'embedded-postgres';
@@ -135,7 +135,7 @@ async function functions(req, res, path) {
       await client.query('begin'); await client.query('set local role service_role');
       const { rows } = await client.query(`select public.issue_guardian_token($1) j`, [body.request_id]);
       await client.query('commit');
-      const link = `http://127.0.0.1:${GATEWAY_PORT}/guardian#${rows[0].j.token}`;
+      const link = `http://localhost:3100/veli#${rows[0].j.token}`;
       writeFileSync(join(here, '.last-guardian-link'), link);
       console.log(`\n  ✉  Guardian link for ${rows[0].j.guardian_email}:\n     ${link}\n`);
       return send(res, 200, { sent: true });
@@ -169,18 +169,15 @@ http.createServer(async (req, res) => {
     if (url.pathname.startsWith('/rest/v1')) return proxyRest(req, res, url.pathname.slice('/rest/v1'.length) || '/', url);
     if (url.pathname.startsWith('/auth/v1')) return await auth(req, res, url.pathname.slice('/auth/v1'.length), url);
     if (url.pathname.startsWith('/functions/v1')) return await functions(req, res, url.pathname.slice('/functions/v1'.length));
-    if (url.pathname === '/guardian') {
-      const html = readFileSync(join(root, 'apps/guardian-web/index.html'), 'utf8')
-        .replace('__SUPABASE_URL__', `http://127.0.0.1:${GATEWAY_PORT}`).replace('__SUPABASE_PUBLISHABLE_KEY__', ANON_KEY);
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); return res.end(html);
-    }
+    // The guardian page lives in apps/web (/veli). Run `npm run web` and open the printed link there.
     send(res, 404, { message: 'not found' });
   } catch (e) { console.error(e); send(res, 500, { code: 'server_error' }); }
 }).listen(GATEWAY_PORT, '127.0.0.1');
 
 writeFileSync(join(root, 'apps/mobile/.env.localstack'), `EXPO_PUBLIC_APP_ENV=local\nEXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:${GATEWAY_PORT}\nEXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}\n`);
+writeFileSync(join(root, 'apps/web/.env.localstack'), `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:${GATEWAY_PORT}\nNEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}\n`);
 writeFileSync(join(root, 'apps/admin/.env.localstack'), `VITE_SUPABASE_URL=http://127.0.0.1:${GATEWAY_PORT}\nVITE_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}\n`);
-console.log(`TechApp local stack ready → http://127.0.0.1:${GATEWAY_PORT}  (.env.localstack written; `npm run env:local` points the apps here)\nOrganiser test login: organizator@techapp.test — OTP codes appear in this terminal.`);
+console.log(`TechApp local stack ready → http://127.0.0.1:${GATEWAY_PORT}  (.env.localstack written; run "npm run env:local" to point the apps here)\nOrganiser test login: organizator@techapp.test — OTP codes appear in this terminal.`);
 
 const shutdown = async () => { postgrest.kill(); await db.end().catch(() => {}); await server.stop().catch(() => {}); process.exit(0); };
 process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);

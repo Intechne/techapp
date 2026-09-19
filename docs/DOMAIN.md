@@ -5,11 +5,11 @@ Karar (2026-09-19): TechApp'in tek genel web adresi `intechne.com.tr`'nin alt al
 ## URL haritası
 | Yol | Ne | Sunan | Durum |
 |---|---|---|---|
-| `/` | Tanıtım sitesi (ürün, mağaza bağlantıları, kurumlar için) | `apps/web` (henüz yok) | ⚪ |
-| `/events/:id` · `/registrations/:id` · `/opportunities` · `/community` | Paylaşılabilir bağlantılar. Uygulama kuruluysa uygulamada açılır (deep link eşlemesi `navigation/linking.ts`), değilse sitede içerik özeti + "uygulamayı indir" | `apps/web` | ⚪ (uygulama tarafı hazır) |
-| `/veli` | Veli onay sayfası (`apps/guardian-web/index.html`). Token URL **fragment**'ında (`/veli#<token>`), sunucu günlüklerine düşmez | statik | 🟡 sayfa hazır, yayınlanmadı |
-| `/auth-callback` | E-postadaki giriş bağlantısının döndüğü yer (uygulama kurulu değilse "uygulamayı aç" yönlendirmesi) | `apps/web` | ⚪ |
-| `/gizlilik` · `/kosullar` · `/destek` · `/hesap-silme` | Mağazaların zorunlu tuttuğu sayfalar. **Metinler hukuktan gelir**; hesap silme sayfası uygulama dışından silme talebini anlatır (Google Play şartı) | `apps/web` | ⚪ |
+| `/` | Tanıtım sitesi (ürün, mağaza rozetleri, kurumlar için) | `apps/web` | 🟡 yazıldı, yerelde doğrulandı; Vercel'e alınmadı |
+| `/events/:id` | Paylaşım sayfası (SSR, Open Graph, `schema.org/Event`, "Uygulamada aç"). Uygulama kuruluysa universal link ile uygulamada açılır | `apps/web` | 🟡 sayfa hazır; universal link dosyaları bekliyor |
+| `/veli` | Veli onay sayfası (`apps/web/app/veli`). Token URL **fragment**'ında (`/veli#<token>`), sunucu günlüklerine düşmez | `apps/web` | 🟡 gerçek Supabase projesine karşı yerelde uçtan uca doğrulandı (onay → kayıt `confirmed`); yayınlanmadı |
+| `/auth-callback` | E-postadaki giriş bağlantısı tarayıcıda açılırsa uygulamaya devreder | `apps/web` | 🟡 hazır |
+| `/gizlilik` · `/kosullar` · `/destek` · `/hesap-silme` | Mağazaların zorunlu tuttuğu sayfalar. **Gizlilik ve koşullar metni hukuktan gelir** (şu an açıkça "hazırlanıyor" yer tutucusu); hesap silme sayfası uygulama içi adımları anlatır | `apps/web` | 🟡 iskelet |
 | `/.well-known/apple-app-site-association` | iOS universal links (`applinks`, Team ID + `com.intechne.techapp`) | statik, `application/json`, yönlendirmesiz | ⛔ Apple Team ID gerekli |
 | `/.well-known/assetlinks.json` | Android App Links (paket adı + imza SHA-256 parmak izi; Play ve AppGallery imzaları ayrı ayrı) | statik | ⛔ imza anahtarları gerekli |
 
@@ -22,7 +22,7 @@ Alt alan adları (öneri): `panel.techapp.intechne.com.tr` → yönetim paneli (
 
 ## Alan adı hazır olduğunda yapılacaklar
 1. DNS: `techapp` CNAME → barındırma (Vercel / Cloudflare Pages / Netlify); `panel.techapp` CNAME → panel barındırması. HTTPS zorunlu.
-2. `apps/guardian-web` derlemesinde `__SUPABASE_URL__` ve `__SUPABASE_PUBLISHABLE_KEY__` yer tutucularını doldurup `/veli` altında yayınla.
+2. `apps/web`'i Vercel'e al (adımlar: `apps/web/README.md`); `/veli` onunla birlikte yayınlanır.
 3. `supabase secrets set` ile yukarıdaki iki değeri + `RESEND_API_KEY` gir → `npm run functions:deploy`.
 4. Supabase Auth: `site_url = https://techapp.intechne.com.tr`, yönlendirme listesi `config.toml`'da hazır (`npx supabase config push`).
 5. `app.json`: iOS `associatedDomains: ["applinks:techapp.intechne.com.tr"]`, Android `intentFilters` (autoVerify) — `.well-known` dosyaları yayınlandıktan **sonra** eklenir; aksi halde doğrulama başarısız olur ve bağlantılar tarayıcıda kalır.
