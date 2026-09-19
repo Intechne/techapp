@@ -327,3 +327,31 @@ insert into public.event_courses (event_id, course_id) values
   ('00000000-0000-4000-a001-000000000004', '00000000-0000-4000-a005-000000000001'),
   ('00000000-0000-4000-a001-000000000005', '00000000-0000-4000-a005-000000000003')
 on conflict do nothing;
+
+-- ---------------------------------------------------------------- deadline-driven calls (0010): competitions, grants, awards
+insert into public.opportunities
+  (id, organization_id, slug, title, summary, type, tone, is_remote, audience_note, guardian_required_under, closes_at,
+   apply_url, reward_note, team_based, shared_fields, status, published_at, is_demo)
+values
+  ('00000000-0000-4000-a002-000000000101', '00000000-0000-4000-a000-000000000001', 'ornek-robot-ligi-basvurusu', 'Örnek Robot Ligi · Sezon Başvurusu',
+   'Lise ve üniversite takımları için dört kategorili robot ligi. Takım kaydı kaptan tarafından yapılır.', 'competition', 'moss', false, 'Lise + üniversite takımları', null,
+   '2026-11-20T20:59:00Z', null, 'Finalde ödül havuzu · örnek', true, array['display_name', 'education_stage', 'school_name'], 'published', now(), true),
+  ('00000000-0000-4000-a002-000000000102', '00000000-0000-4000-a000-000000000001', 'ornek-prototip-hibesi', 'Örnek İlk Prototip Hibesi',
+   'Çalışan ilk prototipini çıkarmak isteyen genç ekiplere malzeme ve atölye desteği.', 'grant', 'iris', true, 'Üniversite + yeni mezun ekipler', 18,
+   '2026-12-05T20:59:00Z', 'https://example.org/prototip-hibesi', '50.000 TL''ye kadar destek · örnek', true, array['display_name', 'education_stage'], 'published', now(), true),
+  ('00000000-0000-4000-a002-000000000103', '00000000-0000-4000-a000-000000000001', 'ornek-sosyal-etki-odulu', 'Örnek Genç Sosyal Etki Ödülü',
+   'Teknolojiyle toplumsal fayda üreten gençlerin projelerini görünür kılan yıllık ödül.', 'award', 'apricot', true, '15–25 yaş', null,
+   '2026-10-25T20:59:00Z', 'https://example.org/sosyal-etki-odulu', 'Mentorluk + sahne · örnek', false, array['display_name', 'education_stage', 'city'], 'published', now(), true),
+  ('00000000-0000-4000-a002-000000000104', '00000000-0000-4000-a000-000000000001', 'ornek-muhendislik-bursu', 'Örnek Mühendislik Öğrencisi Bursu',
+   'Mühendislik fakültelerinde okuyan ve bir teknoloji takımında aktif öğrenciler için burs.', 'scholarship', 'ink', true, 'Üniversite', 18,
+   '2026-11-01T20:59:00Z', 'https://example.org/muhendislik-bursu', '8 ay burs · örnek', false, array['display_name', 'education_stage', 'school_name'], 'published', now(), true)
+on conflict (id) do nothing;
+
+-- ---------------------------------------------------------------- volunteers + announcements (0010)
+update public.events set accepts_volunteers = true
+ where id in ('00000000-0000-4000-a001-000000000001', '00000000-0000-4000-a001-000000000002') and is_demo;
+insert into public.event_announcements (id, event_id, audience, title, body, pinned) values
+  ('00000000-0000-4000-a009-000000000001', '00000000-0000-4000-a001-000000000001', 'volunteers', 'Gönüllü buluşması', 'Etkinlik sabahı 08.30''da B kapısında buluşuyoruz. Yaka kartlarını kayıt masasından alabilirsiniz.', true),
+  ('00000000-0000-4000-a009-000000000002', '00000000-0000-4000-a001-000000000001', 'all', 'Program güncellendi', 'Açılış konuşması 09.45''e alındı. Takım eşleştirmeleri 10.15''te başlıyor.', false),
+  ('00000000-0000-4000-a009-000000000003', '00000000-0000-4000-a001-000000000001', 'participants', 'Yanında getir', 'Dizüstü bilgisayarını ve şarj aletini unutma. Öğle yemeği bizden.', false)
+on conflict (id) do nothing;

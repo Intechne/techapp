@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   public: {
     Tables: {
       application_status_history: {
@@ -49,7 +44,6 @@ export type Database = {
           {
             foreignKeyName: "application_status_history_application_id_fkey"
             columns: ["application_id"]
-            isOneToOne: false
             referencedRelation: "applications"
             referencedColumns: ["id"]
           },
@@ -64,7 +58,7 @@ export type Database = {
           motivation: string | null
           opportunity_id: string
           shared_fields: string[]
-          snapshot: Json
+          snapshot: NonNullable<Json>
           status: Database["public"]["Enums"]["application_status"]
           submitted_at: string | null
           updated_at: string
@@ -78,7 +72,7 @@ export type Database = {
           motivation?: string | null
           opportunity_id: string
           shared_fields?: string[]
-          snapshot?: Json
+          snapshot?: NonNullable<Json>
           status: Database["public"]["Enums"]["application_status"]
           submitted_at?: string | null
           updated_at?: string
@@ -92,7 +86,7 @@ export type Database = {
           motivation?: string | null
           opportunity_id?: string
           shared_fields?: string[]
-          snapshot?: Json
+          snapshot?: NonNullable<Json>
           status?: Database["public"]["Enums"]["application_status"]
           submitted_at?: string | null
           updated_at?: string
@@ -102,7 +96,6 @@ export type Database = {
           {
             foreignKeyName: "applications_opportunity_id_fkey"
             columns: ["opportunity_id"]
-            isOneToOne: false
             referencedRelation: "opportunities"
             referencedColumns: ["id"]
           },
@@ -170,21 +163,18 @@ export type Database = {
           {
             foreignKeyName: "attestations_experience_id_fkey"
             columns: ["experience_id"]
-            isOneToOne: false
             referencedRelation: "experiences"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "attestations_experience_id_fkey"
             columns: ["experience_id"]
-            isOneToOne: false
             referencedRelation: "experiences_with_status"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "attestations_organization_id_fkey"
             columns: ["organization_id"]
-            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
@@ -197,7 +187,7 @@ export type Database = {
           actor_kind: string
           created_at: string
           id: number
-          metadata: Json
+          metadata: NonNullable<Json>
           organization_id: string | null
           target_id: string | null
           target_type: string
@@ -208,7 +198,7 @@ export type Database = {
           actor_kind: string
           created_at?: string
           id?: never
-          metadata?: Json
+          metadata?: NonNullable<Json>
           organization_id?: string | null
           target_id?: string | null
           target_type: string
@@ -219,7 +209,7 @@ export type Database = {
           actor_kind?: string
           created_at?: string
           id?: never
-          metadata?: Json
+          metadata?: NonNullable<Json>
           organization_id?: string | null
           target_id?: string | null
           target_type?: string
@@ -228,7 +218,6 @@ export type Database = {
           {
             foreignKeyName: "audit_events_organization_id_fkey"
             columns: ["organization_id"]
-            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
@@ -305,14 +294,12 @@ export type Database = {
           {
             foreignKeyName: "consents_guardian_request_id_fkey"
             columns: ["guardian_request_id"]
-            isOneToOne: false
             referencedRelation: "guardian_requests"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "consents_guardian_request_id_fkey"
             columns: ["guardian_request_id"]
-            isOneToOne: false
             referencedRelation: "my_guardian_requests"
             referencedColumns: ["id"]
           },
@@ -353,7 +340,6 @@ export type Database = {
           {
             foreignKeyName: "course_progress_course_id_fkey"
             columns: ["course_id"]
-            isOneToOne: false
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },
@@ -421,14 +407,12 @@ export type Database = {
           {
             foreignKeyName: "courses_organization_id_fkey"
             columns: ["organization_id"]
-            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "courses_topic_interest_id_fkey"
             columns: ["topic_interest_id"]
-            isOneToOne: false
             referencedRelation: "interests"
             referencedColumns: ["id"]
           },
@@ -476,6 +460,49 @@ export type Database = {
         }
         Relationships: []
       }
+      event_announcements: {
+        Row: {
+          audience: Database["public"]["Enums"]["announcement_audience"]
+          body: string
+          created_at: string
+          created_by: string | null
+          event_id: string
+          id: string
+          pinned: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          audience?: Database["public"]["Enums"]["announcement_audience"]
+          body: string
+          created_at?: string
+          created_by?: string | null
+          event_id: string
+          id?: string
+          pinned?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          audience?: Database["public"]["Enums"]["announcement_audience"]
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          event_id?: string
+          id?: string
+          pinned?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_announcements_event_id_fkey"
+            columns: ["event_id"]
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_check_ins: {
         Row: {
           checked_in_by: string
@@ -502,14 +529,12 @@ export type Database = {
           {
             foreignKeyName: "event_check_ins_registration_id_fkey"
             columns: ["registration_id"]
-            isOneToOne: false
             referencedRelation: "event_registrations"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "event_check_ins_session_id_fkey"
             columns: ["session_id"]
-            isOneToOne: false
             referencedRelation: "event_sessions"
             referencedColumns: ["id"]
           },
@@ -535,14 +560,12 @@ export type Database = {
           {
             foreignKeyName: "event_courses_course_id_fkey"
             columns: ["course_id"]
-            isOneToOne: false
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "event_courses_event_id_fkey"
             columns: ["event_id"]
-            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
@@ -550,7 +573,7 @@ export type Database = {
       }
       event_registrations: {
         Row: {
-          answers: Json
+          answers: NonNullable<Json>
           cancelled_at: string | null
           confirmed_at: string | null
           created_at: string
@@ -565,7 +588,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          answers?: Json
+          answers?: NonNullable<Json>
           cancelled_at?: string | null
           confirmed_at?: string | null
           created_at?: string
@@ -580,7 +603,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          answers?: Json
+          answers?: NonNullable<Json>
           cancelled_at?: string | null
           confirmed_at?: string | null
           created_at?: string
@@ -598,14 +621,12 @@ export type Database = {
           {
             foreignKeyName: "event_registrations_event_id_fkey"
             columns: ["event_id"]
-            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "event_registrations_team_fk"
             columns: ["team_id"]
-            isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
@@ -649,7 +670,52 @@ export type Database = {
           {
             foreignKeyName: "event_sessions_event_id_fkey"
             columns: ["event_id"]
-            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_volunteers: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          duty: string | null
+          event_id: string
+          id: string
+          note: string | null
+          status: Database["public"]["Enums"]["volunteer_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          duty?: string | null
+          event_id: string
+          id?: string
+          note?: string | null
+          status?: Database["public"]["Enums"]["volunteer_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          duty?: string | null
+          event_id?: string
+          id?: string
+          note?: string | null
+          status?: Database["public"]["Enums"]["volunteer_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_volunteers_event_id_fkey"
+            columns: ["event_id"]
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
@@ -657,6 +723,7 @@ export type Database = {
       }
       events: {
         Row: {
+          accepts_volunteers: boolean
           approved_by: string | null
           audience_note: string | null
           cancellation_policy: string | null
@@ -698,6 +765,7 @@ export type Database = {
           waitlist_enabled: boolean
         }
         Insert: {
+          accepts_volunteers?: boolean
           approved_by?: string | null
           audience_note?: string | null
           cancellation_policy?: string | null
@@ -739,6 +807,7 @@ export type Database = {
           waitlist_enabled?: boolean
         }
         Update: {
+          accepts_volunteers?: boolean
           approved_by?: string | null
           audience_note?: string | null
           cancellation_policy?: string | null
@@ -783,14 +852,12 @@ export type Database = {
           {
             foreignKeyName: "events_organization_id_fkey"
             columns: ["organization_id"]
-            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "events_topic_interest_id_fkey"
             columns: ["topic_interest_id"]
-            isOneToOne: false
             referencedRelation: "interests"
             referencedColumns: ["id"]
           },
@@ -834,14 +901,12 @@ export type Database = {
           {
             foreignKeyName: "experience_evidence_experience_id_fkey"
             columns: ["experience_id"]
-            isOneToOne: false
             referencedRelation: "experiences"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "experience_evidence_experience_id_fkey"
             columns: ["experience_id"]
-            isOneToOne: false
             referencedRelation: "experiences_with_status"
             referencedColumns: ["id"]
           },
@@ -900,7 +965,7 @@ export type Database = {
       }
       guardian_requests: {
         Row: {
-          audit_metadata: Json
+          audit_metadata: NonNullable<Json>
           confirmed_at: string | null
           consent_purpose: string
           created_at: string
@@ -925,7 +990,7 @@ export type Database = {
           verification_method: string
         }
         Insert: {
-          audit_metadata?: Json
+          audit_metadata?: NonNullable<Json>
           confirmed_at?: string | null
           consent_purpose: string
           created_at?: string
@@ -950,7 +1015,7 @@ export type Database = {
           verification_method?: string
         }
         Update: {
-          audit_metadata?: Json
+          audit_metadata?: NonNullable<Json>
           confirmed_at?: string | null
           consent_purpose?: string
           created_at?: string
@@ -1035,7 +1100,6 @@ export type Database = {
           {
             foreignKeyName: "lessons_course_id_fkey"
             columns: ["course_id"]
-            isOneToOne: false
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },
@@ -1076,7 +1140,6 @@ export type Database = {
           {
             foreignKeyName: "moderation_actions_report_id_fkey"
             columns: ["report_id"]
-            isOneToOne: false
             referencedRelation: "reports"
             referencedColumns: ["id"]
           },
@@ -1123,6 +1186,7 @@ export type Database = {
       }
       opportunities: {
         Row: {
+          apply_url: string | null
           approved_by: string | null
           audience_note: string | null
           city: string | null
@@ -1139,11 +1203,13 @@ export type Database = {
           opens_at: string | null
           organization_id: string
           published_at: string | null
+          reward_note: string | null
           shared_fields: string[]
           skills: string[]
           slug: string
           status: Database["public"]["Enums"]["publish_status"]
           summary: string
+          team_based: boolean
           title: string
           tone: string
           topic_interest_id: number | null
@@ -1151,6 +1217,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          apply_url?: string | null
           approved_by?: string | null
           audience_note?: string | null
           city?: string | null
@@ -1167,11 +1234,13 @@ export type Database = {
           opens_at?: string | null
           organization_id: string
           published_at?: string | null
+          reward_note?: string | null
           shared_fields?: string[]
           skills?: string[]
           slug: string
           status?: Database["public"]["Enums"]["publish_status"]
           summary: string
+          team_based?: boolean
           title: string
           tone?: string
           topic_interest_id?: number | null
@@ -1179,6 +1248,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          apply_url?: string | null
           approved_by?: string | null
           audience_note?: string | null
           city?: string | null
@@ -1195,11 +1265,13 @@ export type Database = {
           opens_at?: string | null
           organization_id?: string
           published_at?: string | null
+          reward_note?: string | null
           shared_fields?: string[]
           skills?: string[]
           slug?: string
           status?: Database["public"]["Enums"]["publish_status"]
           summary?: string
+          team_based?: boolean
           title?: string
           tone?: string
           topic_interest_id?: number | null
@@ -1210,14 +1282,12 @@ export type Database = {
           {
             foreignKeyName: "opportunities_organization_id_fkey"
             columns: ["organization_id"]
-            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "opportunities_topic_interest_id_fkey"
             columns: ["topic_interest_id"]
-            isOneToOne: false
             referencedRelation: "interests"
             referencedColumns: ["id"]
           },
@@ -1246,7 +1316,6 @@ export type Database = {
           {
             foreignKeyName: "organization_members_organization_id_fkey"
             columns: ["organization_id"]
-            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
@@ -1338,14 +1407,12 @@ export type Database = {
           {
             foreignKeyName: "profile_interests_interest_id_fkey"
             columns: ["interest_id"]
-            isOneToOne: false
             referencedRelation: "interests"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "profile_interests_user_id_fkey"
             columns: ["user_id"]
-            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1386,7 +1453,6 @@ export type Database = {
           {
             foreignKeyName: "profile_private_user_id_fkey"
             columns: ["user_id"]
-            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1404,6 +1470,7 @@ export type Database = {
           headline: string | null
           id: string
           onboarded_at: string | null
+          skills: string[]
           updated_at: string
         }
         Insert: {
@@ -1419,6 +1486,7 @@ export type Database = {
           headline?: string | null
           id: string
           onboarded_at?: string | null
+          skills?: string[]
           updated_at?: string
         }
         Update: {
@@ -1434,6 +1502,7 @@ export type Database = {
           headline?: string | null
           id?: string
           onboarded_at?: string | null
+          skills?: string[]
           updated_at?: string
         }
         Relationships: []
@@ -1476,7 +1545,6 @@ export type Database = {
           {
             foreignKeyName: "recruitment_applications_post_id_fkey"
             columns: ["post_id"]
-            isOneToOne: false
             referencedRelation: "recruitment_posts"
             referencedColumns: ["id"]
           },
@@ -1526,7 +1594,6 @@ export type Database = {
           {
             foreignKeyName: "recruitment_posts_team_id_fkey"
             columns: ["team_id"]
-            isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
@@ -1615,7 +1682,6 @@ export type Database = {
           {
             foreignKeyName: "team_memberships_team_id_fkey"
             columns: ["team_id"]
-            isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
@@ -1665,7 +1731,6 @@ export type Database = {
           {
             foreignKeyName: "team_tasks_team_id_fkey"
             columns: ["team_id"]
-            isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
@@ -1736,14 +1801,12 @@ export type Database = {
           {
             foreignKeyName: "teams_organization_id_fkey"
             columns: ["organization_id"]
-            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "teams_topic_interest_id_fkey"
             columns: ["topic_interest_id"]
-            isOneToOne: false
             referencedRelation: "interests"
             referencedColumns: ["id"]
           },
@@ -1871,9 +1934,41 @@ export type Database = {
           status_reason: string
         }[]
       }
+      admin_event_volunteers: {
+        Args: { p_event_id: string }
+        Returns: {
+          created_at: string
+          display_name: string
+          duty: string
+          note: string
+          status: Database["public"]["Enums"]["volunteer_status"]
+          volunteer_id: string
+        }[]
+      }
       application_share_preview: {
         Args: { p_opportunity_id: string }
         Returns: Json
+      }
+      apply_as_volunteer: {
+        Args: { p_event_id: string; p_note?: string }
+        Returns: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          duty: string | null
+          event_id: string
+          id: string
+          note: string | null
+          status: Database["public"]["Enums"]["volunteer_status"]
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "event_volunteers"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       apply_to_recruitment: {
         Args: { p_message?: string; p_post_id: string }
@@ -1895,10 +1990,17 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      attesting_organizations: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          name: string
+        }[]
+      }
       cancel_event_registration: {
         Args: { p_registration_id: string }
         Returns: {
-          answers: Json
+          answers: NonNullable<Json>
           cancelled_at: string | null
           confirmed_at: string | null
           created_at: string
@@ -1964,6 +2066,7 @@ export type Database = {
           headline: string | null
           id: string
           onboarded_at: string | null
+          skills: string[]
           updated_at: string
         }
         SetofOptions: {
@@ -2091,6 +2194,27 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      decide_volunteer: {
+        Args: { p_approve: boolean; p_duty?: string; p_volunteer_id: string }
+        Returns: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          duty: string | null
+          event_id: string
+          id: string
+          note: string | null
+          status: Database["public"]["Enums"]["volunteer_status"]
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "event_volunteers"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       event_eligibility: { Args: { p_event_id: string }; Returns: Json }
       get_participation_card: {
         Args: { p_registration_id: string }
@@ -2129,7 +2253,8 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      my_account_state: { Args: never; Returns: Json }
+      my_account_state: { Args: Record<PropertyKey, never>; Returns: Json }
+      my_cv: { Args: Record<PropertyKey, never>; Returns: Json }
       register_device: {
         Args: {
           p_app_version?: string
@@ -2165,7 +2290,7 @@ export type Database = {
           p_idempotency_key: string
         }
         Returns: {
-          answers: Json
+          answers: NonNullable<Json>
           cancelled_at: string | null
           confirmed_at: string | null
           created_at: string
@@ -2263,7 +2388,7 @@ export type Database = {
           p_registration_id: string
         }
         Returns: {
-          answers: Json
+          answers: NonNullable<Json>
           cancelled_at: string | null
           confirmed_at: string | null
           created_at: string
@@ -2326,7 +2451,7 @@ export type Database = {
           motivation: string | null
           opportunity_id: string
           shared_fields: string[]
-          snapshot: Json
+          snapshot: NonNullable<Json>
           status: Database["public"]["Enums"]["application_status"]
           submitted_at: string | null
           updated_at: string
@@ -2402,7 +2527,7 @@ export type Database = {
           motivation: string | null
           opportunity_id: string
           shared_fields: string[]
-          snapshot: Json
+          snapshot: NonNullable<Json>
           status: Database["public"]["Enums"]["application_status"]
           submitted_at: string | null
           updated_at: string
@@ -2427,6 +2552,7 @@ export type Database = {
         }[]
       }
       unregister_device: { Args: { p_install_id: string }; Returns: number }
+      volunteer_event_brief: { Args: { p_event_id: string }; Returns: Json }
       withdraw_application: {
         Args: { p_application_id: string }
         Returns: {
@@ -2437,7 +2563,7 @@ export type Database = {
           motivation: string | null
           opportunity_id: string
           shared_fields: string[]
-          snapshot: Json
+          snapshot: NonNullable<Json>
           status: Database["public"]["Enums"]["application_status"]
           submitted_at: string | null
           updated_at: string
@@ -2471,8 +2597,30 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      withdraw_volunteer: {
+        Args: { p_event_id: string }
+        Returns: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          duty: string | null
+          event_id: string
+          id: string
+          note: string | null
+          status: Database["public"]["Enums"]["volunteer_status"]
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "event_volunteers"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
+      announcement_audience: "all" | "participants" | "volunteers"
       application_status:
         | "draft"
         | "submitted"
@@ -2520,6 +2668,10 @@ export type Database = {
         | "entrepreneurship"
         | "talent_program"
         | "project_call"
+        | "competition"
+        | "grant"
+        | "award"
+        | "scholarship"
       org_member_role:
         | "owner"
         | "admin"
@@ -2564,6 +2716,7 @@ export type Database = {
         | "verified"
         | "rejected"
         | "revoked"
+      volunteer_status: "pending" | "approved" | "rejected" | "withdrawn"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2691,6 +2844,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      announcement_audience: ["all", "participants", "volunteers"],
       application_status: [
         "draft",
         "submitted",
@@ -2743,6 +2897,10 @@ export const Constants = {
         "entrepreneurship",
         "talent_program",
         "project_call",
+        "competition",
+        "grant",
+        "award",
+        "scholarship",
       ],
       org_member_role: [
         "owner",
@@ -2794,6 +2952,8 @@ export const Constants = {
         "rejected",
         "revoked",
       ],
+      volunteer_status: ["pending", "approved", "rejected", "withdrawn"],
     },
   },
 } as const
+

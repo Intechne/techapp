@@ -324,7 +324,7 @@ describe('seed data', () => {
     const count = async (sql: string) => (await admin(sql)).rows[0].n as number;
     const demo = `id::text like '00000000-0000-4000-a00%'`;
     expect(await count(`select count(*)::int n from public.events where ${demo} and status = 'published' and is_demo`)).toBe(12);
-    expect(await count(`select count(*)::int n from public.opportunities where ${demo} and is_demo`)).toBe(8);
+    expect(await count(`select count(*)::int n from public.opportunities where ${demo} and is_demo`)).toBe(12) // 8 programmes + 4 deadline calls (competition, grant, award, scholarship);
     expect(await count(`select count(*)::int n from public.teams where ${demo} and is_demo`)).toBe(6);
     expect(await count(`select count(*)::int n from public.courses where ${demo} and is_demo`)).toBe(3);
     expect(await count(`select count(*)::int n from public.lessons l join public.courses c on c.id = l.course_id where c.${demo}`)).toBe(9);
