@@ -21,7 +21,6 @@ Son güncelleme: 2026-09-19. Bu liste bilinçli olarak eksiksiz tutulur; buradak
 - OTP e-posta şablonu (`supabase/templates/otp.html`) **uygulanamadı**: özel SMTP gerekli. Halka açık yayından önce özel SMTP zorunlu (varsayılan servis saatte birkaç e-posta ile sınırlı).
 - Veli e-postası gönderilemiyor (Resend/SMTP anahtarı ve yayınlanmış veli sayfası adresi yok).
 - Tek Supabase projesi var ve örnek veri içeriyor; production için **ayrı proje** açılmalı, seed uygulanmamalı.
-- İlk platform yöneticisi henüz atanmadı (`platform_admins`).
 - Remote e2e betiği secret key ister; yalnız geliştirme/staging projesinde çalıştırılmalı.
 
 ## Teknik borç
@@ -35,7 +34,6 @@ Son güncelleme: 2026-09-19. Bu liste bilinçli olarak eksiksiz tutulur; buradak
 - `app.current_policy_version()` sabit bir taslak sürüm döner; gerçek sürümleme tablosu yok.
 - Uygulama ikonu / adaptive icon / splash **Expo şablon yer tutucusu**.
 - Crash raporlama, gerçek analytics sink'i, `expo-updates` yok.
-- Keşfet'te selamlama adı göstermez (`user_metadata.first_name` doldurulmuyor); profil adı kullanılmalı.
 - Yerel yığın yeni migration'ları mevcut veritabanına uygulamaz; `npm run db:dev -- --reset` gerekir.
 
 ## Eksik ürün kapsamı

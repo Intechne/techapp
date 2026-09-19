@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { View } from 'react-native';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppHeader, Button, Divider, EmptyState, ErrorState, ListCard, LoadingSkeleton, Modal, Notice, ProfileCard, Screen, Text, space, useToast } from '../../design-system';
 import { toAppError } from '../../lib/errors';
-import { getSupabase } from '../../lib/supabase';
 import type { ProfileStackParamList } from '../../navigation/types';
 import { deleteAccount, signOut } from '../auth/authService';
 import { useAccountState, useSession } from '../auth/SessionProvider';
 import { usePrefs } from '../onboarding/PrefsProvider';
+import { useMyProfile } from './api';
 
 const CHECKIN_ROLES = ['owner', 'admin', 'checkin_staff'];
 
@@ -19,14 +19,7 @@ export function ProfileScreen({ navigation }: NativeStackScreenProps<ProfileStac
   const { update } = usePrefs();
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const profile = useQuery({
-    queryKey: ['profile', userId], enabled: !!userId,
-    queryFn: async () => {
-      const { data, error } = await getSupabase().from('profiles').select('*').eq('id', userId!).single();
-      if (error) throw toAppError(error);
-      return data;
-    },
-  });
+  const profile = useMyProfile();
   const out = useMutation({ mutationFn: signOut, onSuccess: () => toast.show('Çıkış yapıldı.'), onError: (e) => toast.show(toAppError(e).message, 'danger') });
   const del = useMutation({ mutationFn: deleteAccount, onSuccess: () => { setConfirmDelete(false); update({ onboarded: true }); toast.show('Hesabın silindi.'); } });
 

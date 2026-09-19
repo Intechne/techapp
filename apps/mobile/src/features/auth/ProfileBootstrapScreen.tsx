@@ -30,7 +30,7 @@ export function ProfileBootstrapScreen({ navigation }: NativeStackScreenProps<Ro
       if (error) throw toAppError(error);
     },
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ['account-state', userId] });
+      await Promise.all([qc.invalidateQueries({ queryKey: ['account-state', userId] }), qc.invalidateQueries({ queryKey: ['profile', userId] })]);
       navigation.popTo('Main');
     },
   });

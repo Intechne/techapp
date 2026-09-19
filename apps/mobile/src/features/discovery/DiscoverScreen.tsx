@@ -9,7 +9,7 @@ import { toAppError } from '../../lib/errors';
 import { getSupabase } from '../../lib/supabase';
 import type { InterestRow, OpportunityRow, TeamRow } from '../../lib/database.types';
 import type { DiscoverStackParamList } from '../../navigation/types';
-import { useSession } from '../auth/SessionProvider';
+import { useMyProfile } from '../profile/api';
 import { fetchEventsPage } from '../events/api';
 import { toEventCardModel } from '../events/labels';
 import { usePrefs } from '../onboarding/PrefsProvider';
@@ -32,7 +32,6 @@ async function fetchPreview(): Promise<{ opportunities: OpportunityRow[]; teams:
 
 export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverStackParamList, 'DiscoverHome'>) {
   const { prefs } = usePrefs();
-  const { session } = useSession();
   const [topic, setTopic] = useState<string | 'all' | 'mine'>(prefs.interestSlugs.length ? 'mine' : 'all');
   const [search, setSearch] = useState('');
   const [submitted, setSubmitted] = useState('');
@@ -51,7 +50,7 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
 
   const [featured, ...rest] = events.data?.items ?? [];
   const openEvent = (id: string) => { track('discovery_item_opened', { kind: 'event', id }); navigation.navigate('EventDetail', { eventId: id }); };
-  const firstName = session?.user.user_metadata?.first_name as string | undefined;
+  const firstName = useMyProfile().data?.display_name?.split(' ')[0];
   const offline = events.isError && toAppError(events.error).code === 'network_unreachable' && !!events.data;
 
   return (
