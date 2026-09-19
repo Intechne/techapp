@@ -58,17 +58,22 @@ Son güncelleme: 2026-09-19 (2. oturum) · Dal: `main` · ✅ Completed · 🟡 
 | Client `verified=true` | ✅ Yok; attestation ayrı tablo |
 | EAS `REPLACE_*` | ✅ Placeholder yok; gerekenler `docs/RELEASE.md` |
 
-## 2. oturum — remote Supabase hedefi
-| Kriter | Durum | Not |
+## Remote Supabase (development) — proje `techapp` · ref `pacvhcnawtnkauvguoaw` · eu-central-1
+| Kriter | Durum | Kanıt |
 |---|---|---|
-| Remote Supabase linked | ⛔ | CLI kuruldu (devDependency, v2.117). `supabase login` TTY + tarayıcı istiyor; kullanıcı adımı bekleniyor. Hiçbir remote projeye dokunulmadı |
-| Migrations applied (remote) | ⛔ | 6 migration hazır, yıkıcı ifade yok (yalnız `0600` içinde imzası değişen `check_in_participant` için `drop function`). `npm run db:push` önce `--dry-run` gösterir |
-| RLS enabled/tested | ✅ yerel · ⛔ remote | Tüm public tablolarda RLS açık (test), anon denetimi, doğrudan yazma denemeleri, tenant izolasyonu |
-| Generated DB types active | ✅ | `database.generated.ts` aynı üreteçle (postgres-meta) yerel DB'den; `createClient<Database>`; jsonb RPC yanıtları zod ile sınırda doğrulanıyor. Remote'a bağlanınca `npm run db:types` + `db:types:check` |
-| Edge Functions deployed | ⛔ | `config.toml`'da ikisi de `verify_jwt = true`; deploy login bekliyor |
-| Real OTP / session restore / remote E2E | ⛔ | Remote proje bekliyor. Yerel yığında tamamı çalışıyor |
-| Publishable key standardı | ✅ | `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (legacy anon yalnız fallback); repo gizli anahtar taraması temiz |
-| typecheck · lint · test | ✅ | mobil 30 jest, admin typecheck, DB 47 |
+| Remote linked | ✅ | `supabase link`; proje boştu (tablo yok, migration geçmişi yok) — push öncesi doğrulandı |
+| Migrations applied | ✅ | 7 migration (`0100`–`0700`), dry-run planı kontrol edilerek. `0500 storage` ilk kez gerçek Supabase'de çalıştı. `db reset` hiç kullanılmadı |
+| Seed | ✅ | Yalnız `is_demo = true` örnek veri: 12 etkinlik · 8 fırsat · 6 takım · 3 eğitim (idempotent) |
+| RLS | ✅ | Canlı API'de anonim anahtar 7 hassas tablodan 0 satır; e2e'de kullanıcılar arası okuma/yazma engeli, özel profil izolasyonu |
+| Generated types | ✅ | `npm run db:types` remote şemadan; yerel üretimle yalnız kozmetik fark. typecheck temiz |
+| Edge Functions | ✅ | `guardian-dispatch`, `delete-account` ACTIVE, `verify_jwt = true`; ikisi de gerçek kullanıcı JWT'siyle çağrıldı |
+| Auth config | 🟡 | OTP 6 hane / 10 dk, site_url `techapp://` push edildi. **E-posta şablonu değiştirilemedi**: Supabase, özel SMTP olmadan şablon düzenlemeye izin vermiyor (free tier). Varsayılan e-postanın 6 haneli kodu içerip içermediği gerçek posta kutusuyla doğrulanmalı |
+| Gerçek OTP doğrulaması | ✅ / 🟡 | Supabase Auth `verifyOtp` ile gerçek oturum (kod admin API'den alındı); yanlış kod reddi, oturum geri yükleme + yenileme. 🟡 E-postanın kutuya düşmesi, süre dolumu ve hız limiti elle denenmedi |
+| Event registration E2E (remote) | ✅ | `npm --prefix apps/mobile run e2e:remote` → **26/26**: misafir keşif, sunucu uygunluğu, son yer için paralel 2 kayıt → 1 confirmed + 1 waitlisted, tekrar kayıt tek satır, `pending_guardian` kalıcı, veli onayı (tek kullanımlık token) → confirmed, imzalı QR, yetkisiz check-in 403, yanlış etkinlik, çift okutma tek kayıt, iptal, hesap silme. Test verisi kendini temizler |
+| Zamanlanmış iş | ✅ | `pg_cron`: veli isteklerinin süre dolumu 10 dk'da bir |
+| Veli e-postası teslimi | ⛔ | `RESEND_API_KEY`, `GUARDIAN_PAGE_URL`, `MAIL_FROM` secrets yok → function 502 `mail_delivery_failed` (beklenen). Veli sayfası henüz bir alan adında yayınlanmadı |
+| Mobil/admin uygulamanın remote'a karşı arayüz testi | 🟡 | `.env.remote` yazıldı (`web:remote`, `dev:remote`); arayüzden giriş gerçek e-posta kutusu gerektirir — kullanıcı adımı |
+| Publishable key standardı | ✅ | İstemciler yalnız `sb_publishable_…` kullanır; secret key hiçbir dosyaya yazılmadı |
 
 ## Blocker'lar (dış girdi gerekir)
 1. Supabase projesi (URL + anon key; `supabase db push` yetkisi) ve SMTP/Resend anahtarı.

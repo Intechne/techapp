@@ -19,6 +19,16 @@ otp_length = 6
 otp_expiry = 600
 max_frequency = "60s"
 
+# OTP e-mail template: supabase/templates/otp.html (must carry {{ .Token }}).
+# Supabase only allows custom templates once a custom SMTP provider is configured (free tier + default mailer refuses).
+# After SMTP is set up, add these and run `supabase config push`:
+#   [auth.email.template.confirmation]  subject = "TechApp giriş kodun"  content_path = "./supabase/templates/otp.html"
+#   [auth.email.template.magic_link]    subject = "TechApp giriş kodun"  content_path = "./supabase/templates/otp.html"
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
 # Both functions act on behalf of a signed-in user: the platform verifies the JWT before our code runs.
 [functions.guardian-dispatch]
 verify_jwt = true

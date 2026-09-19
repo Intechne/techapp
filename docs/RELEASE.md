@@ -64,3 +64,16 @@ Kaynak: `design-source/TEKNIK-VE-YAYIN.md`.
 7. `apps/mobile/.env.local` ve `apps/admin/.env.local`: proje URL'i + **publishable** key. `npm run db:types && npm run verify`.
 8. İlk platform yöneticisi: SQL Editor'da `insert into public.platform_admins (user_id) values ('<auth user id>')`.
 9. `pg_cron`: `select cron.schedule('expire-guardian', '*/10 * * * *', $$select app.expire_guardian_requests()$$);`
+
+## Remote projede çalışma (development: `techapp` / `pacvhcnawtnkauvguoaw`)
+```bash
+npx supabase link --project-ref pacvhcnawtnkauvguoaw   # bir kez
+npm run db:push                                        # plan (dry-run) → sonra: npx supabase db push
+npm run db:types                                       # şema değiştiyse
+npm run functions:deploy
+npm --prefix apps/mobile run web:remote                # .env.remote ile (git-ignored; URL + publishable key)
+npm --prefix apps/admin run dev:remote
+# Uçtan uca doğrulama (secret key yalnız ortam değişkeninde; dosyaya yazma):
+SUPABASE_URL=… SUPABASE_PUBLISHABLE_KEY=… SUPABASE_SECRET_KEY=… npm --prefix apps/mobile run e2e:remote
+```
+`.env.remote` içeriği Dashboard → Settings → API Keys'ten alınır: proje URL'i ve **publishable** key.

@@ -7,7 +7,8 @@
     "dev": "vite --port 5180 --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "preview": "vite preview --port 5180"
+    "preview": "vite preview --port 5180",
+    "dev:remote": "vite --port 5180 --host 127.0.0.1 --mode remote"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

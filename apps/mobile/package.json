@@ -58,7 +58,10 @@
     "test": "jest",
     "icons": "node scripts/generate-icons.mjs",
     "doctor": "expo-doctor",
-    "verify": "npm run typecheck && npm run lint && npm test"
+    "verify": "npm run typecheck && npm run lint && npm test",
+    "web:remote": "set -a && . ./.env.remote && set +a && expo start --web",
+    "start:remote": "set -a && . ./.env.remote && set +a && expo start --dev-client",
+    "e2e:remote": "node scripts/remote-e2e.mjs"
   },
   "private": true
 }

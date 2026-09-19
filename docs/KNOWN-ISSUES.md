@@ -7,13 +7,21 @@ Son güncelleme: 2026-09-19. Bu liste bilinçli olarak eksiksiz tutulur; buradak
 | # | Konu | Durum |
 |---|---|---|
 | 1 | iOS / Android development build | **Hiç derlenmedi.** Makinede ~4 GB boş alan vardı. `expo-doctor` 21/21 ve web önizleme çalışıyor; bu native doğrulama yerine geçmez. |
-| 2 | Gerçek Supabase projesi | Bağlanmadı (CLI girişi kullanıcı adımı bekliyor). Tüm backend doğrulaması gömülü Postgres + PostgREST + shim üzerinde. Gerçek Supabase Auth ile hiç konuşulmadı. |
+| 2 | Gerçek Supabase projesi | **Bağlandı ve doğrulandı** (development; 26/26 remote e2e). Aşağıdaki eski not tarihsel: Tüm backend doğrulaması gömülü Postgres + PostgREST + shim üzerinde. Gerçek Supabase Auth ile hiç konuşulmadı. |
 | 3 | Edge Functions (`guardian-dispatch`, `delete-account`) | Statik olarak hazırlandı, **hiç çalıştırılmadı** (Deno yok). Yerel yığındaki eşdeğerleri aynı sözleşmeyi uygular ama aynı kod değildir. |
 | 4 | `…000500_storage.sql` | Testlerde no-op. `storage.buckets` sütunları ve `storage.foldername()` canlı projeye karşı denenmedi. |
 | 5 | Gerçek e-posta teslimi (OTP, veli) | Denenmedi; SMTP / Resend kimlik bilgisi gerekli. |
 | 6 | Huawei / HMS | Cihaz testi yok. `expo-camera` QR taramasının GMS'siz davranışı bilinmiyor (`docs/HUAWEI.md`). |
 | 7 | Erişilebilirlik | Roller, etiketler, 44 pt hedefler, reduced motion kodda var. VoiceOver/TalkBack, en büyük yazı ölçeği ve 320 pt genişlik **denetlenmedi**. |
 | 8 | PostgREST'in `experiences_with_status` görünümünü embed edebilmesi | Denenmedi. |
+
+## Remote Supabase ile ilgili açıklar
+
+- OTP e-posta şablonu (`supabase/templates/otp.html`) **uygulanamadı**: özel SMTP gerekli. Halka açık yayından önce özel SMTP zorunlu (varsayılan servis saatte birkaç e-posta ile sınırlı).
+- Veli e-postası gönderilemiyor (Resend/SMTP anahtarı ve yayınlanmış veli sayfası adresi yok).
+- Tek Supabase projesi var ve örnek veri içeriyor; production için **ayrı proje** açılmalı, seed uygulanmamalı.
+- İlk platform yöneticisi henüz atanmadı (`platform_admins`).
+- Remote e2e betiği secret key ister; yalnız geliştirme/staging projesinde çalıştırılmalı.
 
 ## Teknik borç
 
