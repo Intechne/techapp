@@ -1,6 +1,6 @@
 # TechApp — Implementation Status
 
-Son güncelleme: 2026-09-19 (2. oturum) · Dal: `techapp/rebuild` · ✅ Completed · 🟡 Partial · ⛔ Blocked · ⚪ Not started
+Son güncelleme: 2026-09-19 (2. oturum) · Dal: `main` · ✅ Completed · 🟡 Partial · ⛔ Blocked · ⚪ Not started
 
 "Doğrulandı" = bu makinede otomatik test ve/veya çalışan uygulamada gözle kontrol edildi. Native cihaz doğrulaması ayrıca belirtilir.
 

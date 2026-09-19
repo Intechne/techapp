@@ -5,7 +5,7 @@ Kural: kod yazmak tamamlanma değildir. Test edilmeyen bir şey için "çalış�
 ## Komutlar
 
 ```bash
-npm run db:test                        # veritabanı: 37 test
+npm run db:test                        # veritabanı: 47 test
 npm --prefix apps/mobile run typecheck # tsc --noEmit (strict + noUncheckedIndexedAccess)
 npm --prefix apps/mobile run lint      # expo lint + mimari kuralları
 npm --prefix apps/mobile test          # jest: 30 test
@@ -13,7 +13,7 @@ npm --prefix apps/mobile run verify    # typecheck + lint + test
 npm --prefix apps/mobile run doctor    # expo-doctor: 21/21
 ```
 
-## Veritabanı testleri — 37 test (`supabase/tests/`)
+## Veritabanı testleri — 47 test (`supabase/tests/`)
 
 Altyapı: Vitest + `embedded-postgres` (gerçek PostgreSQL 18, çoklu bağlantı) + `supabase-shim.sql` (`anon` / `authenticated` / `service_role` rolleri, `auth.users`, `auth.uid()`, Supabase varsayılan yetkileri). `helpers.ts` içindeki `asUser` / `asAnon` / `asService`, her sorguyu API'den gelirmiş gibi ilgili rol ve JWT claim'leriyle çalıştırır; RLS ve `execute` yetkileri gerçekten uygulanır.
 
@@ -68,3 +68,11 @@ Bu sırada bulunan ve düzeltilen hata: `event_eligibility` içinde `text[] || '
 7. `signout-and-delete`: çıkış sonrası önbellek boş; hesap silme
 
 "Event Pilot hazır" denmesi için 2., 3. ve 6. akışların gerçek cihazda ve gerçek backend'de geçmesi gerekir.
+
+## Sonradan eklenen paketler
+| Dosya | Kanıtladığı |
+|---|---|
+| `supabase/tests/rls-audit.test.ts` | Tüm `public` tablolarda RLS açık · her `SECURITY DEFINER` fonksiyonda `search_path` sabit · anonim ziyaretçi 24 hassas tablodan satır okuyamaz · kullanıcı yalnız kendi profil/yer imini yönetir · doğrulama, check-in, kurum rolü, platform yöneticiliği ve veli rızası tabloya doğrudan yazılarak üretilemez |
+| `supabase/tests/admin.test.ts` | Rolsüz kullanıcı panel verisine erişemez · kurum A, kurum B'nin kayıt/taslaklarını göremez · etkinlik yöneticisi oluşturur/düzenler/incelemeye gönderir, yayını yalnız platform yöneticisi yapar, geçersiz durum geçişi reddedilir, hepsi audit'lenir · etkinlik iptali kayıtları iptal eder ve kartları geçersizleştirir · check-in görevlisi yalnız kendi kurumunda çalışır; yanlış etkinlik / iptal / paralel çift okutma ayrışır |
+
+CI (`.github/workflows/ci.yml`) her PR'da: veritabanı testleri · mobil typecheck + lint + jest · panel build · gizli anahtar taraması.

@@ -1,7 +1,7 @@
 # TechApp — kalıcı proje talimatları
 
-> Bu repo Intechne'nin **TechApp** ürünüdür. Üst dizindeki (`~/CLAUDE.md`) Yıldız Robot Yarışları yaratıcı proje
-> kuralları bu repo için **geçerli değildir**; burada aşağıdaki kurallar uygulanır.
+> Bu repo Intechne'nin **TechApp** ürünüdür. Bu dosya hem yapay zekâ asistanları hem de ekip için bağlayıcı proje kurallarıdır.
+> (Üst dizinlerden miras gelen başka projelere ait talimatlar bu repo için geçerli değildir.) İnsanlar için sürüm: `CONTRIBUTING.md`.
 
 Ana fikir: **"Bir fikrin varsa, bir yerin var."** Döngü: keşfet → katıl → üret → deneyimini görünür kıl → yeni fırsat bul.
 Standart: kullanıcıya genç ve sade; sistem tarafında ciddi, güvenli, ölçeklenebilir.
@@ -48,4 +48,4 @@ npm --prefix apps/mobile run icons   # design-source/icons → icons.generated.t
 npx --prefix apps/mobile expo-doctor
 ```
 Her değişiklikten sonra: typecheck → lint → test → çalışan uygulamada doğrulama. UI değişikliği ekranda görülmeden bitmiş sayılmaz.
-`IMPLEMENTATION-STATUS.md` ve ilgili `docs/*.md` her fazda güncellenir. Git: `techapp/rebuild` dalı; destructive komut (reset --hard vb.) yok.
+`IMPLEMENTATION-STATUS.md` ve ilgili `docs/*.md` her fazda güncellenir. Git: `main` korunur, iş `feat/…` `fix/…` dallarında PR ile gelir (`CONTRIBUTING.md`); destructive komut (reset --hard, force push vb.) yok.

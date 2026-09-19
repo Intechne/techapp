@@ -5,11 +5,9 @@
 ## 1. Current state (incelemede bulunan gerçek durum)
 | Kaynak | Yer | Durum |
 |---|---|---|
-| Tasarım paketi v0.1 (prototip, 30 SVG, tokens, ürün/teknik belgeler) | `~/Documents/Codex/2026-09-19/in/outputs/techapp` (kopyası `design-source/`) | Tarayıcı prototipi; `127.0.0.1:8765`'te çalışıyordu, DOM + görsel olarak incelendi |
-| TechApp v4 (Expo 52 / RN 0.76 / Nav 6, 33 ekran, ~3.700 satır) | `…/in/work/import-v4/techapp-mobile` | Lockfile yok, hiç derlenmemiş, backend çağrısı yok. P0: client-only auth, demo guardian bypass, varsayılan kaptan rolü, demo billing. P1'ler kod üzerinde doğrulandı |
-| v5 iskeleti (yalnız `package.json`, Expo 57) | `…/in/outputs/techapp-mobile` | Boş; kullanılmadı |
-| Eski denemeler (`~/TechApp` expo-router, `~/techapp-mobile*` Capacitor/CRA) | ev dizini | İlgisiz/eskimiş; dokunulmadı |
-| Makine | — | Node 22, Xcode + Android SDK var; Docker/Supabase CLI yok; disk %99 dolu |
+| Tasarım paketi v0.1 (prototip, 30 SVG, tokens, ürün/teknik belgeler) | `design-source/` (özgün paket Intechne arşivinde) | Tarayıcı prototipi; `127.0.0.1:8765`'te çalışıyordu, DOM + görsel olarak incelendi |
+| TechApp v4 (Expo 52 / RN 0.76 / Nav 6, 33 ekran, ~3.700 satır) | Intechne arşivi (`TechApp-Mobile-v4-FINAL.zip`); bu depoya kopyalanmadı | Lockfile yok, hiç derlenmemiş, backend çağrısı yok. P0: client-only auth, demo guardian bypass, varsayılan kaptan rolü, demo billing. P1'ler kod üzerinde doğrulandı |
+| v5 iskeleti (yalnız `package.json`, Expo 57) | — | Boş; kullanılmadı |
 
 ## 2. Kararlar
 - **SDK:** v4'ün Expo 52'si destek dışı ve hiç build almamış → "upgrade" yerine Expo SDK 57 (npm `latest`, RN 0.86, React 19) temiz iskelet + taşıma. Sürümler `expo install` ile çözüldü, `expo-doctor` 21/21.

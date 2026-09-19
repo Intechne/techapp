@@ -1,0 +1,21 @@
+name: Hata bildirimi
+description: Beklendiği gibi çalışmayan bir şey
+labels: [bug]
+body:
+  - type: dropdown
+    id: area
+    attributes: { label: Alan, options: [Mobil uygulama, Yönetim paneli, Veritabanı / RLS, Edge Functions, Veli onay sayfası, Dokümantasyon] }
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes: { label: Yeniden üretme adımları, placeholder: "1. …\n2. …" }
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes: { label: Beklenen ve gerçekleşen }
+    validations: { required: true }
+  - type: input
+    id: env
+    attributes: { label: Ortam, placeholder: "iOS 26 simülatör / Android 15 / Chrome · yerel yığın ya da staging" }
+  - type: markdown
+    attributes: { value: "Güvenlik açığı mı? Buraya yazma → SECURITY.md. Ekran görüntüsünde kişisel veri olmasın." }

@@ -1,5 +1,5 @@
 {
-  "name": "techapp-platform",
+  "name": "techapp",
   "private": true,
   "version": "5.0.0",
   "description": "TechApp — mobile app, admin panel and Supabase backend",
@@ -13,7 +13,8 @@
     "db:types:check": "npm run db:types && git diff --exit-code apps/mobile/src/lib/database.generated.ts",
     "db:push": "supabase db push --dry-run && echo 'Review the plan above, then run: npx supabase db push'",
     "functions:deploy": "supabase functions deploy guardian-dispatch && supabase functions deploy delete-account",
-    "admin": "npm --prefix apps/admin run dev"
+    "admin": "npm --prefix apps/admin run dev",
+    "mobile:web": "npm --prefix apps/mobile run web"
   },
   "engines": {
     "node": ">=22"

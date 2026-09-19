@@ -1,0 +1,18 @@
+name: Özellik / iş kalemi
+description: Yeni bir özellik ya da fazlardan bir iş
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes: { label: Kullanıcı ihtiyacı, description: Kim, neyi, neden yapmak istiyor? }
+    validations: { required: true }
+  - type: dropdown
+    id: phase
+    attributes: { label: Faz, options: ["4 · Event pilot", "5 · Admin", "6 · Fırsatlar", "7 · Topluluk / takımlar", "8 · Profil / deneyim", "9 · Öğrenme", "10 · Yayın hazırlığı", "Diğer"] }
+  - type: textarea
+    id: acceptance
+    attributes: { label: Kabul kriterleri, placeholder: "- [ ] …\n- [ ] Yetkisiz kullanıcı yapamıyor (test)" }
+    validations: { required: true }
+  - type: textarea
+    id: notes
+    attributes: { label: Sunucu tarafı / veri / gizlilik notları }

@@ -100,4 +100,4 @@ supabase secrets set RESEND_API_KEY=… GUARDIAN_PAGE_URL=… MAIL_FROM=…
 
 ## Doğrulama durumu
 
-Migration 0100–0400 gömülü PostgreSQL 18 üzerinde 37 testle çalıştırıldı. `…000500_storage.sql` ve Edge Functions **statik olarak hazırlandı; gerçek Supabase projesinde hiç çalıştırılmadı.**
+Migration 0100–0400 gömülü PostgreSQL 18 üzerinde 47 testle çalıştırıldı (0600 dahil). `…000500_storage.sql` ve Edge Functions **statik olarak hazırlandı; gerçek Supabase projesinde hiç çalıştırılmadı.**

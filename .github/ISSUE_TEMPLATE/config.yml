@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Güvenlik açığı bildir
+    url: https://github.com/Intechne/techapp/security/advisories/new
+    about: Güvenlik sorunlarını herkese açık issue olarak açma.
