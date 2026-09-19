@@ -11,5 +11,10 @@ export const SITE = {
   },
 } as const;
 
-export const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
-export const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '';
+/**
+ * Public backend coordinates. Both values are PUBLIC by design (the publishable key ships inside the mobile app and every
+ * page of this site; Row Level Security decides what it may do). Environment variables override them, e.g. to point a
+ * preview deployment at another Supabase project. A secret / service_role key must never be placed here.
+ */
+export const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://pacvhcnawtnkauvguoaw.supabase.co';
+export const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_MLarR9cY0rVgHR4MZG54-A_jfyk9E1A';
