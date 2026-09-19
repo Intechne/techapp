@@ -1,0 +1,22 @@
+{
+  "name": "techapp-platform",
+  "private": true,
+  "version": "5.0.0",
+  "description": "TechApp — mobile app, admin panel and Supabase backend",
+  "scripts": {
+    "db:test": "vitest run --config supabase/tests/vitest.config.mts",
+    "db:dev": "node supabase/dev/start.mjs",
+    "mobile": "npm --prefix apps/mobile run start",
+    "verify": "npm run db:test && npm --prefix apps/mobile run verify"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "embedded-postgres": "^18.4.0-beta.17",
+    "pg": "^8.23.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  }
+}

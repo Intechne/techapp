@@ -1,0 +1,15 @@
+node_modules/
+.env
+.env.*
+!.env.example
+.DS_Store
+dist/
+.expo/
+web-build/
+ios/
+android/
+*.log
+supabase/.temp/
+supabase/dev/.pgdata/
+secrets/
+coverage/
