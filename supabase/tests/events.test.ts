@@ -136,6 +136,8 @@ describe('guardian consent', () => {
     await asAnon((q) => q(`select public.guardian_revoke($1)`, [decided.revoke_token]));
     const after = await admin(`select r.status, e.seats_taken from public.event_registrations r join public.events e on e.id = r.event_id where r.id = $1`, [reg.id]);
     expect(after.rows[0]).toEqual({ status: 'cancelled', seats_taken: 0 });
+    const live = await admin(`select count(*)::int n from public.consents where subject_id = $1 and withdrawn_at is null`, [reg.id]);
+    expect(live.rows[0].n).toBe(0); // neither the guardian's nor the participant's consent outlives the registration
     expect(event).toBeTruthy();
   });
 
