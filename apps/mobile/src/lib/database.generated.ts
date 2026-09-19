@@ -1817,6 +1817,19 @@ export type Database = {
       }
     }
     Functions: {
+      admin_event_registrations: {
+        Args: { p_event_id: string }
+        Returns: {
+          checked_in_at: string
+          confirmed_at: string
+          created_at: string
+          display_name: string
+          guardian_status: Database["public"]["Enums"]["guardian_status"]
+          registration_id: string
+          status: Database["public"]["Enums"]["registration_status"]
+          status_reason: string
+        }[]
+      }
       application_share_preview: {
         Args: { p_opportunity_id: string }
         Returns: Json
@@ -1866,7 +1879,11 @@ export type Database = {
         }
       }
       check_in_participant: {
-        Args: { p_session_id?: string; p_token: string }
+        Args: {
+          p_expected_event_id?: string
+          p_session_id?: string
+          p_token: string
+        }
         Returns: Json
       }
       complete_lesson: {

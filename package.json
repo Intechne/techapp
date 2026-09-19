@@ -8,8 +8,8 @@
     "db:dev": "node supabase/dev/start.mjs",
     "mobile": "npm --prefix apps/mobile run start",
     "verify": "npm run db:test && npm --prefix apps/mobile run verify",
-    "db:types": "supabase gen types typescript --linked --schema public > apps/mobile/src/lib/database.generated.ts",
-    "db:types:local": "PG_META_DB_URL=postgres://postgres:postgres@127.0.0.1:54322/techapp PG_META_GENERATE_TYPES=typescript PG_META_GENERATE_TYPES_INCLUDED_SCHEMAS=public npx -y -p @supabase/postgres-meta node -e \"require('@supabase/postgres-meta/dist/server/server.js')\" > apps/mobile/src/lib/database.generated.ts",
+    "db:types": "supabase gen types typescript --linked --schema public > /tmp/techapp-db-types.ts && mv /tmp/techapp-db-types.ts apps/mobile/src/lib/database.generated.ts",
+    "db:types:local": "node supabase/dev/gen-types.mjs",
     "db:types:check": "npm run db:types && git diff --exit-code apps/mobile/src/lib/database.generated.ts",
     "db:push": "supabase db push --dry-run && echo 'Review the plan above, then run: npx supabase db push'",
     "functions:deploy": "supabase functions deploy guardian-dispatch && supabase functions deploy delete-account"
