@@ -36,7 +36,7 @@ Durum: ✅ taşındı · 🟡 kısmen · ⚪ başlamadı · 🔒 feature flag ar
 |---|---|---|---|
 | `OnboardingScreen` | `features/onboarding` — değer önerisi → eğitim aşaması → ilgi alanları → misafir keşif | 2 | ✅ |
 | `AuthScreen` | `AuthEmail` + `AuthOtp` + `ProfileBootstrap` (gerçek OTP; `loggedIn: true` kaldırıldı) | 2 | ✅ |
-| `GuardianConsentScreen` | `features/guardian/GuardianRequestScreen` + `apps/guardian-web` ("Devam Et (Demo)" kaldırıldı) | 2–4 | ✅ |
+| `GuardianConsentScreen` | `features/guardian/GuardianRequestScreen` + `apps/web` (/veli) ("Devam Et (Demo)" kaldırıldı) | 2–4 | ✅ |
 | `HomeScreen` | Keşfet (`DiscoverScreen`) | 3 | ✅ |
 | `SearchScreen` | Keşfet içi arama | 3 | 🟡 yalnız etkinlik |
 | `EventsScreen` | Etkinlikler (`EventsListScreen`, cursor pagination) | 4 | ✅ |
