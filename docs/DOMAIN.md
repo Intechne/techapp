@@ -16,8 +16,9 @@ Karar (2026-09-19): TechApp'in tek genel web adresi `intechne.com.tr`'nin alt al
 Alt alan adları (öneri): `panel.techapp.intechne.com.tr` → yönetim paneli (`apps/admin`). API için ayrı alan adı gerekmez (Supabase proje adresi kullanılır); istenirse ileride Supabase custom domain ile `api.techapp.intechne.com.tr`.
 
 ## E-posta
-- Gönderen: `giris@techapp.intechne.com.tr` (OTP) ve `onay@techapp.intechne.com.tr` (veli). Resend/SMTP'de **alt alan adını** doğrula (SPF, DKIM, DMARC kayıtları `techapp.intechne.com.tr` için) — ana alan adının e-posta itibarını ürün e-postalarından ayırır.
-- Supabase secrets: `MAIL_FROM="TechApp <onay@techapp.intechne.com.tr>"`, `GUARDIAN_PAGE_URL=https://techapp.intechne.com.tr/veli`.
+- **Karar:** ürün e-postaları `auth.intechne.com.tr` alt alan adından, Resend üzerinden gider. Giriş kodları: `no-reply@auth.intechne.com.tr` (Supabase Auth → özel SMTP; kimlik bilgileri yalnız Dashboard'da, repoda değil).
+- OTP şablonu `supabase/templates/otp.html` (6 haneli `{{ .Token }}`), `config.toml` üzerinden `confirmation` + `magic_link` için yüklendi.
+- Veli onay e-postası (`guardian-dispatch` Edge Function) aynı alan adını kullanabilir. Secrets: `MAIL_FROM="TechApp <no-reply@auth.intechne.com.tr>"`, `GUARDIAN_PAGE_URL=https://techapp.intechne.com.tr/veli`, `RESEND_API_KEY` (yalnız `supabase secrets set` ile; dosyaya/sohbete yazılmaz).
 
 ## Alan adı hazır olduğunda yapılacaklar
 1. DNS: `techapp` CNAME → barındırma (Vercel / Cloudflare Pages / Netlify); `panel.techapp` CNAME → panel barındırması. HTTPS zorunlu.
