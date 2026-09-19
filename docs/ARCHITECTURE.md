@@ -56,7 +56,7 @@ Oturum (`SessionProvider`) Supabase'in verdiği oturumun aynasıdır; kimlik ta�
 - Kök stack: `Onboarding` | `Main` + modal grup (`AuthEmail`, `AuthOtp`, `ProfileBootstrap`).
 - 5 sekme, her biri kendi native stack'iyle: `DiscoverTab`, `EventsTab`, `OpportunitiesTab`, `CommunityTab`, `ProfileTab`. Sekme etiketleri her zaman görünür.
 - **Paylaşılan etkinlik yolculuğu** (`EventDetail`, `EventRegistration`, `RegistrationStatus`, `GuardianRequest`, `ParticipationCard`, `MyRegistrations`) Keşfet, Etkinlikler ve Profil stack'lerine ayrı ayrı kaydedilir. Native stack liste ekranını bağlı tuttuğu için "filtre → detay → geri" filtreyi ve scroll konumunu korur.
-- Deep link: `techapp://events/<id>`, `techapp://registrations/<id>` ve `https://techapp.com.tr/...` (universal link alan adı dosyaları henüz yok; `docs/RELEASE.md`).
+- Deep link: `techapp://events/<id>`, `techapp://registrations/<id>` ve `https://techapp.intechne.com.tr/...` (universal link alan adı dosyaları henüz yok; `docs/RELEASE.md`).
 
 ## Tasarım sistemi
 

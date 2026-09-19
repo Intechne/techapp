@@ -22,7 +22,7 @@ Her EAS ortamında tanımlanacak değişkenler: `EXPO_PUBLIC_APP_ENV`, `EXPO_PUB
 - **Google Play:** geliştirici hesabı, `com.intechne.techapp` paket adı, gönderim için servis hesabı anahtarı (depo dışında, `secrets/` git'e girmez).
 - **Huawei:** AppGallery Connect hesabı ve uygulama kaydı; push için AGC yapılandırması (`docs/HUAWEI.md`).
 - **Supabase:** development / preview / production projeleri, özel SMTP, Edge Function sırları.
-- **Alan adı:** universal link / app link için `techapp.com.tr` altında `apple-app-site-association` ve `assetlinks.json` dosyaları. Şu an yok; yalnız `techapp://` şeması çalışır.
+- **Alan adı:** `techapp.intechne.com.tr` (ayrıntı: `docs/DOMAIN.md`). Universal link / app link için bu alan adı altında `apple-app-site-association` ve `assetlinks.json` dosyaları. Şu an yok; yalnız `techapp://` şeması çalışır.
 - Destek e-postası, gizlilik ve kullanım koşulları bağlantıları, moderasyon/iletişim sorumlusu.
 
 ## Yayın kapıları

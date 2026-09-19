@@ -8,7 +8,7 @@ max_rows = 200
 
 [auth]
 site_url = "techapp://"
-additional_redirect_urls = ["techapp://**", "http://localhost:8081/**", "http://127.0.0.1:8081/**"]
+additional_redirect_urls = ["techapp://**", "https://techapp.intechne.com.tr/**", "http://localhost:8081/**", "http://127.0.0.1:8081/**"]
 enable_signup = true
 minimum_password_length = 12
 

@@ -1,10 +1,11 @@
 import * as Linking from 'expo-linking';
 import type { LinkingOptions } from '@react-navigation/native';
+import { WEB_ORIGIN } from '../lib/domain';
 import type { RootStackParamList } from './types';
 
-/** techapp://events/<id> and https://techapp.com.tr/events/<id> (universal links need store/domain setup, see docs/RELEASE.md). */
+/** techapp://events/<id> and https://techapp.intechne.com.tr/events/<id> (universal links need store/domain setup, see docs/RELEASE.md). */
 export const linking: LinkingOptions<RootStackParamList> = {
-  prefixes: [Linking.createURL('/'), 'https://techapp.com.tr'],
+  prefixes: [Linking.createURL('/'), WEB_ORIGIN],
   config: {
     // A deep-linked detail still gets the list underneath, so Back lands somewhere sensible.
     initialRouteName: 'Main',

@@ -11,6 +11,7 @@ Okuma sırası önerisi (yeni başlayan için): **ARCHITECTURE → DATABASE → 
 | [PRODUCT-SCOPE](PRODUCT-SCOPE.md) | Ürün tanımı, eski 33 ekranın yeni yapıya eşlemesi, fazlar | Kapsam kararı değişince |
 | [TESTING](TESTING.md) | Hangi test neyi kanıtlıyor, neler elle doğrulandı | Test eklenince |
 | [RELEASE](RELEASE.md) | Supabase'e bağlanma, EAS profilleri, mağaza gereksinimleri | Yayın süreci değişince |
+| [DOMAIN](DOMAIN.md) | `techapp.intechne.com.tr` URL haritası, e-posta alan adı, universal link dosyaları | Alan adı / URL kararı değişince |
 | [HUAWEI](HUAWEI.md) | GMS'siz cihaz durumu, HMS planı | Bağımlılık eklenince |
 | [KNOWN-ISSUES](KNOWN-ISSUES.md) | Doğrulanmamış alanlar, teknik borç, eksik kapsam | **Her PR'da gözden geçir** |
 
