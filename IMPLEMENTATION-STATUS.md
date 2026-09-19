@@ -35,11 +35,24 @@ Son güncelleme: 2026-09-19 (3. oturum) · Dal: `feat/release-readiness` · ✅ 
 Test toplamı: DB **52/52**, mobil jest **41/41**, mobil typecheck + lint temiz, admin build temiz, web typecheck temiz.
 
 ### Bu oturumdan sonra yayın için kalan adımlar
-1. `supabase/migrations/20260920000100_*` ve `20260920000200_*` **remote'a uygulanmadı**. `npm run db:push` (dry-run planını oku) → `npm run db:types` → `npm --prefix apps/mobile run e2e:remote`. Uygulanana kadar canlıda CV paylaşımı, unvan ve gönüllü alanı çalışmaz (mobil şema eski sunucuyu da okur).
+1. `supabase/migrations/20260920000100_*`, `20260920000200_*` ve `20260920000300_*` **remote'a uygulanmadı**. `npm run db:push` (dry-run planını oku) → `npm run db:types` → `npm --prefix apps/mobile run e2e:remote`. Uygulanana kadar canlıda CV paylaşımı, unvan ve gönüllü alanı çalışmaz (mobil şema eski sunucuyu da okur).
 2. Vercel: `apps/web` yeniden deploy (yeni `/cv/[token]` rotası), `apps/admin` ayrı proje olarak deploy (`VITE_SUPABASE_*`).
 3. Native build hâlâ ⛔ (EAS Build ya da ≥15 GB disk). Yeni ikonlar `expo prebuild` ile alınır; cihazda bakılmadı.
 4. Hukuk: reşit olmayanların CV bağlantısı paylaşımı ve gönüllülüğü (ikisi de şimdilik 18+).
 5. Bilinen küçükler: web'de `/profile` derin bağlantısı oturum açılışından sonra Keşfet'e düşüyor; admin paket boyutu uyarısı (>500 kB, kod bölme yapılmadı).
+
+## Güvenlik denetimi (2026-09-19, 3. oturum)
+İki bağımsız denetim yapıldı (yalnız yerel yığın; remote'a dokunulmadı).
+
+**Backend (RLS/RPC) — temiz.** 4 saldırgan profiliyle (anon, normal kullanıcı, düşük rollü kurum üyesi, takım dışı) 28/28 aktif istismar denemesi engellendi. Statik denetim: her tabloda RLS açık; SECURITY DEFINER fonksiyonlarında `search_path=''`; anon-çalıştırılabilir yalnız 5 fonksiyon (hepsi kendini savunuyor); yetki taşıyan kolonlar (birth_date, discoverable, org verification/is_demo, event status/seats_taken, team member_count, attestation status) trigger korumalı. Check-in token'ları HMAC-SHA256 + sabit-zaman; veli token'ları sha256 hash, tek kullanımlık.
+
+**Mobil istemci + web yüzeyi — kritik/yüksek yok.** Sır sızıntısı yok (yalnız publishable key; eslint `service_role`'ü yasaklıyor). Oturum `expo-secure-store`'da (Keychain/Keystore), token log/analytics'e yazılmıyor. Yetki daima sunucudan (`my_account_state`). Deep link yalnız salt-okunur ekranlara; yan etki tetiklemiyor. Analytics yalnız id+enum. QR opak imzalı token. WebView yok; `eval`/`Function` yok. Web CV: token URL fragment/path'te, `no-referrer` + `noindex`, serbest metin React ile escape'li, JSON-LD `<` kaçışlı.
+
+**Bulgular kapatıldı (hepsi düşük/bilgi):**
+- Mobil `Linking.openURL` çağrıları artık `openExternalUrl` ile https doğruluyor (`lib/links.ts` + test).
+- Auth callback yalnız bu cihazın başlattığı girişte token kabul ediyor (magic-link login-CSRF kapatıldı).
+- Web CV'de `new URL(link_url)` → `safeHost()` (bozuk değer 500 vermiyor).
+- `organizations.verified_by/verified_at` artık anon'a kapalı (kolon-düzeyi grant).
 
 ## İlk milestone kabul kriterleri (§47)
 | | Kriter | Durum | Kanıt |
