@@ -8,12 +8,16 @@
  * to this terminal instead of being e-mailed), dev versions of our Edge Functions under /functions/v1, (the guardian
  * consent page is apps/web → http://localhost:3100/veli). The mobile app runs unmodified against it with the real supabase-js client.
  * Binds to 127.0.0.1 only. Requires `brew install postgrest`. Use `--reset` to recreate the database.
+ * `--lan` additionally opens the GATEWAY (never Postgres or PostgREST) to the local network and points the MOBILE app at this
+ * machine's LAN address, so a phone on the same Wi-Fi can use it. The dev gateway hands out OTP codes without e-mail: use it on a
+ * network you trust, and drop the flag when you are done.
  */
 import EmbeddedPostgres from 'embedded-postgres';
 import { spawn } from 'node:child_process';
 import { createHmac, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
+import { networkInterfaces } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
@@ -23,6 +27,11 @@ const root = join(here, '..', '..');
 const dataDir = join(here, '.pgdata');
 const secretFile = join(here, '.jwt-secret');
 const PG_PORT = 54322, REST_PORT = 54323, GATEWAY_PORT = 54321;
+
+const LAN = process.argv.includes('--lan');
+const lanAddress = () => Object.values(networkInterfaces()).flat().find((n) => n && n.family === 'IPv4' && !n.internal)?.address;
+const LAN_IP = LAN ? lanAddress() : undefined;
+if (LAN && !LAN_IP) { console.error('--lan: no local network address found (is Wi-Fi on?)'); process.exit(1); }
 
 if (process.argv.includes('--reset')) rmSync(dataDir, { recursive: true, force: true });
 if (!existsSync(secretFile)) { mkdirSync(here, { recursive: true }); writeFileSync(secretFile, randomBytes(32).toString('hex')); }
@@ -172,11 +181,12 @@ http.createServer(async (req, res) => {
     // The guardian page lives in apps/web (/veli). Run `npm run web` and open the printed link there.
     send(res, 404, { message: 'not found' });
   } catch (e) { console.error(e); send(res, 500, { code: 'server_error' }); }
-}).listen(GATEWAY_PORT, '127.0.0.1');
+}).listen(GATEWAY_PORT, LAN ? '0.0.0.0' : '127.0.0.1');
 
-writeFileSync(join(root, 'apps/mobile/.env.localstack'), `EXPO_PUBLIC_APP_ENV=local\nEXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:${GATEWAY_PORT}\nEXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}\n`);
+writeFileSync(join(root, 'apps/mobile/.env.localstack'), `EXPO_PUBLIC_APP_ENV=local\nEXPO_PUBLIC_SUPABASE_URL=http://${LAN_IP ?? '127.0.0.1'}:${GATEWAY_PORT}\nEXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}\n`);
 writeFileSync(join(root, 'apps/web/.env.localstack'), `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:${GATEWAY_PORT}\nNEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}\n`);
 writeFileSync(join(root, 'apps/admin/.env.localstack'), `VITE_SUPABASE_URL=http://127.0.0.1:${GATEWAY_PORT}\nVITE_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}\n`);
+if (LAN) console.log(`LAN mode: phones on this Wi-Fi reach the gateway at http://${LAN_IP}:${GATEWAY_PORT}`);
 console.log(`TechApp local stack ready → http://127.0.0.1:${GATEWAY_PORT}  (.env.localstack written; run "npm run env:local" to point the apps here)\nOrganiser test login: organizator@techapp.test — OTP codes appear in this terminal.`);
 
 const shutdown = async () => { postgrest.kill(); await db.end().catch(() => {}); await server.stop().catch(() => {}); process.exit(0); };

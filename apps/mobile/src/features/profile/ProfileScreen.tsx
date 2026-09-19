@@ -75,7 +75,8 @@ export function ProfileScreen({ navigation }: NativeStackScreenProps<ProfileStac
             </View>
             <View style={styles.identity}>
               <View style={styles.avatarRing}><Avatar name={profile.display_name} size={72} /></View>
-              <View style={{ flex: 1, paddingTop: space[6] }}>
+              {/* The row is pulled up by space[7] so the avatar overlaps the cover; the text starts clear below the cover edge. */}
+              <View style={{ flex: 1, paddingTop: space[7] + space[2] }}>
                 <Text variant="section" accessibilityRole="header">{profile.display_name ?? 'Adını ekle'}</Text>
                 <Text variant="bodySmall" color="textSecondary">{profile.headline ?? session?.user.email ?? ''}</Text>
                 {!!subtitle && <Text variant="caption" color="textSecondary" style={{ marginTop: 2 }}>{subtitle}</Text>}

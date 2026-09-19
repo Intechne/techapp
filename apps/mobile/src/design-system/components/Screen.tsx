@@ -4,6 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { colors, layout, space } from '../tokens';
 import { Text } from '../Text';
 import { IconButton } from './Button';
+import { BrandMark } from '../BrandMark';
 import { useLayout } from '../useLayout';
 
 interface ScreenProps extends ScrollViewProps {
@@ -53,7 +54,7 @@ export function AppHeader({ title, onBack, right, brand }: HeaderProps) {
       {onBack && <IconButton icon="back" accessibilityLabel="Geri" onPress={onBack} style={{ marginLeft: -space[2] }} />}
       {brand ? (
         <View style={styles.brand} accessible accessibilityLabel="TechApp">
-          <Text variant="section" color="primary">T.</Text><Text variant="section"> techapp</Text>
+          <BrandMark size={28} /><Text variant="section">techapp</Text>
         </View>
       ) : (
         <Text variant="label" numberOfLines={1} style={{ flex: 1, textAlign: onBack ? 'center' : 'left' }}>{title}</Text>
@@ -69,6 +70,6 @@ const styles = StyleSheet.create({
   content: { paddingBottom: space[8], paddingTop: space[2] },
   footer: { paddingTop: space[3], backgroundColor: colors.canvas, borderTopWidth: 1, borderTopColor: colors.border, gap: space[2] },
   header: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: space[1] },
-  brand: { flex: 1, flexDirection: 'row', alignItems: 'baseline' },
+  brand: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: space[2] },
   headerRight: { flexDirection: 'row', alignItems: 'center' },
 });

@@ -1,6 +1,7 @@
 export * from './tokens';
 export * from './Text';
 export * from './TechIcon';
+export * from './BrandMark';
 export * from './useReducedMotion';
 export * from './useLayout';
 export * from './components/Grid';

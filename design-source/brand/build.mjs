@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // TechApp emblem: one geometry → every platform asset. Run: node design-source/brand/build.mjs
-// The mark is the "T." of the wordmark drawn as an OPEN CIRCUIT: bar and stem never touch; the lime node is the point that
-// closes it ("Bir fikrin varsa, bir yerin var"). Pure geometry, no font, so it renders identically everywhere.
+// The mark is the tilted rounded tile that recurs in the product (profile cover, web hero, CV page) with the wordmark's "T."
+// PUNCHED THROUGH it, so the ground shows inside the letter: "Bir fikrin varsa, bir yerin var" — a place with your mark in it.
+// Pure geometry, no font, so it renders identically everywhere. The cut-out is a real mask: it stays transparent on Android.
 import { createRequire } from 'node:module';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -13,28 +14,34 @@ const sharp = createRequire(join(root, 'apps/web/'))('sharp'); // sharp ships wi
 // Colours mirror design-source/tokens.json.
 const IRIS = '#4B46D6', LIME = '#D9F36E', INK = '#20241F', WHITE = '#FFFFFF';
 
-/** Glyph on a 1024 grid, optically centred. `scale` keeps it inside each platform's safe zone. */
-const glyph = (bar, node, scale) => `<g transform="translate(512 512) scale(${scale}) translate(-512 -512)">`
-  + `<rect x="269" y="262" width="480" height="132" rx="36" fill="${bar}"/><rect x="443" y="428" width="132" height="334" rx="36" fill="${bar}"/>`
-  + `<circle cx="689" cy="696" r="66" fill="${node}"/></g>`;
+const TILT = -12, TILE = 640, RADIUS = 164;
+const letter = `<path d="M322 338h360a18 18 0 0 1 18 18v76a18 18 0 0 1-18 18H560v230a18 18 0 0 1-18 18h-80a18 18 0 0 1-18-18V450H322a18 18 0 0 1-18-18v-76a18 18 0 0 1 18-18z"/><circle cx="662" cy="644" r="54"/>`;
+/** Tile with the "T." cut out of it. `scale` keeps it inside each platform's safe zone; the (9,-6) nudge centres the letter + node optically. */
+const emblem = (fill, scale, id = 'cut') => `<defs><mask id="${id}"><rect width="1024" height="1024" fill="#fff"/><g transform="translate(9 -6)" fill="#000">${letter}</g></mask></defs>`
+  + `<g transform="translate(512 512) scale(${scale}) rotate(${TILT}) translate(-512 -512)"><rect x="${512 - TILE / 2}" y="${512 - TILE / 2}" width="${TILE}" height="${TILE}" rx="${RADIUS}" fill="${fill}" mask="url(#${id})"/></g>`;
 const svg = (inner, size = 1024) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="${size}" height="${size}" role="img" aria-label="TechApp">${inner}</svg>`;
 const ground = (fill, rx = 0) => `<rect width="1024" height="1024" rx="${rx}" fill="${fill}"/>`;
 
 const art = {
-  full: svg(ground(IRIS) + glyph(WHITE, LIME, 1.12)),               // iOS / store: full bleed, the OS applies the mask
-  tile: svg(ground(IRIS, 229) + glyph(WHITE, LIME, 1.12)),          // self-masked tile: favicons, splash, documents
-  tileInk: svg(ground(INK, 229) + glyph(LIME, '#8B87FF', 1.12)),    // dark alternative for print / merchandise
-  foreground: svg(glyph(WHITE, LIME, 0.8)),                         // Android adaptive: content inside the 66% safe zone
-  monochrome: svg(glyph(WHITE, WHITE, 0.8)),                        // Android themed icon: single colour, alpha only
+  full: svg(ground(IRIS) + emblem(LIME, 1)),                  // iOS / store: full bleed, the OS applies the mask
+  tile: svg(ground(IRIS, 229) + emblem(LIME, 1)),             // self-masked: favicons, splash, documents
+  tileInk: svg(ground(INK, 229) + emblem(LIME, 1)),           // dark alternative for print / merchandise
+  foreground: svg(emblem(LIME, 0.72)),                        // Android adaptive: inside the 66% safe zone even when tilted
+  monochrome: svg(emblem(WHITE, 0.72)),                       // Android themed icon: alpha only, the letter stays a hole
   background: svg(ground(IRIS)),
-  markIris: svg(glyph(IRIS, INK, 1.4)),                             // glyph alone on light grounds
-  markWhite: svg(glyph(WHITE, LIME, 1.4)),                          // glyph alone on iris / ink / photography
+  markLime: svg(emblem(LIME, 1.3)),                           // emblem alone on iris / ink / photography
+  markIris: svg(emblem(IRIS, 1.3)),                           // emblem alone on light grounds
 };
+
+/** In-app mark: same geometry without an SVG mask (the ground colour is known, so the letter is simply drawn in it). */
+const appMark = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="${IRIS}"/>`
+  + `<g transform="rotate(${TILT} 512 512)"><rect x="${512 - TILE / 2}" y="${512 - TILE / 2}" width="${TILE}" height="${TILE}" rx="${RADIUS}" fill="${LIME}"/><g transform="translate(9 -6)" fill="${IRIS}">${letter}</g></g></svg>`;
 
 const out = (p) => { const f = join(root, p); mkdirSync(dirname(f), { recursive: true }); return f; };
 const png = (name, file, size, flatten) => { let img = sharp(Buffer.from(art[name]), { density: 300 }).resize(size, size); if (flatten) img = img.flatten({ background: flatten }); return img.png({ compressionLevel: 9 }).toFile(out(file)); };
 
 for (const [name, source] of Object.entries(art)) writeFileSync(out(`design-source/brand/techapp-${name}.svg`), source + '\n');
+writeFileSync(out('apps/mobile/src/design-system/brandMark.generated.ts'), `// Generated by design-source/brand/build.mjs. Do not edit by hand.\nexport const brandMarkXml = ${JSON.stringify(appMark)};\n`);
 writeFileSync(out('apps/web/app/icon.svg'), art.tile + '\n');
 writeFileSync(out('apps/admin/public/favicon.svg'), art.tile + '\n');
 await Promise.all([
