@@ -25,13 +25,24 @@ Deno.serve(async (req) => {
   if (error) return rpcError(error, requestId);
 
   const link = `${Deno.env.get('GUARDIAN_PAGE_URL')}#${issued.token}`;
+  const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+  const who = esc(issued.participant_first_name || 'Çocuğunuz');
+  const when = issued.event_starts_at
+    ? new Date(issued.event_starts_at).toLocaleString('tr-TR', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Europe/Istanbul' }) : '';
+  const greeting = issued.guardian_name ? `Merhaba ${esc(issued.guardian_name)},` : 'Merhaba,';
+  const html = `<div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;max-width:480px;margin:0 auto;padding:32px 20px;color:#20241F">
+  <div style="font-weight:800;font-size:20px"><span style="color:#4B46D6">T.</span> techapp</div>
+  <h1 style="font-size:24px;line-height:1.2;margin:28px 0 12px">${who} bir etkinliğe katılmak istiyor</h1>
+  <p style="color:#666D66;margin:0 0 20px">${greeting} 18 yaşından küçük katılımcılar için velinin onayı gerekiyor. Etkinliği inceleyip kararınızı tek adımda verebilirsiniz.</p>
+  <div style="border:1px solid #E3E6DD;border-radius:16px;padding:16px 18px;margin-bottom:24px"><div style="font-weight:700">${esc(issued.event_title)}</div><div style="color:#666D66;font-size:14px">${esc(when)}</div></div>
+  <a href="${link}" style="display:block;text-align:center;background:#4B46D6;color:#ffffff;text-decoration:none;font-weight:600;border-radius:14px;padding:16px 20px">Etkinliği incele ve karar ver</a>
+  <p style="color:#666D66;font-size:13px;margin-top:24px">Bağlantı 72 saat geçerlidir ve tek kullanımlıktır. Bu isteği tanımıyorsanız hiçbir şey yapmanız gerekmez; onay verilmeden katılım kesinleşmez.</p>
+  <p style="color:#9aa19a;font-size:12px">TechApp · Intechne</p></div>`;
+  const text = `${greeting}\n\n${issued.participant_first_name || 'Çocuğunuz'} TechApp üzerinden "${issued.event_title ?? 'bir etkinlik'}" etkinliğine katılmak istiyor ve onayınıza ihtiyaç var.\n\nİncelemek ve karar vermek için: ${link}\n\nBağlantı 72 saat geçerlidir ve tek kullanımlıktır. Bu isteği tanımıyorsanız hiçbir şey yapmanız gerekmez.\n\nTechApp · Intechne`;
   const mail = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${Deno.env.get('RESEND_API_KEY')}`, 'content-type': 'application/json' },
-    body: JSON.stringify({
-      from: Deno.env.get('MAIL_FROM'), to: issued.guardian_email, subject: 'TechApp · Veli onayı isteği',
-      text: `Merhaba${issued.guardian_name ? ' ' + issued.guardian_name : ''},\n\nÇocuğunuz TechApp üzerinden bir etkinliğe katılmak istiyor ve onayınıza ihtiyaç var.\nEtkinlik bilgilerini görmek ve kararınızı vermek için:\n\n${link}\n\nBağlantı 72 saat geçerlidir ve tek kullanımlıktır. Bu isteği tanımıyorsanız hiçbir şey yapmanız gerekmez.\n\nTechApp · Intechne`,
-    }),
+    body: JSON.stringify({ from: Deno.env.get('MAIL_FROM'), to: issued.guardian_email, subject: `TechApp · ${issued.participant_first_name || 'Çocuğunuz'} için veli onayı`, html, text }),
   });
   if (!mail.ok) {
     console.error('guardian mail failed', requestId, mail.status); // no addresses or tokens in logs

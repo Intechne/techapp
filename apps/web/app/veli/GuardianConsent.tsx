@@ -35,7 +35,7 @@ export function GuardianConsent() {
     window.addEventListener('hashchange', onHash);
     const [t = '', mode] = window.location.hash.slice(1).split('&');
     setToken(t);
-    if (!/^[0-9a-f]{64}$/.test(t)) { setView({ kind: 'error', message: MESSAGES.guardian_token_invalid! }); return; }
+    if (!/^[A-Za-z0-9_-]{32,64}$/.test(t)) { setView({ kind: 'error', message: MESSAGES.guardian_token_invalid! }); return; }
     if (mode === 'revoke') { setView({ kind: 'revoke' }); return; }
     rpc<Preview>('guardian_request_preview', { p_token: t }).then((preview) => setView({ kind: 'form', preview }), (e: Error) => setView({ kind: 'error', message: e.message }));
     return () => window.removeEventListener('hashchange', onHash);
