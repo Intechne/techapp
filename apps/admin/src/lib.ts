@@ -25,7 +25,10 @@ export type ExperienceRow = Db['Tables']['experiences']['Row'];
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
 export const configured = !!url && !!key;
-export const supabase = createClient<Database>(url ?? 'http://invalid.local', key ?? 'missing');
+// Staff sessions live only as long as the browser tab (sessionStorage), not indefinitely on a shared office machine.
+export const supabase = createClient<Database>(url ?? 'http://invalid.local', key ?? 'missing', {
+  auth: { storage: typeof window !== 'undefined' ? window.sessionStorage : undefined, persistSession: true, autoRefreshToken: true },
+});
 
 export interface Account { user_id: string; is_platform_admin: boolean; organization_roles: { organization_id: string; role: OrgRole }[] }
 

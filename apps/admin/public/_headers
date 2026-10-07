@@ -1,0 +1,12 @@
+# Security headers for the admin panel (Cloudflare Pages / Netlify format; mirror them on any other host).
+# The Content-Security-Policy itself is in index.html (generated at build time with the project's Supabase origin).
+/*
+  Content-Security-Policy: frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  # camera: web check-in reads QR codes with the device camera (pages/CheckIn.tsx)
+  Permissions-Policy: camera=(self), microphone=(), geolocation=(), payment=()
+  Cross-Origin-Opener-Policy: same-origin
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Robots-Tag: noindex, nofollow
