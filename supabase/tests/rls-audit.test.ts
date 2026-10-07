@@ -19,6 +19,18 @@ describe('RLS audit', () => {
     expect(rows.map((r) => r.proname)).toEqual([]);
   });
 
+  it('every view in public runs with the caller’s rights and is read-only for API roles', async () => {
+    const { rows } = await admin(`select c.relname,
+        coalesce(c.reloptions @> array['security_invoker=true'], false) as invoker,
+        has_table_privilege('authenticated', c.oid, 'insert,update,delete') or has_table_privilege('anon', c.oid, 'insert,update,delete') as writable
+      from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'v'`);
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.filter((r) => !r.invoker).map((r) => r.relname)).toEqual([]);
+    // experiences_with_status is invoker over an RLS table: writes are gated by the table's policies, so only
+    // owner-rights reads would be a problem. my_guardian_requests must not even carry write grants.
+    expect(rows.find((r) => r.relname === 'my_guardian_requests')?.writable).toBe(false);
+  });
+
   it('an anonymous visitor reads nothing from any sensitive table, even when data exists', async () => {
     const org = await createOrg(); const event = await createEvent(org); const user = await createUser();
     await register(user, event);

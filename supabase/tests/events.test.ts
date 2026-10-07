@@ -110,6 +110,25 @@ describe('guardian consent', () => {
     expect(Object.keys(view.rows[0])).not.toContain('token_hash');
   });
 
+  it('the minor cannot rewrite or delete their guardian request through the view (staging advisor finding)', async () => {
+    const { minor, reg } = await minorPending();
+    const reqId = (await asUser(minor, (q) => q(`select public.create_guardian_request($1, 'veli@example.test') id`, [reg.id]))).rows[0].id;
+    await asService((q) => q(`select public.issue_guardian_token($1)`, [reqId]));
+    const forged = [
+      `update public.my_guardian_requests set status = 'approved', confirmed_at = now() where id = $1`,
+      `update public.my_guardian_requests set send_count = 0, last_sent_at = null where id = $1`,
+      `delete from public.my_guardian_requests where id = $1`,
+    ];
+    for (const sql of forged) {
+      await expect(asUser(minor, (q) => q(sql, [reqId])), sql).rejects.toThrow(/permission denied|cannot (update|delete)/);
+    }
+    const row = (await admin(`select status, send_count from public.guardian_requests where id = $1`, [reqId])).rows[0];
+    expect(row).toEqual({ status: 'pending', send_count: 1 });
+    // another user sees nothing through the view
+    const other = await createUser({ age: 15 });
+    expect((await asUser(other, (q) => q(`select id from public.my_guardian_requests where id = $1`, [reqId]))).rowCount).toBe(0);
+  });
+
   it('refuses the minor own e-mail address as guardian', async () => {
     const { minor, reg } = await minorPending();
     await expectFail(asUser(minor, (q) => q(`select public.create_guardian_request($1, $2)`, [reg.id, `${minor}@example.test`])), 422, 'guardian_email_same_as_user');
