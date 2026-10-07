@@ -1,3 +1,5 @@
+> **30 Eylül 2026 notu:** Bu belgede tarihsel/eski durumlar bulunuyor. Güncel kod denetimi ve yeniden çalıştırılan testler için [hazırlık denetimini](READINESS-2026-09-30.md) esas alın.
+
 # Ürün kapsamı
 
 ## Tanım

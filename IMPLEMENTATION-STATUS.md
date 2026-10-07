@@ -1,3 +1,5 @@
+> **30 Eylül 2026 notu:** Bu belgede tarihsel/eski durumlar bulunuyor. Güncel kod denetimi ve yeniden çalıştırılan testler için [hazırlık denetimini](docs/READINESS-2026-09-30.md) esas alın.
+
 # TechApp — Implementation Status
 
 Son güncelleme: 2026-09-19 (3. oturum) · Dal: `feat/release-readiness` · ✅ Completed · 🟡 Partial · ⛔ Blocked · ⚪ Not started
