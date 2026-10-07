@@ -2,6 +2,7 @@ import 'react-native-url-polyfill/auto';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
 import { env } from './env';
+import { createTimeoutFetch } from './fetchWithTimeout';
 import { makeError } from './errors';
 import { secureSessionStorage } from './secureSessionStorage';
 import type { Database } from './database.types';
@@ -14,6 +15,8 @@ export function getSupabase(): SupabaseClient<Database> {
   if (!client) {
     client = createClient<Database>(env.supabaseUrl, env.supabasePublishableKey, {
       auth: { storage: secureSessionStorage, autoRefreshToken: true, persistSession: true, detectSessionInUrl: Platform.OS === 'web' },
+      // Every request has a deadline: a dead network or unreachable host must surface as an error, never an endless wait.
+      global: { fetch: createTimeoutFetch() },
     });
     if (Platform.OS !== 'web') {
       const c = client;

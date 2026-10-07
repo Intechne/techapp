@@ -3,7 +3,7 @@ export type AnalyticsEvent =
   | 'onboarding_started' | 'onboarding_completed' | 'discovery_item_opened' | 'event_opened'
   | 'registration_started' | 'registration_submitted' | 'guardian_required' | 'registration_confirmed'
   | 'opportunity_opened' | 'application_submitted' | 'team_join_requested' | 'experience_created'
-  | 'verification_requested' | 'lesson_completed';
+  | 'verification_requested' | 'lesson_completed' | 'startup_unavailable' | 'app_crash_caught';
 
 type Props = Record<string, string | number | boolean | null>;
 export interface AnalyticsSink { track(event: AnalyticsEvent, props: Props): void }
