@@ -55,7 +55,7 @@ export function AuthOtpScreen({ navigation, route }: NativeStackScreenProps<Root
       footer={<Button label="Doğrula" loading={verify.isPending} disabled={code.length < 6} onPress={() => verify.mutate()} />}>
       <Text variant="eyebrow" color="textSecondary">SON ADIM</Text>
       <Text variant="display" style={{ marginTop: space[2] }}>Kodunu gir.</Text>
-      <Text variant="body" color="textSecondary" style={{ marginTop: space[3] }}>{email} adresine bir e-posta gönderdik. İçindeki 6 haneli kodu buraya yaz ya da e-postadaki bağlantıya bu cihazdan dokun; girişin kendiliğinden tamamlanır.</Text>
+      <Text variant="body" color="textSecondary" style={{ marginTop: space[3] }}>{email} adresine bir e-posta gönderdik. İçindeki 6 haneli kodu buraya yaz.</Text>
       <View style={{ marginTop: space[6], gap: space[4] }}>
         <Input label="Doğrulama kodu" value={code} onChangeText={(t) => setCode(t.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad"
           textContentType="oneTimeCode" autoComplete="one-time-code" maxLength={6} autoFocus style={{ letterSpacing: 8, fontSize: 22 }} />

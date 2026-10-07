@@ -14,7 +14,8 @@ export function getSupabase(): SupabaseClient<Database> {
   if (!env.isConfigured) throw makeError('not_configured', 0, { retryable: false });
   if (!client) {
     client = createClient<Database>(env.supabaseUrl, env.supabasePublishableKey, {
-      auth: { storage: secureSessionStorage, autoRefreshToken: true, persistSession: true, detectSessionInUrl: Platform.OS === 'web' },
+      // OTP only: sessions never arrive through a URL, so supabase-js must not look for tokens in one.
+      auth: { storage: secureSessionStorage, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false },
       // Every request has a deadline: a dead network or unreachable host must surface as an error, never an endless wait.
       global: { fetch: createTimeoutFetch() },
     });

@@ -33,7 +33,9 @@ export async function savePrefs(prefs: LocalPrefs): Promise<void> {
   try { await AsyncStorage.setItem(KEY, JSON.stringify(prefs)); } catch { /* preference loss is acceptable */ }
 }
 
-/** Sign-out / account deletion: wipe everything local in one step (no stale state is written back). */
-export async function clearLocalData(): Promise<void> {
-  try { await AsyncStorage.clear(); } catch { /* best effort */ }
-}
+/**
+ * What account deletion forgets on this device: the person's own choices. "onboarded" stays true so the next person
+ * is not sent through onboarding again. Sign-out keeps all of it (device preferences, not account data).
+ * Applied through PrefsProvider.update so the in-memory copy and storage never disagree.
+ */
+export const PERSONAL_PREFS_RESET: Partial<Omit<LocalPrefs, 'version'>> = { onboarded: true, educationStage: null, interestSlugs: [] };

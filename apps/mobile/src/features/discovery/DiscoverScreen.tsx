@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppHeader, Chip, ChipRail, EmptyState, ErrorState, EventCard, HeroCard, IconButton, ListCard, LoadingSkeleton, MiniCard, OfflineBanner, Screen, SearchInput, SectionHeader, Text, space } from '../../design-system';
 import { track } from '../../lib/analytics';
@@ -8,7 +9,7 @@ import { formatDate } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
 import { getSupabase } from '../../lib/supabase';
 import type { InterestRow, OpportunityRow, TeamRow } from '../../lib/database.types';
-import type { DiscoverStackParamList } from '../../navigation/types';
+import type { DiscoverStackParamList, MainTabParamList } from '../../navigation/types';
 import { useMyProfile } from '../profile/api';
 import { fetchEventsPage } from '../events/api';
 import { toEventCardModel } from '../events/labels';
@@ -50,6 +51,16 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
 
   const [featured, ...rest] = events.data?.items ?? [];
   const openEvent = (id: string) => { track('discovery_item_opened', { kind: 'event', id }); navigation.navigate('EventDetail', { eventId: id }); };
+  const tabs = navigation.getParent<BottomTabNavigationProp<MainTabParamList>>();
+  // Straight to the detail inside the right tab; initial: false keeps that tab's list underneath, so Back returns to it.
+  const openOpportunity = (id: string) => {
+    track('discovery_item_opened', { kind: 'opportunity', id });
+    tabs?.navigate('OpportunitiesTab', { screen: 'OpportunityDetail', params: { opportunityId: id }, initial: false });
+  };
+  const openTeam = (id: string) => {
+    track('discovery_item_opened', { kind: 'team', id });
+    tabs?.navigate('CommunityTab', { screen: 'TeamDetail', params: { teamId: id }, initial: false });
+  };
   const firstName = useMyProfile().data?.display_name?.split(' ')[0];
   const offline = events.isError && toAppError(events.error).code === 'network_unreachable' && !!events.data;
 
@@ -91,7 +102,7 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
         <>
           <SectionHeader title="Sıradaki adımın" actionLabel="Fırsatlar" onAction={() => navigation.getParent()?.navigate('OpportunitiesTab')} />
           <View style={{ gap: space[3] }}>
-            {preview.data.opportunities.map((o) => <ListCard key={o.id} icon="opportunity" title={o.title} body={o.summary} footnote={`Son başvuru: ${formatDate(o.closes_at)}`} onPress={() => navigation.getParent()?.navigate('OpportunitiesTab')} />)}
+            {preview.data.opportunities.map((o) => <ListCard key={o.id} icon="opportunity" title={o.title} body={o.summary} footnote={`Son başvuru: ${formatDate(o.closes_at)}`} onPress={() => openOpportunity(o.id)} />)}
           </View>
         </>
       )}
@@ -99,7 +110,7 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
         <>
           <SectionHeader title="Birlikte üretenler" actionLabel="Topluluk" onAction={() => navigation.getParent()?.navigate('CommunityTab')} />
           <View style={{ flexDirection: 'row', gap: space[3] }}>
-            {preview.data.teams.slice(0, 2).map((t) => <MiniCard key={t.id} icon={t.kind === 'team' ? 'robot' : 'community'} title={t.name} body={t.tagline ?? ''} onPress={() => navigation.getParent()?.navigate('CommunityTab')} />)}
+            {preview.data.teams.slice(0, 2).map((t) => <MiniCard key={t.id} icon={t.kind === 'team' ? 'robot' : 'community'} title={t.name} body={t.tagline ?? ''} onPress={() => openTeam(t.id)} />)}
           </View>
         </>
       )}

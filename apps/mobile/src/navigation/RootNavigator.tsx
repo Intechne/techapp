@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { TechIcon, colors, fonts, layout, type TechIconName } from '../design-system';
@@ -17,6 +17,7 @@ import { RegistrationStatusScreen } from '../features/events/RegistrationStatusS
 import { GuardianRequestScreen } from '../features/guardian/GuardianRequestScreen';
 import { OnboardingScreen } from '../features/onboarding/OnboardingScreen';
 import { usePrefs } from '../features/onboarding/PrefsProvider';
+import { useAccountState, useSession } from '../features/auth/SessionProvider';
 import { OpportunitiesScreen } from '../features/opportunities/OpportunitiesScreen';
 import { ProfileScreen } from '../features/profile/ProfileScreen';
 import { EditProfileScreen } from '../features/profile/EditProfileScreen';
@@ -104,10 +105,14 @@ function MainTabs() {
 }
 
 export function RootNavigator() {
-  const { prefs } = usePrefs();
+  const { prefs, update } = usePrefs();
+  const { userId } = useSession(); const account = useAccountState();
+  // A signed-in person whose server profile is complete has been onboarded already (e.g. on another device).
+  const serverOnboarded = !!userId && account.data?.profile_complete === true;
+  useEffect(() => { if (serverOnboarded && !prefs.onboarded) update({ onboarded: true }); }, [serverOnboarded, prefs.onboarded, update]);
   return (
     <Root.Navigator screenOptions={stackOptions}>
-      {!prefs.onboarded ? <Root.Screen name="Onboarding" component={OnboardingScreen} /> : (
+      {!(prefs.onboarded || serverOnboarded) ? <Root.Screen name="Onboarding" component={OnboardingScreen} /> : (
         <>
           <Root.Screen name="Main" component={MainTabs} />
           <Root.Group screenOptions={{ presentation: 'modal' }}>

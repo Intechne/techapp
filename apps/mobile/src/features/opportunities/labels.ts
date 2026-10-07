@@ -1,5 +1,6 @@
 import type { TechIconName } from '../../design-system';
 import type { OpportunityRow, OpportunityType } from '../../lib/database.types';
+import { EDUCATION_LABEL } from '../profile/labels';
 
 export const OPPORTUNITY_TYPE: Record<OpportunityType, { label: string; icon: TechIconName }> = {
   internship: { label: 'Staj', icon: 'opportunity' }, volunteering: { label: 'Gönüllülük', icon: 'leaf' }, entrepreneurship: { label: 'Girişimcilik', icon: 'rocket' },
@@ -40,3 +41,25 @@ export function groupByMonth<T extends Pick<OpportunityRow, 'closes_at'>>(rows: 
   return [...groups].map(([month, items]) => ({ month, items }));
 }
 export const placeOf = (o: Pick<OpportunityRow, 'is_remote' | 'city'>) => (o.is_remote ? 'Çevrim içi' : o.city ?? 'Yer belirtilmedi');
+
+/** Human-readable value of a shared profile field, as the applicant will see it before sending. */
+export function formatSharedValue(field: string, value: unknown): string {
+  if (value === null || value === undefined || value === '') return '—';
+  if (field === 'education_stage' && typeof value === 'string') return EDUCATION_LABEL[value as keyof typeof EDUCATION_LABEL] ?? '—';
+  if (Array.isArray(value)) {
+    if (!value.length) return '—';
+    return value.map((item) => (item && typeof item === 'object' ? String((item as { title?: unknown }).title ?? '') : String(item))).filter(Boolean).join(', ') || '—';
+  }
+  if (typeof value === 'object') return '—';
+  return String(value);
+}
+
+/**
+ * UX hint only: tells a user up front when an opportunity is certainly not open to them. The server decides
+ * (submit_application); the app only knows whether the account is a minor, so uncertain cases return null.
+ */
+export function opportunityIneligibility(o: Pick<OpportunityRow, 'min_age' | 'max_age' | 'guardian_required_under'>, isMinor: boolean | null | undefined): string | null {
+  if (isMinor === true && ((o.min_age ?? 0) >= 18 || (o.guardian_required_under ?? 0) >= 18)) return 'Bu fırsata şimdilik yalnızca 18 yaş ve üzeri başvurabiliyor.';
+  if (isMinor === false && o.max_age !== null && o.max_age < 18) return 'Bu fırsat 18 yaş altı katılımcılar için.';
+  return null;
+}

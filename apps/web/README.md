@@ -7,7 +7,6 @@ Next.js (App Router) · TypeScript. Tanıtım sitesi + uygulamanın web'e değen
 | `/` | Tanıtım sayfası. Yaklaşan etkinlikler Supabase'den (publishable key + RLS → yalnız yayındakiler), 5 dk önbellek |
 | `/events/[id]` | Paylaşım sayfası: sunucuda render, Open Graph + `schema.org/Event`; "Uygulamada aç" + mağaza rozetleri. Örnek (`is_demo`) içerik indekslenmez |
 | `/veli` | Veli onay sayfası. Token URL **fragment**'ında (`/veli#<token>`); `no-referrer`, `no-store`, `noindex`. Karar veritabanı fonksiyonlarında |
-| `/auth-callback` | E-postadaki giriş bağlantısı tarayıcıda açılırsa uygulamaya devreder; token'ları adres çubuğundan siler |
 | `/gizlilik` · `/kosullar` | **Yer tutucu**: metinler hukuktan gelecek, uydurulmadı (`noindex`) |
 | `/destek` · `/hesap-silme` | Mağazaların istediği sayfalar; destek kanalı açıklanınca güncellenecek |
 

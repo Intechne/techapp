@@ -7,38 +7,40 @@ import { AppHeader, Button, Card, Checkbox, ErrorState, LoadingSkeleton, Notice,
 import { track } from '../../lib/analytics';
 import { toAppError } from '../../lib/errors';
 import type { OpportunitiesStackParamList } from '../../navigation/types';
-import { useSession } from '../auth/SessionProvider';
+import { useAccountState, useSession } from '../auth/SessionProvider';
 import { fetchOpportunity, fetchSharePreview, opportunityKeys, submitApplication } from './api';
-import { SHARED_FIELD_LABEL } from './labels';
-
-const show = (v: unknown): string => (Array.isArray(v) ? (v.length ? v.map(show).join(', ') : '—') : v === null || v === undefined || v === '' ? '—' : typeof v === 'object' ? JSON.stringify(v) : String(v));
+import { SHARED_FIELD_LABEL, formatSharedValue, opportunityIneligibility } from './labels';
 
 /** The applicant sees exactly what the organisation will receive before anything is sent. The snapshot is frozen on the server at submission. */
 export function OpportunityApplyScreen({ navigation, route }: NativeStackScreenProps<OpportunitiesStackParamList, 'OpportunityApply'>) {
   const { opportunityId } = route.params;
-  const { userId } = useSession(); const qc = useQueryClient(); const toast = useToast();
+  const { userId } = useSession(); const account = useAccountState(); const qc = useQueryClient(); const toast = useToast();
   const opportunity = useQuery({ queryKey: opportunityKeys.detail(opportunityId), queryFn: () => fetchOpportunity(opportunityId) });
   const preview = useQuery({ queryKey: opportunityKeys.preview(opportunityId, userId), queryFn: () => fetchSharePreview(opportunityId), staleTime: 0 });
   const [motivation, setMotivation] = useState(''); const [accepted, setAccepted] = useState(false); const [showError, setShowError] = useState(false);
   const key = useRef(Crypto.randomUUID());
 
   const submit = useMutation({
-    mutationFn: () => submitApplication(opportunityId, key.current, motivation),
+    mutationFn: () => submitApplication(opportunityId, key.current, motivation, preview.data?.shared_fields ?? []),
     onSuccess: async () => {
       track('application_submitted', { opportunity_id: opportunityId });
       await qc.invalidateQueries({ queryKey: ['applications'] });
       toast.show('Başvurun alındı.', 'success');
       navigation.replace('MyApplications');
     },
+    // The organisation changed what it asks for: show the new list; the applicant has to confirm again.
+    onError: (e) => { if (toAppError(e).code === 'shared_fields_changed') { setAccepted(false); void preview.refetch(); } },
   });
 
   if (opportunity.isPending || preview.isPending) return <Screen header={<AppHeader onBack={navigation.goBack} />}><LoadingSkeleton cards={1} /></Screen>;
   const loadError = opportunity.error ?? preview.error;
   if (loadError || !opportunity.data || !preview.data) return <Screen header={<AppHeader onBack={navigation.goBack} />}><ErrorState error={toAppError(loadError)} onRetry={() => { void opportunity.refetch(); void preview.refetch(); }} /></Screen>;
 
+  const ineligible = opportunityIneligibility(opportunity.data, account.data?.is_minor);
   return (
     <Screen header={<AppHeader onBack={navigation.goBack} title="Başvuru" />}
-      footer={<Button label="Başvuruyu gönder" loading={submit.isPending} onPress={() => { if (!accepted) { setShowError(true); return; } submit.mutate(); }} />}>
+      footer={<Button label="Başvuruyu gönder" disabled={!!ineligible} loading={submit.isPending} onPress={() => { if (!accepted) { setShowError(true); return; } submit.mutate(); }} />}>
+      {ineligible && <Notice tone="warning" title="Bu fırsata başvuramıyorsun">{ineligible}</Notice>}
       <Text variant="eyebrow" color="textSecondary">KENDİNDEN BAHSET</Text>
       <Text variant="display" style={{ marginTop: space[2] }}>Yeni bir{'\n'}başlangıç.</Text>
       <Text variant="body" color="textSecondary" style={{ marginTop: space[2] }}>{opportunity.data.title}</Text>
@@ -48,7 +50,7 @@ export function OpportunityApplyScreen({ navigation, route }: NativeStackScreenP
         {preview.data.shared_fields.map((field) => (
           <View key={field} style={{ gap: 2 }}>
             <Text variant="caption" color="textSecondary">{SHARED_FIELD_LABEL[field] ?? field}</Text>
-            <Text variant="bodySmall">{show(preview.data.snapshot[field])}</Text>
+            <Text variant="bodySmall">{formatSharedValue(field, preview.data.snapshot[field])}</Text>
           </View>))}
       </Card>
       <Text variant="caption" color="textSecondary" style={{ marginTop: space[2] }}>Boş görünen alanları profilinden doldurabilirsin. Gönderdikten sonra profilini değiştirsen de bu başvuruda gönderdiğin bilgiler aynı kalır.</Text>

@@ -33,8 +33,17 @@ const COPY: Record<string, string> = {
   guardian_not_required: 'Bu kayıt için veli onayı gerekmiyor.',
   guardian_email_invalid: 'Velinin e-posta adresini kontrol eder misin?',
   guardian_email_same_as_user: 'Veli e-postası kendi adresinden farklı olmalı.',
-  guardian_send_limit: 'Bu istek için gönderim sınırına ulaştın. Destek ekibine yazabilirsin.',
-  guardian_send_too_soon: 'Az önce bir bağlantı gönderdik. Bir dakika sonra tekrar deneyebilirsin.',
+  guardian_send_limit: 'Bu kayıt için gönderim sınırına ulaştın. Destek ekibine yazabilirsin.',
+  guardian_send_too_soon: 'Veli onay bağlantısı kısa süre önce gönderildi. Biraz sonra tekrar deneyebilirsin.',
+  guardian_send_limit_user: 'Kısa sürede çok sayıda veli bağlantısı gönderildi. Biraz sonra tekrar deneyebilirsin.',
+  guardian_send_limit_recipient: 'Bu adrese bugün yeterince bağlantı gönderildi. Yarın tekrar deneyebilirsin.',
+  guardian_request_limit: 'Veli adresini bugün yeterince değiştirdin. Yarın tekrar deneyebilirsin.',
+  guardian_request_not_pending: 'Bu veli isteği artık geçerli değil. Kayıt sayfandan yeniden isteyebilirsin.',
+  guardian_request_not_found: 'Bu veli isteği bulunamadı.',
+  mail_delivery_failed: 'E-posta şu anda gönderilemedi. Birazdan tekrar dener misin?',
+  account_deletion_requires_support: 'Hesabını silmek için destek ekibine yazman gerekiyor.',
+  shared_fields_changed: 'Kurum paylaşılacak bilgileri değiştirdi. Güncel listeye göz atıp yeniden onaylayabilirsin.',
+  guardian_consent_unavailable: 'Bu başvuru şimdilik yalnızca 18 yaş ve üzeri için açık.',
   birth_date_invalid: 'Doğum tarihini kontrol eder misin?',
   birth_date_locked: 'Doğum tarihi sonradan değiştirilemiyor. Bir hata varsa destek ekibine yaz.',
   below_min_account_age: 'TechApp hesabı açmak için en az 13 yaşında olmalısın.',
@@ -100,6 +109,25 @@ export function toAppError(input: unknown): AppError {
 
   const status = typeof e.status === 'number' ? e.status : 0;
   return makeError(code || 'unknown', status);
+}
+
+/**
+ * Edge Function errors: supabase-js wraps every non-2xx response in a generic FunctionsHttpError and keeps the
+ * Response in `context`. Our functions answer with the same { code, requestId } contract, so read it from there.
+ */
+export async function fromFunctionError(input: unknown): Promise<AppError> {
+  const e = (input ?? {}) as { name?: unknown; context?: unknown };
+  if (e.name === 'FunctionsFetchError' || e.name === 'FunctionsRelayError') return makeError('network_unreachable', 0);
+  const response = e.context as { status?: unknown; clone?: () => { json: () => Promise<unknown> } } | undefined;
+  if (e.name === 'FunctionsHttpError' && response && typeof response.clone === 'function') {
+    const status = typeof response.status === 'number' ? response.status : 0;
+    const body = (await response.clone().json().catch(() => null)) as { code?: unknown; requestId?: unknown } | null;
+    if (body && typeof body.code === 'string') {
+      return makeError(body.code, status, typeof body.requestId === 'string' ? { requestId: body.requestId } : {});
+    }
+    return makeError('unknown', status);
+  }
+  return toAppError(input);
 }
 
 export function isAppError(value: unknown): value is AppError {

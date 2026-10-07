@@ -1,5 +1,5 @@
 import { getSupabase } from '../../lib/supabase';
-import { parsePayload, toAppError } from '../../lib/errors';
+import { fromFunctionError, parsePayload, toAppError } from '../../lib/errors';
 import { eventEligibilitySchema, participationCardSchema, type EventEligibility, type EventRegistrationRow, type EventSessionRow, type EventType, type MyGuardianRequestRow, type ParticipationCard } from '../../lib/database.types';
 import type { EventWithOrg } from './labels';
 
@@ -104,7 +104,7 @@ export async function sendGuardianRequest(registrationId: string, guardianEmail:
 
 export async function dispatchGuardianEmail(requestId: string): Promise<void> {
   const { error } = await getSupabase().functions.invoke('guardian-dispatch', { body: { request_id: requestId } });
-  if (error) throw toAppError(error);
+  if (error) throw await fromFunctionError(error);
 }
 
 export const eventKeys = {

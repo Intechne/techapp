@@ -1,13 +1,10 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import * as Linking from 'expo-linking';
-import { Platform } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { env } from '../../lib/env';
 import { getSupabase } from '../../lib/supabase';
 import { parsePayload, toAppError } from '../../lib/errors';
 import { accountStateSchema, type AccountState } from '../../lib/database.types';
-import { completeSignInFromUrl } from './authService';
 import { track } from '../../lib/analytics';
 import { RESTORE_TIMEOUT_MS, RETRY_RESTORE_TIMEOUT_MS, restoreSessionOnLaunch, type UnavailableReason } from '../../lib/sessionRestore';
 
@@ -47,11 +44,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     if (!env.isConfigured) return;
     const supabase = getSupabase();
     const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
-    // Sign-in links on devices arrive as a deep link (the web target is handled by supabase-js itself).
-    const onUrl = (url: string | null) => { if (Platform.OS !== 'web') void completeSignInFromUrl(url).catch(() => {}); };
-    void Linking.getInitialURL().then(onUrl);
-    const linkSub = Linking.addEventListener('url', (e) => onUrl(e.url));
-    return () => { data.subscription.unsubscribe(); linkSub.remove(); };
+    return () => data.subscription.unsubscribe();
   }, []);
 
   const value = useMemo(() => ({ session, userId: session?.user.id ?? null, ready: status === 'ready', status, unavailableReason, retry }), [session, status, unavailableReason, retry]);

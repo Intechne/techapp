@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   public: {
     Tables: {
       application_status_history: {
@@ -49,7 +44,6 @@ export type Database = {
           {
             foreignKeyName: "application_status_history_application_id_fkey"
             columns: ["application_id"]
-            isOneToOne: false
             referencedRelation: "applications"
             referencedColumns: ["id"]
           },
@@ -64,7 +58,7 @@ export type Database = {
           motivation: string | null
           opportunity_id: string
           shared_fields: string[]
-          snapshot: Json
+          snapshot: NonNullable<Json>
           status: Database["public"]["Enums"]["application_status"]
           submitted_at: string | null
           updated_at: string
@@ -78,7 +72,7 @@ export type Database = {
           motivation?: string | null
           opportunity_id: string
           shared_fields?: string[]
-          snapshot?: Json
+          snapshot?: NonNullable<Json>
           status: Database["public"]["Enums"]["application_status"]
           submitted_at?: string | null
           updated_at?: string
@@ -92,7 +86,7 @@ export type Database = {
           motivation?: string | null
           opportunity_id?: string
           shared_fields?: string[]
-          snapshot?: Json
+          snapshot?: NonNullable<Json>
           status?: Database["public"]["Enums"]["application_status"]
           submitted_at?: string | null
           updated_at?: string
@@ -102,7 +96,6 @@ export type Database = {
           {
             foreignKeyName: "applications_opportunity_id_fkey"
             columns: ["opportunity_id"]
-            isOneToOne: false
             referencedRelation: "opportunities"
             referencedColumns: ["id"]
           },
@@ -127,6 +120,7 @@ export type Database = {
           status: Database["public"]["Enums"]["attestation_status"]
           updated_at: string
           valid_until: string | null
+          verified_snapshot: Json | null
         }
         Insert: {
           created_at?: string
@@ -146,6 +140,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["attestation_status"]
           updated_at?: string
           valid_until?: string | null
+          verified_snapshot?: Json | null
         }
         Update: {
           created_at?: string
@@ -165,26 +160,24 @@ export type Database = {
           status?: Database["public"]["Enums"]["attestation_status"]
           updated_at?: string
           valid_until?: string | null
+          verified_snapshot?: Json | null
         }
         Relationships: [
           {
             foreignKeyName: "attestations_experience_id_fkey"
             columns: ["experience_id"]
-            isOneToOne: false
             referencedRelation: "experiences"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "attestations_experience_id_fkey"
             columns: ["experience_id"]
-            isOneToOne: false
             referencedRelation: "experiences_with_status"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "attestations_organization_id_fkey"
             columns: ["organization_id"]
-            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
@@ -197,7 +190,7 @@ export type Database = {
           actor_kind: string
           created_at: string
           id: number
-          metadata: Json
+          metadata: NonNullable<Json>
           organization_id: string | null
           target_id: string | null
           target_type: string
@@ -208,7 +201,7 @@ export type Database = {
           actor_kind: string
           created_at?: string
           id?: never
-          metadata?: Json
+          metadata?: NonNullable<Json>
           organization_id?: string | null
           target_id?: string | null
           target_type: string
@@ -219,7 +212,7 @@ export type Database = {
           actor_kind?: string
           created_at?: string
           id?: never
-          metadata?: Json
+          metadata?: NonNullable<Json>
           organization_id?: string | null
           target_id?: string | null
           target_type?: string
@@ -228,7 +221,6 @@ export type Database = {
           {
             foreignKeyName: "audit_events_organization_id_fkey"
             columns: ["organization_id"]
-            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
@@ -305,15 +297,53 @@ export type Database = {
           {
             foreignKeyName: "consents_guardian_request_id_fkey"
             columns: ["guardian_request_id"]
-            isOneToOne: false
             referencedRelation: "guardian_requests"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "consents_guardian_request_id_fkey"
             columns: ["guardian_request_id"]
-            isOneToOne: false
             referencedRelation: "my_guardian_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_revisions: {
+        Row: {
+          approved_snapshot: NonNullable<Json>
+          changed_by: string | null
+          changed_fields: string[]
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: number
+          organization_id: string | null
+        }
+        Insert: {
+          approved_snapshot: NonNullable<Json>
+          changed_by?: string | null
+          changed_fields: string[]
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: never
+          organization_id?: string | null
+        }
+        Update: {
+          approved_snapshot?: NonNullable<Json>
+          changed_by?: string | null
+          changed_fields?: string[]
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: never
+          organization_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_revisions_organization_id_fkey"
+            columns: ["organization_id"]
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -353,7 +383,6 @@ export type Database = {
           {
             foreignKeyName: "course_progress_course_id_fkey"
             columns: ["course_id"]
-            isOneToOne: false
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },
@@ -421,14 +450,12 @@ export type Database = {
           {
             foreignKeyName: "courses_organization_id_fkey"
             columns: ["organization_id"]
-            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "courses_topic_interest_id_fkey"
             columns: ["topic_interest_id"]
-            isOneToOne: false
             referencedRelation: "interests"
             referencedColumns: ["id"]
           },
@@ -514,7 +541,6 @@ export type Database = {
           {
             foreignKeyName: "event_announcements_event_id_fkey"
             columns: ["event_id"]
-            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
@@ -522,21 +548,21 @@ export type Database = {
       }
       event_check_ins: {
         Row: {
-          checked_in_by: string
+          checked_in_by: string | null
           created_at: string
           id: string
           registration_id: string
           session_id: string | null
         }
         Insert: {
-          checked_in_by: string
+          checked_in_by?: string | null
           created_at?: string
           id?: string
           registration_id: string
           session_id?: string | null
         }
         Update: {
-          checked_in_by?: string
+          checked_in_by?: string | null
           created_at?: string
           id?: string
           registration_id?: string
@@ -546,14 +572,12 @@ export type Database = {
           {
             foreignKeyName: "event_check_ins_registration_id_fkey"
             columns: ["registration_id"]
-            isOneToOne: false
             referencedRelation: "event_registrations"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "event_check_ins_session_id_fkey"
             columns: ["session_id"]
-            isOneToOne: false
             referencedRelation: "event_sessions"
             referencedColumns: ["id"]
           },
@@ -579,14 +603,12 @@ export type Database = {
           {
             foreignKeyName: "event_courses_course_id_fkey"
             columns: ["course_id"]
-            isOneToOne: false
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "event_courses_event_id_fkey"
             columns: ["event_id"]
-            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
@@ -594,7 +616,7 @@ export type Database = {
       }
       event_registrations: {
         Row: {
-          answers: Json
+          answers: NonNullable<Json>
           cancelled_at: string | null
           confirmed_at: string | null
           created_at: string
@@ -609,7 +631,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          answers?: Json
+          answers?: NonNullable<Json>
           cancelled_at?: string | null
           confirmed_at?: string | null
           created_at?: string
@@ -624,7 +646,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          answers?: Json
+          answers?: NonNullable<Json>
           cancelled_at?: string | null
           confirmed_at?: string | null
           created_at?: string
@@ -642,14 +664,12 @@ export type Database = {
           {
             foreignKeyName: "event_registrations_event_id_fkey"
             columns: ["event_id"]
-            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "event_registrations_team_fk"
             columns: ["team_id"]
-            isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
@@ -693,7 +713,6 @@ export type Database = {
           {
             foreignKeyName: "event_sessions_event_id_fkey"
             columns: ["event_id"]
-            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
@@ -740,7 +759,6 @@ export type Database = {
           {
             foreignKeyName: "event_volunteers_event_id_fkey"
             columns: ["event_id"]
-            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
@@ -877,14 +895,12 @@ export type Database = {
           {
             foreignKeyName: "events_organization_id_fkey"
             columns: ["organization_id"]
-            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "events_topic_interest_id_fkey"
             columns: ["topic_interest_id"]
-            isOneToOne: false
             referencedRelation: "interests"
             referencedColumns: ["id"]
           },
@@ -928,14 +944,12 @@ export type Database = {
           {
             foreignKeyName: "experience_evidence_experience_id_fkey"
             columns: ["experience_id"]
-            isOneToOne: false
             referencedRelation: "experiences"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "experience_evidence_experience_id_fkey"
             columns: ["experience_id"]
-            isOneToOne: false
             referencedRelation: "experiences_with_status"
             referencedColumns: ["id"]
           },
@@ -994,7 +1008,7 @@ export type Database = {
       }
       guardian_requests: {
         Row: {
-          audit_metadata: Json
+          audit_metadata: NonNullable<Json>
           confirmed_at: string | null
           consent_purpose: string
           created_at: string
@@ -1019,7 +1033,7 @@ export type Database = {
           verification_method: string
         }
         Insert: {
-          audit_metadata?: Json
+          audit_metadata?: NonNullable<Json>
           confirmed_at?: string | null
           consent_purpose: string
           created_at?: string
@@ -1044,7 +1058,7 @@ export type Database = {
           verification_method?: string
         }
         Update: {
-          audit_metadata?: Json
+          audit_metadata?: NonNullable<Json>
           confirmed_at?: string | null
           consent_purpose?: string
           created_at?: string
@@ -1069,6 +1083,43 @@ export type Database = {
           verification_method?: string
         }
         Relationships: []
+      }
+      guardian_send_log: {
+        Row: {
+          id: number
+          recipient_hash: string
+          request_id: string | null
+          sent_at: string
+          user_id: string | null
+        }
+        Insert: {
+          id?: never
+          recipient_hash: string
+          request_id?: string | null
+          sent_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          id?: never
+          recipient_hash?: string
+          request_id?: string | null
+          sent_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guardian_send_log_request_id_fkey"
+            columns: ["request_id"]
+            referencedRelation: "guardian_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guardian_send_log_request_id_fkey"
+            columns: ["request_id"]
+            referencedRelation: "my_guardian_requests"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       interests: {
         Row: {
@@ -1129,7 +1180,6 @@ export type Database = {
           {
             foreignKeyName: "lessons_course_id_fkey"
             columns: ["course_id"]
-            isOneToOne: false
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },
@@ -1170,7 +1220,6 @@ export type Database = {
           {
             foreignKeyName: "moderation_actions_report_id_fkey"
             columns: ["report_id"]
-            isOneToOne: false
             referencedRelation: "reports"
             referencedColumns: ["id"]
           },
@@ -1313,14 +1362,12 @@ export type Database = {
           {
             foreignKeyName: "opportunities_organization_id_fkey"
             columns: ["organization_id"]
-            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "opportunities_topic_interest_id_fkey"
             columns: ["topic_interest_id"]
-            isOneToOne: false
             referencedRelation: "interests"
             referencedColumns: ["id"]
           },
@@ -1349,7 +1396,6 @@ export type Database = {
           {
             foreignKeyName: "organization_members_organization_id_fkey"
             columns: ["organization_id"]
-            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
@@ -1441,14 +1487,12 @@ export type Database = {
           {
             foreignKeyName: "profile_interests_interest_id_fkey"
             columns: ["interest_id"]
-            isOneToOne: false
             referencedRelation: "interests"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "profile_interests_user_id_fkey"
             columns: ["user_id"]
-            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1492,7 +1536,6 @@ export type Database = {
           {
             foreignKeyName: "profile_private_user_id_fkey"
             columns: ["user_id"]
-            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1585,7 +1628,6 @@ export type Database = {
           {
             foreignKeyName: "recruitment_applications_post_id_fkey"
             columns: ["post_id"]
-            isOneToOne: false
             referencedRelation: "recruitment_posts"
             referencedColumns: ["id"]
           },
@@ -1635,7 +1677,6 @@ export type Database = {
           {
             foreignKeyName: "recruitment_posts_team_id_fkey"
             columns: ["team_id"]
-            isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
@@ -1727,7 +1768,6 @@ export type Database = {
           {
             foreignKeyName: "team_memberships_team_id_fkey"
             columns: ["team_id"]
-            isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
@@ -1780,7 +1820,6 @@ export type Database = {
           {
             foreignKeyName: "team_tasks_team_id_fkey"
             columns: ["team_id"]
-            isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
@@ -1851,14 +1890,12 @@ export type Database = {
           {
             foreignKeyName: "teams_organization_id_fkey"
             columns: ["organization_id"]
-            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "teams_topic_interest_id_fkey"
             columns: ["topic_interest_id"]
-            isOneToOne: false
             referencedRelation: "interests"
             referencedColumns: ["id"]
           },
@@ -1974,7 +2011,7 @@ export type Database = {
     }
     Functions: {
       admin_attestation_requesters: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           attestation_id: string
           display_name: string
@@ -2050,7 +2087,7 @@ export type Database = {
         }
       }
       attesting_organizations: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           id: string
           name: string
@@ -2059,7 +2096,7 @@ export type Database = {
       cancel_event_registration: {
         Args: { p_registration_id: string }
         Returns: {
-          answers: Json
+          answers: NonNullable<Json>
           cancelled_at: string | null
           confirmed_at: string | null
           created_at: string
@@ -2204,6 +2241,7 @@ export type Database = {
           status: Database["public"]["Enums"]["attestation_status"]
           updated_at: string
           valid_until: string | null
+          verified_snapshot: Json | null
         }
         SetofOptions: {
           from: "*"
@@ -2314,8 +2352,8 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      my_account_state: { Args: never; Returns: Json }
-      my_cv: { Args: never; Returns: Json }
+      my_account_state: { Args: Record<PropertyKey, never>; Returns: Json }
+      my_cv: { Args: Record<PropertyKey, never>; Returns: Json }
       public_cv: { Args: { p_token: string }; Returns: Json }
       register_device: {
         Args: {
@@ -2352,7 +2390,7 @@ export type Database = {
           p_idempotency_key: string
         }
         Returns: {
-          answers: Json
+          answers: NonNullable<Json>
           cancelled_at: string | null
           confirmed_at: string | null
           created_at: string
@@ -2415,6 +2453,7 @@ export type Database = {
           status: Database["public"]["Enums"]["attestation_status"]
           updated_at: string
           valid_until: string | null
+          verified_snapshot: Json | null
         }
         SetofOptions: {
           from: "*"
@@ -2452,7 +2491,7 @@ export type Database = {
           p_registration_id: string
         }
         Returns: {
-          answers: Json
+          answers: NonNullable<Json>
           cancelled_at: string | null
           confirmed_at: string | null
           created_at: string
@@ -2493,6 +2532,7 @@ export type Database = {
           status: Database["public"]["Enums"]["attestation_status"]
           updated_at: string
           valid_until: string | null
+          verified_snapshot: Json | null
         }
         SetofOptions: {
           from: "*"
@@ -2515,7 +2555,7 @@ export type Database = {
           motivation: string | null
           opportunity_id: string
           shared_fields: string[]
-          snapshot: Json
+          snapshot: NonNullable<Json>
           status: Database["public"]["Enums"]["application_status"]
           submitted_at: string | null
           updated_at: string
@@ -2604,6 +2644,7 @@ export type Database = {
       }
       submit_application: {
         Args: {
+          p_expected_shared_fields?: string[]
           p_idempotency_key: string
           p_motivation?: string
           p_opportunity_id: string
@@ -2616,7 +2657,7 @@ export type Database = {
           motivation: string | null
           opportunity_id: string
           shared_fields: string[]
-          snapshot: Json
+          snapshot: NonNullable<Json>
           status: Database["public"]["Enums"]["application_status"]
           submitted_at: string | null
           updated_at: string
@@ -2653,7 +2694,7 @@ export type Database = {
           motivation: string | null
           opportunity_id: string
           shared_fields: string[]
-          snapshot: Json
+          snapshot: NonNullable<Json>
           status: Database["public"]["Enums"]["application_status"]
           submitted_at: string | null
           updated_at: string
@@ -3049,3 +3090,4 @@ export const Constants = {
     },
   },
 } as const
+

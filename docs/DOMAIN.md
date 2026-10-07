@@ -8,7 +8,6 @@ Karar (2026-09-19): TechApp'in tek genel web adresi `intechne.com.tr`'nin alt al
 | `/` | Tanıtım sitesi (ürün, mağaza rozetleri, kurumlar için) | `apps/web` | 🟡 yazıldı, yerelde doğrulandı; Vercel'e alınmadı |
 | `/events/:id` | Paylaşım sayfası (SSR, Open Graph, `schema.org/Event`, "Uygulamada aç"). Uygulama kuruluysa universal link ile uygulamada açılır | `apps/web` | 🟡 sayfa hazır; universal link dosyaları bekliyor |
 | `/veli` | Veli onay sayfası (`apps/web/app/veli`). Token URL **fragment**'ında (`/veli#<token>`), sunucu günlüklerine düşmez | `apps/web` | 🟡 gerçek Supabase projesine karşı yerelde uçtan uca doğrulandı (onay → kayıt `confirmed`); yayınlanmadı |
-| `/auth-callback` | E-postadaki giriş bağlantısı tarayıcıda açılırsa uygulamaya devreder | `apps/web` | 🟡 hazır |
 | `/gizlilik` · `/kosullar` · `/destek` · `/hesap-silme` | Mağazaların zorunlu tuttuğu sayfalar. **Gizlilik ve koşullar metni hukuktan gelir** (şu an açıkça "hazırlanıyor" yer tutucusu); hesap silme sayfası uygulama içi adımları anlatır | `apps/web` | 🟡 iskelet |
 | `/.well-known/apple-app-site-association` | iOS universal links (`applinks`, Team ID + `com.intechne.techapp`) | statik, `application/json`, yönlendirmesiz | ⛔ Apple Team ID gerekli |
 | `/.well-known/assetlinks.json` | Android App Links (paket adı + imza SHA-256 parmak izi; Play ve AppGallery imzaları ayrı ayrı) | statik | ⛔ imza anahtarları gerekli |

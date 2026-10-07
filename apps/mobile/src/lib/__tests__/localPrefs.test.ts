@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { clearLocalData, defaultPrefs, loadPrefs, savePrefs } from '../localPrefs';
+import { PERSONAL_PREFS_RESET, defaultPrefs, loadPrefs, savePrefs } from '../localPrefs';
 
 describe('local prefs', () => {
   beforeEach(() => AsyncStorage.clear());
@@ -13,9 +13,12 @@ describe('local prefs', () => {
     jest.spyOn(AsyncStorage, 'getItem').mockRejectedValueOnce(new Error('disk'));
     expect(await loadPrefs()).toEqual(defaultPrefs);
   });
-  it('clearLocalData leaves nothing behind (no stale state is written back)', async () => {
+  it('account deletion forgets personal choices but does not send the next person through onboarding again', () => {
+    expect({ ...defaultPrefs, onboarded: true, educationStage: 'high_school', interestSlugs: ['robotik'], ...PERSONAL_PREFS_RESET })
+      .toEqual({ ...defaultPrefs, onboarded: true });
+  });
+  it('round-trips valid prefs', async () => {
     await savePrefs({ ...defaultPrefs, onboarded: true, interestSlugs: ['robotik'] });
-    await clearLocalData();
-    expect(await loadPrefs()).toEqual(defaultPrefs);
+    expect(await loadPrefs()).toEqual({ ...defaultPrefs, onboarded: true, interestSlugs: ['robotik'] });
   });
 });

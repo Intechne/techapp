@@ -1,48 +1,21 @@
 import type { Session } from '@supabase/supabase-js';
-import * as Linking from 'expo-linking';
 import { getSupabase } from '../../lib/supabase';
-import { makeError, toAppError } from '../../lib/errors';
-import { clearLocalData } from '../../lib/localPrefs';
+import { fromFunctionError, makeError, toAppError } from '../../lib/errors';
 import { queryClient } from '../../lib/queryClient';
 
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/;
 export const normaliseEmail = (email: string) => email.trim().toLowerCase();
 export const isValidEmail = (email: string) => EMAIL.test(normaliseEmail(email));
 
-/** Real e-mail OTP through Supabase Auth. There is no client-side "logged in" flag anywhere in the app. */
-/** Set when THIS device asks for a sign-in link, so an unsolicited auth-callback (login-CSRF) is ignored. Module-scoped: one flow at a time. */
-let expectingSignIn = false;
-export function armExpectedSignIn(): void { expectingSignIn = true; }
-
+/**
+ * Real e-mail OTP through Supabase Auth: the e-mail carries a 6-digit code only (supabase/templates/otp.html).
+ * There is no magic-link path: no tokens ever arrive through a URL or deep link, so there is nothing to intercept
+ * or replay on the custom scheme. There is no client-side "logged in" flag anywhere in the app.
+ */
 export async function signInWithEmailOtp(email: string): Promise<void> {
   if (!isValidEmail(email)) throw makeError('email_invalid', 422, { fieldErrors: { email: 'Geçerli bir e-posta adresi yaz.' } });
-  const { error } = await getSupabase().auth.signInWithOtp({ email: normaliseEmail(email), options: { shouldCreateUser: true, emailRedirectTo: AUTH_CALLBACK_URL } });
+  const { error } = await getSupabase().auth.signInWithOtp({ email: normaliseEmail(email), options: { shouldCreateUser: true } });
   if (error) throw toAppError(error);
-  armExpectedSignIn(); // this device asked for the link, so honour the callback it returns
-}
-
-/** Where the e-mailed sign-in link returns to: techapp://auth-callback on devices, <origin>/auth-callback on the dev web target. */
-export const AUTH_CALLBACK_URL = Linking.createURL('auth-callback');
-
-/**
- * The e-mail may carry a 6-digit code, a sign-in link, or both (depends on the project's mail template).
- * Links come back as <callback>#access_token=…&refresh_token=… — tokens issued by Supabase Auth, which we hand to the client.
- * Returns true when the URL was an auth callback (whether or not it succeeded).
- *
- * A callback is honoured ONLY when this app started the sign-in (armExpectedSignIn was called on the e-mail screen).
- * That closes the magic-link login-CSRF vector: a link e-mailed/messaged out of band, carrying an attacker's own valid
- * tokens, cannot silently switch a victim into the attacker's account, because the victim's app never armed it.
- */
-export async function completeSignInFromUrl(url: string | null): Promise<boolean> {
-  if (!url || !url.includes('auth-callback')) return false;
-  if (!expectingSignIn) return true; // an unsolicited callback: ignore its tokens, stay signed out
-  expectingSignIn = false;
-  const params = new URLSearchParams(url.split('#')[1] ?? url.split('?')[1] ?? '');
-  const access_token = params.get('access_token'); const refresh_token = params.get('refresh_token');
-  if (!access_token || !refresh_token) return true; // expired / already used link: stay signed out, the OTP screen explains
-  const { error } = await getSupabase().auth.setSession({ access_token, refresh_token });
-  if (error) throw toAppError(error);
-  return true;
 }
 
 export async function verifyOtp(email: string, token: string): Promise<Session> {
@@ -66,15 +39,14 @@ export async function refreshSession(): Promise<Session | null> {
   return data.session;
 }
 
-async function wipeLocalState() {
-  queryClient.clear();
-  await clearLocalData();
-}
-
+/**
+ * Sign-out removes what belongs to the account: the session (Keychain/Keystore, done by supabase-js) and every cached
+ * server response. Device preferences (onboarding done, guest interests) stay: they are not account data.
+ */
 export async function signOut(): Promise<void> {
   const { error } = await getSupabase().auth.signOut();
   // Even when the network call fails the local session is removed by supabase-js; never keep cached user data around.
-  await wipeLocalState();
+  queryClient.clear();
   if (error && toAppError(error).code !== 'network_unreachable') throw toAppError(error);
 }
 
@@ -82,7 +54,7 @@ export async function signOut(): Promise<void> {
 export async function deleteAccount(): Promise<void> {
   const supabase = getSupabase();
   const { error } = await supabase.functions.invoke('delete-account', { method: 'POST' });
-  if (error) throw toAppError(error);
+  if (error) throw await fromFunctionError(error);
   await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
-  await wipeLocalState();
+  queryClient.clear(); // the caller also resets personal device preferences (PERSONAL_PREFS_RESET)
 }

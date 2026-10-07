@@ -12,6 +12,8 @@ import type { ProfileStackParamList } from '../../navigation/types';
 import { deleteAccount, signOut } from '../auth/authService';
 import { useAccountState, useSession } from '../auth/SessionProvider';
 import { usePrefs } from '../onboarding/PrefsProvider';
+import { PERSONAL_PREFS_RESET } from '../../lib/localPrefs';
+import { usePendingIntent } from '../auth/pendingIntent';
 import { useMyCv } from './api';
 import type { CvExperience } from './cvSchema';
 import { EDUCATION_LABEL, KIND_ICON, KIND_LABEL, TEAM_ROLE_LABEL } from './labels';
@@ -46,8 +48,9 @@ export function ProfileScreen({ navigation }: NativeStackScreenProps<ProfileStac
   const [segment, setSegment] = useState<(typeof SEGMENTS)[number]>('Deneyimler');
 
   const cv = useMyCv();
-  const out = useMutation({ mutationFn: signOut, onSuccess: () => toast.show('Çıkış yapıldı.'), onError: (e) => toast.show(toAppError(e).message, 'danger') });
-  const del = useMutation({ mutationFn: deleteAccount, onSuccess: () => { setConfirmDelete(false); update({ onboarded: true }); toast.show('Hesabın silindi.'); } });
+  const intent = usePendingIntent();
+  const out = useMutation({ mutationFn: signOut, onSuccess: () => { intent.clear(); toast.show('Çıkış yapıldı.'); }, onError: (e) => toast.show(toAppError(e).message, 'danger') });
+  const del = useMutation({ mutationFn: deleteAccount, onSuccess: () => { setConfirmDelete(false); intent.clear(); update(PERSONAL_PREFS_RESET); toast.show('Hesabın silindi.'); } });
 
   if (!userId) {
     return (

@@ -11,7 +11,7 @@ const nextConfig = {
     return [
       { source: '/:path*', headers: security },
       // Token-bearing pages: never leak the URL to other origins, never cache, never index.
-      { source: '/(veli|auth-callback)', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }, { key: 'Cache-Control', value: 'no-store' }, { key: 'X-Robots-Tag', value: 'noindex, nofollow' }] },
+      { source: '/veli', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }, { key: 'Cache-Control', value: 'no-store' }, { key: 'X-Robots-Tag', value: 'noindex, nofollow' }] },
       { source: '/.well-known/:file*', headers: [{ key: 'Content-Type', value: 'application/json' }] },
     ];
   },

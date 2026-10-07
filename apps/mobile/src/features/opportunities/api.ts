@@ -30,9 +30,25 @@ export async function fetchSharePreview(opportunityId: string): Promise<SharePre
   if (error) throw toAppError(error);
   return parsePayload(previewSchema, data);
 }
-export async function submitApplication(opportunityId: string, idempotencyKey: string, motivation: string): Promise<ApplicationRow> {
-  const { data, error } = await getSupabase().rpc('submit_application', { p_opportunity_id: opportunityId, p_idempotency_key: idempotencyKey, p_motivation: motivation.trim() || undefined });
-  if (error) throw toAppError(error);
+/** Age refusals read as an opportunity, not an event (the same machine codes are shared with registrations). */
+const OPPORTUNITY_COPY: Record<string, string> = {
+  below_min_age: 'Bu fırsat senin yaş grubuna açık değil.',
+  above_max_age: 'Bu fırsat senin yaş grubuna açık değil.',
+  guardian_consent_unavailable: 'Bu fırsata şimdilik yalnızca 18 yaş ve üzeri başvurabiliyor.',
+};
+
+/**
+ * expectedSharedFields = what the applicant was shown. If the organisation changed the list since, the server refuses
+ * (shared_fields_changed) and nothing is stored, so the applicant never shares more than they saw.
+ */
+export async function submitApplication(opportunityId: string, idempotencyKey: string, motivation: string, expectedSharedFields: string[]): Promise<ApplicationRow> {
+  const { data, error } = await getSupabase().rpc('submit_application', {
+    p_opportunity_id: opportunityId, p_idempotency_key: idempotencyKey, p_motivation: motivation.trim() || undefined, p_expected_shared_fields: expectedSharedFields,
+  });
+  if (error) {
+    const appError = toAppError(error);
+    throw OPPORTUNITY_COPY[appError.code] ? { ...appError, message: OPPORTUNITY_COPY[appError.code]! } : appError;
+  }
   return data;
 }
 export async function withdrawApplication(applicationId: string): Promise<ApplicationRow> {
