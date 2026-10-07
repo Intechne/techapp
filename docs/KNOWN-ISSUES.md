@@ -9,10 +9,10 @@ Son güncelleme: 2026-10-07 (stabilization sprint). Bu liste bilinçli olarak ek
 | # | Konu | Durum |
 |---|---|---|
 | 1 | iOS / Android development build | **Hiç derlenmedi.** Makinede ~4 GB boş alan vardı. `expo-doctor` 21/21 ve web önizleme çalışıyor; bu native doğrulama yerine geçmez. |
-| 2 | Gerçek Supabase projesi | **⛔ 7 Ekim 2026: erişilemiyor** (`pacvhcnawtnkauvguoaw` NXDOMAIN, CLI hesabında görünmüyor). 19 Eylül'deki 26/26 remote e2e tarihseldir; 20261007000100 dahil hiçbir migration bugün uzakta doğrulanmadı. |
-| 3 | Edge Functions (`guardian-dispatch`, `delete-account`) | Karar mantığı `handler.ts`'te; DB testleri ve yerel yığın **aynı kodu** çalıştırır. Deno giriş noktası (`index.ts`, supabase-js + Resend bağlama) yalnız uzak projede çalışır; deploy bekliyor. |
+| 2 | Gerçek Supabase projesi | ✅ 7 Ekim (akşam): staging `pacvhcnawtnkauvguoaw` erişilebilir, 14/14 migration, remote regresyon 28/28, minor/veli E2E PASS. Yepyeni adult hesap E2E'si de PASS (onaylanan tek kullanımlık test hesabı, sonra silindi). |
+| 3 | Edge Functions (`guardian-dispatch`, `delete-account`) | Deploy edildi ve gerçek JWT ile çağrıldı (veli e-postası; test hesabı silme). Personel/moderatör silme yolu yalnız yerel testte. Function logları CLI'dan okunamıyor (Dashboard). |
 | 4 | `…000500_storage.sql` | Testlerde no-op. `storage.buckets` sütunları ve `storage.foldername()` canlı projeye karşı denenmedi. |
-| 5 | Gerçek e-posta teslimi (OTP, veli) | Denenmedi; SMTP / Resend kimlik bilgisi gerekli. |
+| 5 | Gerçek e-posta teslimi (OTP, veli) | ✅ OTP kodu ve veli e-postası gerçek gelen kutusuna ulaştı (7 Ekim). OTP süre dolumu / hız limiti denenmedi. |
 | 6 | Huawei / HMS | Cihaz testi yok. `expo-camera` QR taramasının GMS'siz davranışı bilinmiyor (`docs/HUAWEI.md`). |
 | 7 | Erişilebilirlik | Roller, etiketler, 44 pt hedefler, reduced motion kodda var. VoiceOver/TalkBack, en büyük yazı ölçeği ve 320 pt genişlik **denetlenmedi**. |
 | 8 | PostgREST'in `experiences_with_status` görünümünü embed edebilmesi | Denenmedi. |
@@ -21,13 +21,18 @@ Son güncelleme: 2026-10-07 (stabilization sprint). Bu liste bilinçli olarak ek
 
 - **7 Ekim 2026: giriş yalnız OTP kodu.** Magic link yolu (deep link token işleme, web `/auth-callback`) kaldırıldı. Supabase'in varsayılan e-postası yalnız link içerdiği için **her uzak projede kodlu şablon (`supabase/templates/otp.html`) `supabase config push` ile yüklenmeli**; aksi halde kullanıcı giriş yapamaz.
 - OTP e-postası: özel SMTP (Resend, `no-reply@auth.intechne.com.tr`) kuruldu ve 6 haneli kodlu Türkçe şablon yüklendi (2026-09-19). Kutuya düşen e-postanın kodu içerdiği kullanıcı tarafından doğrulanmalı; süre dolumu ve hız limiti denenmedi.
-- Veli e-postası gönderilemiyor (Resend/SMTP anahtarı ve yayınlanmış veli sayfası adresi yok). Gönderim limitleri sunucuda (7 Ekim).
-- Tek Supabase projesi var ve örnek veri içeriyor; production için **ayrı proje** açılmalı, seed uygulanmamalı.
+- Veli e-postası çalışıyor (7 Ekim): Resend secret'ları staging'de, sayfa `techapp.intechne.com.tr/veli`. Gönderim limitleri sunucuda.
+- Tek Supabase projesi var (staging, örnek veri). Production için **ayrı proje** açılmalı, seed uygulanmamalı. EAS `production` ortamı hâlâ staging URL'ini taşıyor; `envValidation.js` bunu reddettiği için production build/update bilerek başarısız olur.
+- `supabase config push` onay sorusunu stdin'den almaz: `echo n |` ile bile uygular. Önizleme için `supabase config diff` kullanın.
+- Remote güvenlik regresyonu: `npx supabase db query --linked -f supabase/tests/remote/security-regression.sql | python3 supabase/tests/remote/report.py` (yalnız staging; her koşu rollback).
 - Remote e2e betiği secret key ister; yalnız geliştirme/staging projesinde çalıştırılmalı.
 
 ## Teknik borç
 
-- `database.generated.ts` 7 Ekim'de **yerel** şemadan yeniden üretildi (CLI çıktısından kozmetik farklı: `__InternalSupabase`/`isOneToOne` yok). Remote proje bağlanınca `npm run db:types` ile yeniden üretilip fark kontrol edilmeli; şema değişen her PR'da `db:types:check` çalışmalı.
+- `database.generated.ts` artık staging'den (`supabase gen types --linked`) üretiliyor; kanonik kaynak budur. `db:types:local` (yerel üretici) kozmetik olarak farklı çıktı verir (`isOneToOne`, `__InternalSupabase` yok) — `db:types:check` remote'a karşı çalıştırılmalı.
+- Web önizleme: `RegistrationStatus` / `EventDetail` derin bağlantısı (URL ile doğrudan açma) Keşfet'e düşüyor; kenar çubuğu "Etkinlikler" sekmesi tıklamada gezinmiyor. Native'de ayrıca bakılacak.
+- Web: OTP ekranı e-postayı URL'ye yazıyor (`AuthOtp?email=…`) — kural 9 (PII URL'e yazılmaz) ile çelişiyor; route param yerine bellekte taşınmalı.
+- Profil özetindeki "Katılım" sayacı onaylı kayıtta 0 kalıyor (muhtemelen yalnız check-in sayıyor) — ürün kararı teyit edilmeli.
 - Admin paneli bir SPA'dır: oturum 7 Ekim'den beri `sessionStorage`'da (sekme kapanınca biter; httpOnly cookie değil). Build-time CSP + `public/_headers`. Yetki tamamen RLS/RPC'de olduğu için veri sızıntısı yaratmaz; XSS yüzeyini küçük tutmak için panelde üçüncü taraf script yok. Disk kısıtı nedeniyle Next.js yerine Vite seçildi; SSR gerekirse taşınabilir.
 - Admin panelinde eksikler: kapak görseli yükleme, oturum (session) programı düzenleme, kurum/üye yönetimi, audit log ekranı, etiketler. Rol kapısı ekranı (rolsüz kullanıcı) görsel olarak denenmedi; veri tarafı DB testleriyle kanıtlı.
 - Yerel auth gateway gerçek GoTrue değildir (hız sınırı, kod süresi, e-posta şablonu farklıdır).

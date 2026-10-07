@@ -2,24 +2,31 @@
 > eski bölümler tarihsel kayıttır. Kaynak: 7 Ekim denetim raporu.
 
 ## Stabilization sprint — 7 Ekim 2026
+Verdict: **WORKING DEVELOPMENT BUILD** — remote staging doğrulandı; native build + cihaz kabulü olmadan PILOT READY değil.
+
+Ortamlar: **local** (`npm run db:dev`, `.env.localstack`) · **staging** = Supabase `techapp` / `pacvhcnawtnkauvguoaw` (EAS development + preview,
+`.env.remote`) · **production** = henüz ayrı proje yok; `envValidation.js` production'ın staging ref'ini kullanmasını reddeder.
+
 | Kalem | Durum | Kanıt |
 |---|---|---|
-| Uzak Supabase | ⛔ | `pacvhcnawtnkauvguoaw` DNS'te yok (NXDOMAIN); CLI hesabı projeyi görmüyor (görünen 2 proje de duraklatılmış ve onlar da NXDOMAIN → NXDOMAIN "silindi" demek değil). Hesap sahibinin işlemi gerekiyor: projeyi bulup restore etmek ya da "TechApp Staging" açmak + `supabase login`. Aşağıdaki "Remote ✅" satırları 19 Eylül'e aittir, bugün **geçersizdir** |
-| P0 açılışta beyaz ekran | ✅ | Tüm istekler 15 sn deadline; açılış 12 sn; "TechApp'e şu anda bağlanamıyoruz." + Tekrar Dene (35 sn); çevrimdışı / ulaşılamıyor / 5xx ayrımı; ölü refresh token → misafir; error boundary. Jest + web'de backend kapat/aç ile doğrulandı |
-| P1 CV token doğrudan yazma | ✅ yerel | Kolon grant + trigger; yalnız `set_cv_sharing()`; `public_cv` reşit olmayanı sunmaz; 6 regresyon testi |
-| P1 veli e-postası kötüye kullanımı | ✅ yerel | İstek yeniden kullanımı; kayıt/kullanıcı/alıcı limitleri; kalıcı throttle audit; 429 + Türkçe metin; DB + Edge Function testleri |
-| P1 onaylı içerik değişikliği | ✅ yerel | Kritik alan → `in_review` + `content_revisions`; metin düzenlemesi yayında + audit; `submit_application` TOCTOU kontrolü |
-| P1 production env guard | ✅ | `envValidation.js`: runtime fail-closed (release bundle yalnız preview/production + https + `<ref>.supabase.co` + publishable key) ve `app.config.ts` build/update fail-fast. EAS ortamları hâlâ eski ref'i gösteriyor → staging sonrası güncellenecek |
-| Magic link / redirect | ✅ | Link yolu kaldırıldı (e-posta yalnız kod). `config.toml` redirect listesi boş. **Uzak projede kodlu şablon `config push` ile yüklenmeli** (varsayılan Supabase e-postası yalnız link içerir) |
-| Doğrulanmış deneyim bütünlüğü | ✅ yerel | `link_url` değişince doğrulama düşer; `verified_snapshot` |
-| Hesap silme (personel) | ✅ yerel | 7 FK `SET NULL`; moderatör bilinçli RESTRICT → 409 `account_deletion_requires_support` |
-| Edge Functions | 🟡 | Mantık `handler.ts`'te, testli (DB'ye karşı). Deploy uzak proje bekliyor |
-| Logout / onboarding | ✅ | Çıkış cihaz tercihlerini korur; sunucu profili tamam olana onboarding yok. Web'de doğrulandı |
-| Fırsat UX / Keşfet navigasyonu | ✅ | Reşit olmayana baştan uyarı + pasif CTA, "fırsat" metni, Lise etiketi; Keşfet kartları detaya gider. Web'de doğrulandı |
-| Admin CSP | ✅ | Build-time CSP meta + `_headers`; oturum sessionStorage. Build → OTP giriş → liste, CSP ihlali yok |
-| Uzak E2E (yetişkin, reşit olmayan, güvenlik) | ⛔ | Uzak proje bekliyor |
-| EAS iOS/Android build | ⛔ | EAS girişi var (`intechne`); build, staging'e bağlı env olmadan anlamsız |
-| Testler | ✅ | Mobil 87/87 (önce 43) · DB+Edge 93/93 (önce 53) · mobil/admin/web typecheck · mobil lint |
+| Uzak Supabase (staging) | ✅ | ACTIVE_HEALTHY, CLI link'li. Migration geçmişi **14/14** senkron (`20261007000100_stabilization_security`, `20261007000200_advisor_hardening` remote'ta) |
+| Supabase advisors | ✅ | İlk taramada 1 ERROR (`my_guardian_requests` SECURITY DEFINER view) — **gerçek P1**: reşit olmayan, view üzerinden kendi veli isteğini `approved` yapıp sayaçlarını sıfırlayabiliyor / silebiliyordu (staging'de rollback'li probe ile kanıtlandı). `…200_advisor_hardening` ile kapatıldı + 13 mutable `search_path`. Kalan: 50 "SECURITY DEFINER RPC çağrılabilir" (tasarım gereği, kural 5), leaked-password (OTP-only, geçersiz), 21 performans WARN (P3) |
+| Remote güvenlik regresyonu | ✅ | `supabase/tests/remote/security-regression.sql` — **28/28 PASS**, gerçek API rolleriyle; her koşu tamamen rollback (kalıntı yok, sayılarla doğrulandı) |
+| Generated types | ✅ | `database.generated.ts` remote'tan (`supabase gen types --linked`); tek şema farkı view'in artık Insert/Update taşımaması |
+| 6 haneli OTP (remote) | ✅ | Resend SMTP, kodlu şablon. Yepyeni hesap (`confirmation` şablonu, 11 sn'de doğrulandı) + iki mevcut hesap (`magic_link` şablonu) + çıkış→tekrar giriş |
+| Edge Functions | ✅ | `guardian-dispatch` v5, `delete-account` v4 ACTIVE, `verify_jwt` açık. Hosted runtime: kimliksiz/sahte JWT 401, publishable-only 401 `auth_required`, GET 405. `guardian-dispatch` gerçek JWT ile e-posta gönderdi. `delete-account` yalnız onaylanan test hesabında (onaylanan tek kullanımlık test hesabı) uygulamadan çağrıldı: kullanıcı/profil/kayıt/rıza silindi, `seats_taken` 1→0, audit `deletion_requested→deleted`. Personel/moderatör yolu yalnız yerel testte |
+| Veli e-posta secret'ları | ✅ | `RESEND_API_KEY`, `MAIL_FROM`, `GUARDIAN_PAGE_URL` tanımlı (değerler görülmedi); link `techapp.intechne.com.tr/veli` |
+| Minor / veli remote E2E | ✅ | kayıt → `pending_guardian` → veli e-postası gerçekten ulaştı → `/veli` onay → `confirmed`; token tek kullanım (hash silindi), self + guardian rızaları sürümlü, audit `created→sent→approved`, `seats_taken` tutarlı, imzalı QR + kısa kod eşleşmesi. Resend cooldown remote DB seviyesinde (UI'dan değil); süre dolumu yalnız yerel testte |
+| Adult remote E2E | ✅ | Yepyeni hesap: OTP → ilk profil (26 yaş) → veli isteği yok → çift tıklamada tek kayıt, doğrudan `confirmed` → `seats_taken` +1 → imzalı QR + kısa kod eşleşmesi → yenileme → çıkış (kişisel ekranlar temizlendi) → tekrar giriş → profil + kayıt korundu |
+| P0 açılışta beyaz ekran | ✅ | (önceki tur) Jest + web'de backend kapat/aç |
+| P1 CV / veli limitleri / onaylı içerik / doğrulama / hesap silme FK | ✅ remote | Yerel testler + remote regresyon 01–18 |
+| Production env guard | ✅ | + production staging ref'ini kullanamaz (test + `expo config` simülasyonu). ⚠️ EAS `production` ortamı hâlâ staging URL'ini taşıyor → production build şimdi bilerek başarısız olur; production projesi açılınca güncellenecek |
+| EAS env | ✅ dev/preview | development + preview → staging URL + publishable key, LAN/secret yok |
+| Native çökme riski (`Notice`) | ✅ | Değişkenli metin `<Text>` dışında kalıyordu (web'de serif, native'de çökme: veli formu, fırsat detayı). Düzeltildi + test |
+| Hesap değişiminde önceki kullanıcının ekranları | ✅ | E2E'de bulundu: yeni hesapla girişte Keşfet yığınında önceki kişinin katılım kartı (QR + kısa kod) görünüyordu (sunucu 404 veriyordu; yalnız istemci belleği). Oturumlu kimlik bitince önbellek temizlenir + `NavigationContainer` yeniden kurulur; misafir→giriş akışı korunur. Test + tarayıcıda doğrulandı |
+| EAS iOS/Android build | ⛔ | Sıradaki adım |
+| Native kabul | ⛔ | Build bekliyor |
+| Testler | ✅ | DB+Edge **95/95** · mobil **92/92** + typecheck + lint · admin/web typecheck · remote regresyon **28/28** |
 
 > **30 Eylül 2026 notu:** Bu belgede tarihsel/eski durumlar bulunuyor. Güncel kod denetimi ve yeniden çalıştırılan testler için [hazırlık denetimini](docs/READINESS-2026-09-30.md) esas alın.
 
