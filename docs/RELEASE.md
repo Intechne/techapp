@@ -67,11 +67,14 @@ Kaynak: `design-source/TEKNIK-VE-YAYIN.md`.
 8. İlk platform yöneticisi: SQL Editor'da `insert into public.platform_admins (user_id) values ('<auth user id>')`.
 9. `pg_cron`: `select cron.schedule('expire-guardian', '*/10 * * * *', $$select app.expire_guardian_requests()$$);`
 
-## Remote projede çalışma (development: `techapp` / `pacvhcnawtnkauvguoaw`)
+## Remote projede çalışma — ⛔ 7 Ekim 2026: `pacvhcnawtnkauvguoaw` erişilemiyor (NXDOMAIN)
+Hedef: önce **TechApp Staging** (ayrı proje, örnek veri serbest), sonra ayrı **production** (seed yok). Production'a
+doğrudan migration basılmaz. Kodlu e-posta şablonu `npx supabase config push` ile yüklenmeli (giriş yalnız OTP kodu).
 ```bash
-npx supabase link --project-ref pacvhcnawtnkauvguoaw   # bir kez
+npx supabase link --project-ref <staging-ref>          # bir kez; ref'i iki kez kontrol et
 npm run db:push                                        # plan (dry-run) → sonra: npx supabase db push
-npm run db:types                                       # şema değiştiyse
+npm run db:types                                       # şema değiştiyse (CLI çıktısı kanonik)
+npx supabase config push                               # OTP kod şablonu + boş redirect listesi
 npm run functions:deploy
 npm run env:remote    # iki uygulamanın .env.local dosyasını .env.remote'tan yazar (geri dönüş: npm run env:local)
 npm run mobile:web && npm run admin
@@ -80,10 +83,24 @@ SUPABASE_URL=… SUPABASE_PUBLISHABLE_KEY=… SUPABASE_SECRET_KEY=… npm --pref
 ```
 `.env.remote` içeriği Dashboard → Settings → API Keys'ten alınır: proje URL'i ve **publishable** key.
 
-## Native build ve yayın — mevcut durum (2026-09-19, 3. oturum)
+## Ortamlar ve env guard (7 Ekim 2026)
+| EAS environment | Supabase | Not |
+|---|---|---|
+| development | staging | dev client; LAN backend yalnız yerel `.env.local` ile |
+| preview | staging | iç test (APK / ad-hoc) |
+| production | production (ayrı proje) | seed yok |
+
+- `src/lib/envValidation.js` tek kural seti: preview/production ve **her release bundle** için https + `<ref>.supabase.co` +
+  publishable key; localhost/LAN/secret key reddedilir. `app.config.ts` build/update/export'u durdurur; runtime'da uygulama
+  bağlanmadan "yapılandırılmadı" ekranında kalır.
+- OTA yalnız: `eas update --channel preview --environment preview` / `--channel production --environment production`.
+  `--environment` olmadan çalıştırma: EAS değişkenleri yerine makinedeki `.env.local` okunur (guard bunu reddeder).
+- 7 Ekim itibarıyla üç EAS ortamı da hâlâ erişilemeyen eski ref'i gösteriyor → staging açılınca development/preview güncellenecek.
+
+## Native build ve yayın — 19 Eylül durumu (tarihsel; backend'i artık erişilemiyor)
 
 EAS projesi kuruldu (`@intechne/techapp`), owner `intechne`, projectId app.json'da. `preview` / `production` / `development`
-ortam değişkenleri EAS'te remote Supabase'e (`pacvhcnawtnkauvguoaw`) işaret ediyor (yalnız publishable key; secret yok).
+ortam değişkenleri EAS'te remote Supabase'e (`pacvhcnawtnkauvguoaw`) işaret ediyordu — 7 Ekim'de bu proje erişilemiyor; o buildler kullanılamaz.
 
 **Alınan iç test buildleri (hesap gerektirmez, remote backend'e bağlı):**
 - Android preview **APK** (`preview` profili) — herhangi bir Android cihaza kurulabilir.
@@ -93,10 +110,10 @@ ortam değişkenleri EAS'te remote Supabase'e (`pacvhcnawtnkauvguoaw`) işaret e
 bu Expo/RN kod tabanından üretilemez** — ayrı bir proje gerektirir. Huawei yolu = GMS'siz (HMS) Android AAB → AppGallery.
 
 **Production'a geçiş — sırayla, her biri Intechne'nin bir dış girdisini bekler:**
-1. **Remote migrations (ZORUNLU, ilk).** Canlı Supabase'de son 3 migration yok (`public_cv` fonksiyonu bulunmuyor —
-   doğrulandı). Uygulanmadan alınan production build, CV paylaşımı / gönüllü / unvan özellikleri kırık çıkar.
+1. **Remote migrations (ZORUNLU, ilk).** 7 Ekim: önce staging projesi; 13 migration (20261007000100 dahil) uygulanacak.
+   (19 Eylül notu: o tarihte canlıda son 3 migration yoktu.) Uygulanmadan alınan production build, CV paylaşımı / gönüllü / unvan özellikleri kırık çıkar.
    `npx supabase link` (linkli) → `npx supabase db push` (DB parolası ya da `SUPABASE_ACCESS_TOKEN` gerekir) →
-   `npm --prefix apps/mobile run db:types` → `npm --prefix apps/mobile run e2e:remote` (26/26 beklenir).
+   `npm --prefix apps/mobile run db:types` → `npm --prefix apps/mobile run e2e:remote` (beklenen sonuç staging'de yeniden ölçülecek).
 2. **iOS production (Apple Developer hazır).** `eas build -p ios --profile production` → interaktif Apple girişi ister
    (EAS kimlikleri yönetir). Sonra `eas submit -p ios` (App Store Connect App ID).
 3. **Android production (Play Console hazır).** `eas build -p android --profile production` (AAB) →

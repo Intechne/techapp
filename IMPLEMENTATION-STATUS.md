@@ -1,3 +1,26 @@
+> **7 Ekim 2026 — stabilization sprint (dal `feat/techapp-stabilization`).** Güncel durum bu bölümdedir; aşağıdaki
+> eski bölümler tarihsel kayıttır. Kaynak: 7 Ekim denetim raporu.
+
+## Stabilization sprint — 7 Ekim 2026
+| Kalem | Durum | Kanıt |
+|---|---|---|
+| Uzak Supabase | ⛔ | `pacvhcnawtnkauvguoaw` DNS'te yok (NXDOMAIN); CLI hesabı projeyi görmüyor (görünen 2 proje de duraklatılmış ve onlar da NXDOMAIN → NXDOMAIN "silindi" demek değil). Hesap sahibinin işlemi gerekiyor: projeyi bulup restore etmek ya da "TechApp Staging" açmak + `supabase login`. Aşağıdaki "Remote ✅" satırları 19 Eylül'e aittir, bugün **geçersizdir** |
+| P0 açılışta beyaz ekran | ✅ | Tüm istekler 15 sn deadline; açılış 12 sn; "TechApp'e şu anda bağlanamıyoruz." + Tekrar Dene (35 sn); çevrimdışı / ulaşılamıyor / 5xx ayrımı; ölü refresh token → misafir; error boundary. Jest + web'de backend kapat/aç ile doğrulandı |
+| P1 CV token doğrudan yazma | ✅ yerel | Kolon grant + trigger; yalnız `set_cv_sharing()`; `public_cv` reşit olmayanı sunmaz; 6 regresyon testi |
+| P1 veli e-postası kötüye kullanımı | ✅ yerel | İstek yeniden kullanımı; kayıt/kullanıcı/alıcı limitleri; kalıcı throttle audit; 429 + Türkçe metin; DB + Edge Function testleri |
+| P1 onaylı içerik değişikliği | ✅ yerel | Kritik alan → `in_review` + `content_revisions`; metin düzenlemesi yayında + audit; `submit_application` TOCTOU kontrolü |
+| P1 production env guard | ✅ | `envValidation.js`: runtime fail-closed (release bundle yalnız preview/production + https + `<ref>.supabase.co` + publishable key) ve `app.config.ts` build/update fail-fast. EAS ortamları hâlâ eski ref'i gösteriyor → staging sonrası güncellenecek |
+| Magic link / redirect | ✅ | Link yolu kaldırıldı (e-posta yalnız kod). `config.toml` redirect listesi boş. **Uzak projede kodlu şablon `config push` ile yüklenmeli** (varsayılan Supabase e-postası yalnız link içerir) |
+| Doğrulanmış deneyim bütünlüğü | ✅ yerel | `link_url` değişince doğrulama düşer; `verified_snapshot` |
+| Hesap silme (personel) | ✅ yerel | 7 FK `SET NULL`; moderatör bilinçli RESTRICT → 409 `account_deletion_requires_support` |
+| Edge Functions | 🟡 | Mantık `handler.ts`'te, testli (DB'ye karşı). Deploy uzak proje bekliyor |
+| Logout / onboarding | ✅ | Çıkış cihaz tercihlerini korur; sunucu profili tamam olana onboarding yok. Web'de doğrulandı |
+| Fırsat UX / Keşfet navigasyonu | ✅ | Reşit olmayana baştan uyarı + pasif CTA, "fırsat" metni, Lise etiketi; Keşfet kartları detaya gider. Web'de doğrulandı |
+| Admin CSP | ✅ | Build-time CSP meta + `_headers`; oturum sessionStorage. Build → OTP giriş → liste, CSP ihlali yok |
+| Uzak E2E (yetişkin, reşit olmayan, güvenlik) | ⛔ | Uzak proje bekliyor |
+| EAS iOS/Android build | ⛔ | EAS girişi var (`intechne`); build, staging'e bağlı env olmadan anlamsız |
+| Testler | ✅ | Mobil 87/87 (önce 43) · DB+Edge 93/93 (önce 53) · mobil/admin/web typecheck · mobil lint |
+
 > **30 Eylül 2026 notu:** Bu belgede tarihsel/eski durumlar bulunuyor. Güncel kod denetimi ve yeniden çalıştırılan testler için [hazırlık denetimini](docs/READINESS-2026-09-30.md) esas alın.
 
 # TechApp — Implementation Status
@@ -9,7 +32,7 @@ Son güncelleme: 2026-09-19 (3. oturum) · Dal: `feat/release-readiness` · ✅ 
 ## Fazlar
 | Faz | Durum | Not |
 |---|---|---|
-| 0 · Audit & bootstrap | ✅ | v4 P0/P1 bulguları kod üzerinde yeniden doğrulandı; Expo SDK 57 iskeleti, lockfile, strict TS, ESLint, Jest, env yapısı, expo-doctor 21/21 |
+| 0 · Audit & bootstrap | ✅ | v4 P0/P1 bulguları kod üzerinde yeniden doğrulandı; Expo SDK 57 iskeleti, lockfile, strict TS, ESLint, Jest, env yapısı, expo-doctor 21/21 (7 Ekim: WARNING — 5 paket bir yama geride) |
 | 1 · Design system | ✅ | Token, tipografi, 30 ikonluk `TechIcon`, ~40 ortak bileşen, 5 sekmeli kabuk. Web önizlemede gözle kontrol edildi |
 | 2 · Auth + onboarding | 🟡 | Misafir onboarding, e-posta OTP, güvenli oturum, profil bootstrap, hesap silme akışı yazıldı ve yerel yığında uçtan uca çalıştı. ⛔ Gerçek Supabase Auth + SMTP ile doğrulanmadı |
 | 3 · Discovery | 🟡 | Keşfet gerçek backend'den: ilgi alanına göre etkinlik, arama, fırsat/takım önizleme. Arama yalnız etkinlik; bildirimler yok |
@@ -95,7 +118,8 @@ Test toplamı: DB **52/52**, mobil jest **41/41**, mobil typecheck + lint temiz,
 | Client `verified=true` | ✅ Yok; attestation ayrı tablo |
 | EAS `REPLACE_*` | ✅ Placeholder yok; gerekenler `docs/RELEASE.md` |
 
-## Remote Supabase (development) — proje `techapp` · ref `pacvhcnawtnkauvguoaw` · eu-central-1
+## Remote Supabase (development) — proje `techapp` · ref `pacvhcnawtnkauvguoaw` · eu-central-1 — ⛔ TARİHSEL (19 Eylül)
+> 7 Ekim 2026: bu projeye erişilemiyor (NXDOMAIN). Aşağıdaki ✅'ler o tarihteki ölçümdür, bugünkü durum değildir.
 | Kriter | Durum | Kanıt |
 |---|---|---|
 | Remote linked | ✅ | `supabase link`; proje boştu (tablo yok, migration geçmişi yok) — push öncesi doğrulandı |
