@@ -33,7 +33,8 @@ function Gate() {
     return <StartupUnavailableScreen reason={session.unavailableReason} onRetry={session.retry} retrying={session.status === 'retrying'} />;
   }
   if (!prefs.ready || !session.ready || (!fontsLoaded && !fontError)) return <View style={{ flex: 1, backgroundColor: colors.canvas }} />;
-  return <NavigationContainer theme={navTheme} linking={linking}><RootNavigator /></NavigationContainer>;
+  // Keyed on the identity epoch: when a signed-in account ends, every tab stack is rebuilt from scratch (SessionProvider).
+  return <NavigationContainer key={session.identityEpoch} theme={navTheme} linking={linking}><RootNavigator /></NavigationContainer>;
 }
 
 export default function App() {

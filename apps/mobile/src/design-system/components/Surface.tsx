@@ -74,6 +74,11 @@ const noticeTones: Record<NoticeTone, { bg: string; fg: string; icon: TechIconNa
   danger: { bg: colors.dangerSoft, fg: colors.danger, icon: 'shield' },
 };
 
+// `Daha önce {email} adresine…` arrives as an array, not a string: it still has to be wrapped in <Text>
+// (a bare string outside <Text> crashes on native and falls back to the browser serif on web).
+const isPlainText = (children: React.ReactNode) =>
+  React.Children.toArray(children).every((c) => typeof c === 'string' || typeof c === 'number');
+
 export function Notice({ tone = 'info', title, children }: { tone?: NoticeTone; title?: string; children?: React.ReactNode }) {
   const t = noticeTones[tone];
   return (
@@ -81,7 +86,7 @@ export function Notice({ tone = 'info', title, children }: { tone?: NoticeTone; 
       <TechIcon name={t.icon} size={20} color={t.fg} />
       <View style={{ flex: 1, gap: 2 }}>
         {title && <Text variant="label" style={{ color: t.fg }}>{title}</Text>}
-        {typeof children === 'string' ? <Text variant="bodySmall" style={{ color: t.fg }}>{children}</Text> : children}
+        {isPlainText(children) ? <Text variant="bodySmall" style={{ color: t.fg }}>{children}</Text> : children}
       </View>
     </View>
   );

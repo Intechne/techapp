@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { Button, Checkbox, Chip, EmptyState, ErrorState, EventCard, RegistrationStatus, VerificationBadge } from '..';
+import { Button, Checkbox, Chip, EmptyState, ErrorState, EventCard, Notice, RegistrationStatus, VerificationBadge } from '..';
 import { iconPaths } from '../icons.generated';
 import { makeError } from '../../lib/errors';
 
@@ -25,6 +25,12 @@ describe('design system', () => {
     await fireEvent.press(screen.getByRole('checkbox'));
     expect(onChange).toHaveBeenCalledWith(true);
     expect(screen.getByText('Gerekli')).toBeTruthy();
+  });
+
+  it('Notice wraps interpolated text in <Text> (bare strings crash on native)', async () => {
+    const masked = 'v•••@example.test';
+    await render(<Notice tone="info">Daha önce {masked} adresine gönderdik.</Notice>);
+    expect(screen.getByText(`Daha önce ${masked} adresine gönderdik.`).type).toBe('Text');
   });
 
   it('ErrorState offers retry only for retryable errors', async () => {

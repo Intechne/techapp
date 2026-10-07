@@ -5,6 +5,7 @@
  *
  *   local / development  any URL (LAN, http) is fine — but never a secret key
  *   preview / production https, a public *.supabase.co project host, a publishable (or legacy anon) key
+ *   production           never the staging project (STAGING_PROJECT_REFS): staging data must not reach store users
  *   release JS bundle    must be preview or production: a bundle built with local settings must not run in a store
  *                        build or arrive through an OTA update
  */
@@ -12,6 +13,8 @@ const APP_ENVS = ['local', 'development', 'preview', 'production'];
 
 const PRIVATE_HOST = /^(localhost|0\.0\.0\.0|127\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|169\.254\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|\[?::1\]?|\[?f[cd][0-9a-f]{2}:.*)$|\.(local|lan|internal|home|localhost)$/i;
 const SUPABASE_PROJECT_HOST = /^[a-z0-9]{20}\.supabase\.co$/;
+// Remote staging (Supabase project "techapp"). development and preview builds use it; production must not.
+const STAGING_PROJECT_REFS = ['pacvhcnawtnkauvguoaw'];
 
 function jwtRole(key) {
   const part = key.split('.')[1];
@@ -50,6 +53,9 @@ function validateEnv({ appEnv, url = '', key = '', releaseBuild = false }) {
     if (parsed.protocol !== 'https:') problems.push('EXPO_PUBLIC_SUPABASE_URL must use https');
     if (isPrivateHost(parsed.hostname)) problems.push('EXPO_PUBLIC_SUPABASE_URL points to a local or private network host');
     else if (!SUPABASE_PROJECT_HOST.test(parsed.hostname)) problems.push('EXPO_PUBLIC_SUPABASE_URL must be a <project-ref>.supabase.co host');
+    else if (known === 'production' && STAGING_PROJECT_REFS.includes(parsed.hostname.split('.')[0])) {
+      problems.push('production must not use the staging Supabase project');
+    }
   }
   if (strict && key && !isSecretKey(key) && !key.startsWith('sb_publishable_') && jwtRole(key) !== 'anon') {
     problems.push('EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY is not a publishable key');
@@ -57,4 +63,4 @@ function validateEnv({ appEnv, url = '', key = '', releaseBuild = false }) {
   return { appEnv: known, strict, problems };
 }
 
-module.exports = { APP_ENVS, isPrivateHost, isSecretKey, validateEnv };
+module.exports = { APP_ENVS, STAGING_PROJECT_REFS, isPrivateHost, isSecretKey, validateEnv };

@@ -24,6 +24,14 @@ describe('validateEnv', () => {
     expect(validateEnv({ appEnv: 'production', url, key: good.key }).problems.length).toBeGreaterThan(0);
   });
 
+  it('production never uses the staging project; development and preview may', () => {
+    const staging = { url: 'https://pacvhcnawtnkauvguoaw.supabase.co', key: good.key };
+    expect(validateEnv({ appEnv: 'production', ...staging, releaseBuild: true }).problems)
+      .toContain('production must not use the staging Supabase project');
+    expect(validateEnv({ appEnv: 'preview', ...staging, releaseBuild: true }).problems).toEqual([]);
+    expect(validateEnv({ appEnv: 'development', ...staging }).problems).toEqual([]);
+  });
+
   it('refuses secret / service-role keys everywhere, even locally', () => {
     for (const appEnv of ['local', 'development', 'preview', 'production']) {
       expect(validateEnv({ appEnv, url: good.url, key: 'sb_secret_abc' }).problems).toContain('a secret / service-role key must never be in the app');
