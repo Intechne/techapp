@@ -5,7 +5,7 @@
   "description": "TechApp — mobile app, admin panel and Supabase backend",
   "scripts": {
     "db:test": "vitest run --config supabase/tests/vitest.config.mts",
-    "db:dev": "node supabase/dev/start.mjs",
+    "db:dev": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON supabase/dev/start.mjs",
     "mobile": "npm --prefix apps/mobile run start",
     "verify": "npm run db:test && npm --prefix apps/mobile run verify && npm --prefix apps/admin run typecheck && npm --prefix apps/web run typecheck",
     "db:types": "supabase gen types typescript --linked --schema public > /tmp/techapp-db-types.ts && mv /tmp/techapp-db-types.ts apps/mobile/src/lib/database.generated.ts",

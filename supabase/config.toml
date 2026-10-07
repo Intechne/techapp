@@ -7,8 +7,10 @@ schemas = ["public"]
 max_rows = 200
 
 [auth]
-site_url = "techapp://"
-additional_redirect_urls = ["techapp://**", "https://techapp.intechne.com.tr/**", "http://localhost:8081/**", "http://127.0.0.1:8081/**"]
+# Sign-in is OTP-only (6-digit code, templates/otp.html): no e-mail carries a sign-in link, so no redirect is needed.
+# Keep this list empty in every hosted project; never add localhost/127.0.0.1 here (it would be pushed to production).
+site_url = "https://techapp.intechne.com.tr"
+additional_redirect_urls = []
 enable_signup = true
 minimum_password_length = 12
 

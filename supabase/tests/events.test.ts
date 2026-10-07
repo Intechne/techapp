@@ -119,7 +119,8 @@ describe('guardian consent', () => {
     const { minor, reg, event } = await minorPending();
     const reqId = (await asUser(minor, (q) => q(`select public.create_guardian_request($1, 'veli@example.test') id`, [reg.id]))).rows[0].id;
     const issued = (await asService((q) => q(`select public.issue_guardian_token($1) j`, [reqId]))).rows[0].j;
-    await expectFail(asService((q) => q(`select public.issue_guardian_token($1)`, [reqId])), 429, 'guardian_send_too_soon');
+    // a resend inside the cooldown is refused without minting a token (returned, not raised, so the audit row stays)
+    expect((await asService((q) => q(`select public.issue_guardian_token($1) j`, [reqId]))).rows[0].j).toMatchObject({ throttled: true, code: 'guardian_send_too_soon' });
 
     const preview = (await asAnon((q) => q(`select public.guardian_request_preview($1) j`, [issued.token]))).rows[0].j;
     expect(preview.participant_first_name).toBe('Elif');
@@ -243,7 +244,9 @@ describe('row level security', () => {
 
   it('birth date is write-once and minors cannot become discoverable', async () => {
     const minor = await createUser({ age: 15 });
-    await expectFail(asUser(minor, (q) => q(`update public.profile_private set birth_date = '1990-01-01' where user_id = $1`, [minor])), 403, 'birth_date_locked');
+    // only contact columns are client-writable; the birth_date trigger stays as a second line of defence
+    await expect(asUser(minor, (q) => q(`update public.profile_private set birth_date = '1990-01-01' where user_id = $1`, [minor]))).rejects.toThrow(/permission denied/);
+    await expectFail(admin(`update public.profile_private set birth_date = '1990-01-01' where user_id = $1`, [minor]), 403, 'birth_date_locked');
     await expectFail(asUser(minor, (q) => q(`select public.complete_profile_bootstrap('Yeni Ad', 'high_school', '1990-01-01', '{}')`)), 409, 'birth_date_locked');
     await expectFail(asUser(minor, (q) => q(`update public.profiles set discoverable = true where id = $1`, [minor])), 403, 'discoverable_requires_adult');
     const fresh = await createUser({ age: null });

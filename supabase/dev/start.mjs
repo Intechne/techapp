@@ -21,6 +21,8 @@ import { networkInterfaces } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
+import { deleteAccount } from '../functions/delete-account/handler.ts';
+import { guardianDispatch } from '../functions/guardian-dispatch/handler.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..', '..');
@@ -58,11 +60,38 @@ await server.start();
 if (fresh) await server.createDatabase('techapp');
 const db = new pg.Pool({ connectionString: `postgres://postgres:postgres@127.0.0.1:${PG_PORT}/techapp` });
 
-if (fresh) {
-  await db.query(readFileSync(join(root, 'supabase/tests/supabase-shim.sql'), 'utf8'));
-  for (const f of readdirSync(join(root, 'supabase/migrations')).filter((x) => x.endsWith('.sql')).sort()) {
-    await db.query(readFileSync(join(root, 'supabase/migrations', f), 'utf8'));
+// Migrations are tracked like the Supabase CLI does, so an existing dev database picks up new ones on the next start.
+const migrationFiles = readdirSync(join(root, 'supabase/migrations')).filter((x) => x.endsWith('.sql')).sort();
+const version = (f) => f.split('_')[0];
+async function applyPendingMigrations() {
+  await db.query(`create schema if not exists supabase_migrations;
+    create table if not exists supabase_migrations.schema_migrations (version text primary key, name text, applied_at timestamptz default now())`);
+  const tracked = new Set((await db.query(`select version from supabase_migrations.schema_migrations`)).rows.map((r) => r.version));
+  if (!fresh && tracked.size === 0) {
+    // Dev databases created before tracking existed contain every migration up to 20260920000300.
+    for (const f of migrationFiles.filter((x) => version(x) <= '20260920000300')) {
+      await db.query(`insert into supabase_migrations.schema_migrations (version, name) values ($1, $2)`, [version(f), f]);
+      tracked.add(version(f));
+    }
   }
+  for (const f of migrationFiles.filter((x) => !tracked.has(version(x)))) {
+    const client = await db.connect();
+    try {
+      await client.query('begin');
+      await client.query(readFileSync(join(root, 'supabase/migrations', f), 'utf8'));
+      await client.query(`insert into supabase_migrations.schema_migrations (version, name) values ($1, $2)`, [version(f), f]);
+      await client.query('commit');
+      if (!fresh) console.log(`migration applied: ${f}`);
+    } catch (e) {
+      await client.query('rollback').catch(() => {});
+      throw new Error(`migration ${f} failed: ${e.message}`);
+    } finally { client.release(); }
+  }
+}
+
+if (fresh) await db.query(readFileSync(join(root, 'supabase/tests/supabase-shim.sql'), 'utf8'));
+await applyPendingMigrations();
+if (fresh) {
   await db.query(readFileSync(join(root, 'supabase/seed.sql'), 'utf8'));
   // Dev organiser: owner of the first demo organisation + platform admin. Sign in with this address (OTP is printed here).
   const id = randomUUID();
@@ -132,31 +161,62 @@ async function auth(req, res, path, url) {
   return send(res, 404, { msg: 'not found' });
 }
 
-// Dev equivalents of supabase/functions/*. Same contracts; e-mail is replaced by a console link.
+// The real Edge Function logic (supabase/functions/*/handler.ts), wired to this database. E-mail is replaced by a
+// console link. Needs Node's TypeScript type stripping (see the db:dev script).
+async function asRole(role, sub, sql, params) {
+  const client = await db.connect();
+  try {
+    await client.query('begin'); await client.query(`set local role ${role}`);
+    await client.query(`select set_config('request.jwt.claims', $1, true)`, [JSON.stringify({ sub: sub ?? '', role })]);
+    const result = await client.query(sql, params);
+    await client.query('commit');
+    return result;
+  } catch (e) { await client.query('rollback').catch(() => {}); throw e; } finally { client.release(); }
+}
+const authenticate = async (authorization) => {
+  const claims = verifyJwt(authorization.replace(/^Bearer /i, ''));
+  return claims?.role === 'authenticated' && claims.sub ? claims.sub : null;
+};
+
 async function functions(req, res, path) {
-  const claims = bearer(req); const body = await readBody(req);
-  if (claims?.role !== 'authenticated') return send(res, 401, { code: 'auth_required' });
+  const authorization = req.headers.authorization ?? ''; const body = await readBody(req); const requestId = randomUUID();
   if (path === '/guardian-dispatch') {
-    const owner = await db.query(`select 1 from public.guardian_requests where id = $1 and user_id = $2`, [body.request_id, claims.sub]);
-    if (!owner.rowCount) return send(res, 404, { code: 'guardian_request_not_found' });
-    const client = await db.connect();
-    try {
-      await client.query('begin'); await client.query('set local role service_role');
-      const { rows } = await client.query(`select public.issue_guardian_token($1) j`, [body.request_id]);
-      await client.query('commit');
-      const link = `http://localhost:3100/veli#${rows[0].j.token}`;
-      writeFileSync(join(here, '.last-guardian-link'), link);
-      console.log(`\n  ✉  Guardian link for ${rows[0].j.guardian_email}:\n     ${link}\n`);
-      return send(res, 200, { sent: true });
-    } catch (e) {
-      await client.query('rollback').catch(() => {});
-      const status = /^PT(\d{3})$/.exec(e.code ?? '')?.[1];
-      return send(res, status ? Number(status) : 500, { code: status ? e.message : 'server_error' });
-    } finally { client.release(); }
+    const result = await guardianDispatch({
+      authenticate,
+      ownsRequest: async (auth, id) => {
+        const sub = await authenticate(auth);
+        return !!sub && (await asRole('authenticated', sub, `select id from public.my_guardian_requests where id = $1`, [id])).rowCount > 0;
+      },
+      issueToken: async (id) => {
+        try { return { data: (await asRole('service_role', null, `select public.issue_guardian_token($1) j`, [id])).rows[0].j, error: null }; }
+        catch (e) { return { data: null, error: { code: e.code, message: e.message } }; }
+      },
+      sendMail: async (mail) => {
+        const link = /https?:\/\/\S+#[A-Za-z0-9_-]+/.exec(mail.text)?.[0] ?? '';
+        writeFileSync(join(here, '.last-guardian-link'), link);
+        console.log(`\n  ✉  Guardian link for ${mail.to}:\n     ${link}\n`);
+        return { ok: true, status: 200 };
+      },
+      guardianPageUrl: 'http://localhost:3100/veli',
+      log: console.error,
+    }, authorization, body, requestId);
+    return send(res, result.status, result.body);
   }
   if (path === '/delete-account') {
-    await db.query(`delete from auth.users where id = $1`, [claims.sub]);
-    return send(res, 200, { deleted: true });
+    const result = await deleteAccount({
+      authenticate,
+      audit: async (action, userId) => {
+        await db.query(`insert into public.audit_events (actor_id, actor_kind, action, target_type, target_id) values ($1, $2, $3, 'user', $4)`,
+          [action === 'account.deleted' ? null : userId, action === 'account.deleted' ? 'service' : 'user', action, userId]);
+      },
+      removeFiles: async () => {}, // no storage in the dev stack
+      deleteUser: async (userId) => {
+        try { await db.query(`delete from auth.users where id = $1`, [userId]); return { error: null }; } catch { return { error: { status: 500 } }; }
+      },
+      hasModerationHistory: async (userId) => (await db.query(`select 1 from public.moderation_actions where moderator_id = $1`, [userId])).rowCount > 0,
+      log: console.error,
+    }, authorization, requestId);
+    return send(res, result.status, result.body);
   }
   return send(res, 404, { code: 'not_found' });
 }
