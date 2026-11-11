@@ -107,7 +107,11 @@ SUPABASE_URL=… SUPABASE_PUBLISHABLE_KEY=… SUPABASE_SECRET_KEY=… npm --pref
   bağlanmadan "yapılandırılmadı" ekranında kalır.
 - OTA yalnız: `eas update --channel preview --environment preview` / `--channel production --environment production`.
   `--environment` olmadan çalıştırma: EAS değişkenleri yerine makinedeki `.env.local` okunur (guard bunu reddeder).
-- 7 Ekim itibarıyla üç EAS ortamı da hâlâ erişilemeyen eski ref'i gösteriyor → staging açılınca development/preview güncellenecek.
+- **11 Kasım 2026 (salt okunur kontrol, `eas env:list --environment preview`):** preview ortamında `EXPO_PUBLIC_APP_ENV=preview`,
+  `EXPO_PUBLIC_SUPABASE_URL` = staging (`pacvhcnawtnkauvguoaw`), publishable key tanımlı, `EXPO_PUBLIC_SENTRY_DSN` yok (Sentry kapalı kalır).
+  `eas channel:view preview`: preview kanalında/dalında **hiç OTA güncellemesi yok** → yeni preview build eski JS ile ezilmez.
+  `production` ortamı hâlâ staging URL'ini taşıyor; `envValidation.js` production build'ini bilerek reddeder (production projesi yok).
+  (7 Ekim notu "eski ref" artık geçersiz.)
 
 ## Native build ve yayın — 19 Eylül durumu (tarihsel; backend'i artık erişilemiyor)
 
