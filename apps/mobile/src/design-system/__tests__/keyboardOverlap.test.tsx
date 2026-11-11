@@ -24,9 +24,9 @@ describe('Screen footer on Android', () => {
     await render(<SafeAreaProvider initialMetrics={metrics}><Screen footer={<RNText>Kodu gönder</RNText>}><RNText>x</RNText></Screen></SafeAreaProvider>);
     const footerStyle = () => StyleSheet.flatten(screen.getByText('Kodu gönder').parent!.parent!.props.style);
     expect(footerStyle().marginBottom).toBe(0);
-    await act(async () => handlers.keyboardDidShow({ endCoordinates: { screenY: 500, height: 300 } }));
+    await act(async () => handlers.keyboardDidShow!({ endCoordinates: { screenY: 500, height: 300 } }));
     expect(footerStyle().marginBottom).toBe(300);
-    await act(async () => handlers.keyboardDidHide());
+    await act(async () => handlers.keyboardDidHide!());
     expect(footerStyle().marginBottom).toBe(0);
   });
 });
