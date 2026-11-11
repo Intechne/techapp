@@ -118,7 +118,7 @@ export async function fetchCardWithOfflineFallback(userId: string | null, regist
       await dropCard(userId, registrationId).catch(() => {});
       throw e;
     }
-    if (userId && (error.code === 'network_unreachable' || error.status === 429 || error.status >= 500)) {
+    if (userId && (error.code === 'network_unreachable' || error.status === 429 || error.status >= 500) && error.code !== 'contract_mismatch') {
       const cached = await loadCard(userId, registrationId);
       if (cached) return { card: cached.card, cachedAt: cached.savedAt };
     }

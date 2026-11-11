@@ -112,9 +112,9 @@ describe('fetchCardWithOfflineFallback', () => {
     await expect(fetchCardWithOfflineFallback('u1', REG)).rejects.toMatchObject({ code });
     expect(await loadCard('u1', REG)).toBeNull();
   });
-  it.each([['contract_mismatch', 500], ['unknown', 0], ['not_configured', 0]])('never shows a cached card on %s', async (code, status) => {
+  it.each([['contract_mismatch', 500], ['unknown', 0], ['not_configured', 0], ['contract_mismatch', 422]])('never shows a cached card on %s (status %s)', async (code, status) => {
     await saveCard('u1', card);
-    mockFetch.mockRejectedValue(makeError(code, status === 500 ? 422 : status));
+    mockFetch.mockRejectedValue(makeError(code, status));
     await expect(fetchCardWithOfflineFallback('u1', REG)).rejects.toBeTruthy();
   });
   it('never shows a cached card on 401', async () => {
