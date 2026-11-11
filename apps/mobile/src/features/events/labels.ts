@@ -28,6 +28,17 @@ export function audienceLabel(e: Pick<EventRow, 'audience_note' | 'min_age' | 'm
   return 'Herkese açık';
 }
 
+const MODE_LABEL: Record<EventRow['registration_mode'], string> = { individual: 'Bireysel kayıt', team: 'Takım kaydı', both: 'Bireysel veya takım kaydı' };
+
+/** Registration type and age / guardian terms for the detail screen. Display-only: the server decides eligibility. */
+export function registrationTermsLabel(e: Pick<EventRow, 'registration_mode' | 'min_age' | 'guardian_required_under'>): string {
+  return [
+    MODE_LABEL[e.registration_mode],
+    e.min_age ? `${e.min_age} yaş ve üzeri` : null,
+    e.guardian_required_under ? `${e.guardian_required_under} yaş altına veli onayı` : null,
+  ].filter(Boolean).join(' · ');
+}
+
 /** Availability is display-only; the server decides again at registration time. */
 export function availability(e: Pick<EventRow, 'capacity' | 'seats_taken' | 'waitlist_enabled' | 'registration_closes_at'>, now = Date.now()): EventCardModel['availability'] {
   if (new Date(e.registration_closes_at).getTime() <= now) return { label: 'KAYIT KAPANDI', tone: 'danger' };

@@ -12,7 +12,7 @@ import { useSession } from '../auth/SessionProvider';
 import { usePendingIntent } from '../auth/pendingIntent';
 import { eventKeys, fetchEligibility, fetchEvent } from './api';
 import { VolunteerSection } from '../volunteers/VolunteerSection';
-import { ELIGIBILITY_REASON, EVENT_TYPE_LABEL, audienceLabel, availability, feeLabel, placeLabel } from './labels';
+import { ELIGIBILITY_REASON, EVENT_TYPE_LABEL, audienceLabel, availability, feeLabel, placeLabel, registrationTermsLabel } from './labels';
 
 export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<SharedEventParamList, 'EventDetail'>) {
   const { eventId } = route.params;
@@ -70,6 +70,7 @@ export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<
         <MetadataRow icon="event" strong>{formatDateRange(e.starts_at, e.ends_at)} · {formatTimeRange(e.starts_at, e.ends_at)}</MetadataRow>
         <MetadataRow icon="location" strong>{[placeLabel(e), e.venue].filter(Boolean).join(' · ')}</MetadataRow>
         <MetadataRow icon="community" strong>{audienceLabel(e)} · {feeLabel(e.fee_minor_units)}</MetadataRow>
+        <MetadataRow icon="team" strong>{registrationTermsLabel(e)}</MetadataRow>
         <MetadataRow icon="clock" strong>Son kayıt: {formatDate(e.registration_closes_at)}</MetadataRow>
         {e.capacity !== null && <MetadataRow icon="ticket" strong>{Math.max(e.capacity - e.seats_taken, 0)} / {e.capacity} yer açık</MetadataRow>}
       </View>
