@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, EmptyState, ErrorState, LoadingSkeleton, ResponsiveGrid, Screen, SegmentedControl, Tag, Text, colors, radius, space } from '../../design-system';
+import { AppHeader, EmptyState, ErrorState, LoadingSkeleton, ResponsiveGrid, Screen, SegmentedControl, Tag, Text, colors, radius, space, tones } from '../../design-system';
 import { toAppError } from '../../lib/errors';
 import type { OpportunitiesStackParamList } from '../../navigation/types';
 import { fetchOpportunities, opportunityKeys } from './api';
@@ -38,8 +38,8 @@ export function DeadlinesScreen({ navigation }: NativeStackScreenProps<Opportuni
             <ResponsiveGrid maxColumns={2}>
               {g.items.map((o) => { const d = deadlineView(o.closes_at); return (
                 <Pressable key={o.id} accessibilityRole="button" accessibilityLabel={`${o.title}. ${d.label}.`} onPress={() => navigation.navigate('OpportunityDetail', { opportunityId: o.id })}
-                  style={({ pressed }) => ({ flexDirection: 'row', gap: space[3], alignItems: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 19, padding: space[3], opacity: pressed ? 0.85 : 1 })}>
-                  <View style={{ width: 56, minHeight: 60, borderRadius: radius.control, backgroundColor: d.urgency === 'upcoming' ? colors.primarySoft : '#FFE8DD', alignItems: 'center', justifyContent: 'center' }}>
+                  style={({ pressed }) => ({ flexDirection: 'row', gap: space[3], alignItems: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.card, padding: space[3], opacity: pressed ? 0.85 : 1 })}>
+                  <View style={{ width: 56, minHeight: 60, borderRadius: radius.control, backgroundColor: d.urgency === 'upcoming' ? colors.primarySoft : tones.apricot.bg, alignItems: 'center', justifyContent: 'center' }}>
                     <Text variant="section" color={d.urgency === 'upcoming' ? 'primary' : 'ink'}>{dayFmt.format(new Date(o.closes_at))}</Text>
                     <Text variant="caption" color="textSecondary">{weekdayFmt.format(new Date(o.closes_at))}</Text>
                   </View>

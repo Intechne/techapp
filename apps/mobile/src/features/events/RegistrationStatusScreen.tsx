@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Button, Card, ErrorState, LoadingSkeleton, Skeleton, MetadataRow, Modal, Notice, RegistrationStatus, Screen, StatusBadge, StatusTimeline, TechIcon, Text, colors, guardianStatusView, registrationSteps, space, useToast, type TechIconName } from '../../design-system';
+import { AppHeader, Button, Card, ErrorState, LoadingSkeleton, Skeleton, MetadataRow, Modal, Notice, RegistrationStatus, Screen, StatusBadge, StatusTimeline, TechIcon, Text, colors, radius, guardianStatusView, registrationSteps, space, useToast, type TechIconName } from '../../design-system';
 import { formatDateRange, formatDateTime, isPast } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
 import type { RegistrationStatus as Status } from '../../lib/database.types';
@@ -126,5 +126,5 @@ export function RegistrationStatusScreen({ navigation, route }: NativeStackScree
 
 const styles = StyleSheet.create({
   inlineRetry: { minHeight: 44, justifyContent: 'center', marginTop: space[2] },
-  icon: { width: 76, height: 76, borderRadius: 26, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: space[5], marginBottom: space[5] },
+  icon: { width: 76, height: 76, borderRadius: radius.hero, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: space[5], marginBottom: space[5] },
 });

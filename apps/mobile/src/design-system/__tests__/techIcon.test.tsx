@@ -5,6 +5,12 @@ import { TechIcon } from '../TechIcon';
 
 const root = async (el: React.ReactElement) => (await render(el)).toJSON() as unknown as { props: Record<string, unknown> };
 
+const captured: string[] = [];
+jest.mock('react-native-svg', () => {
+  const { View } = jest.requireActual('react-native');
+  return { SvgXml: ({ xml, ...rest }: { xml: string }) => { captured.push(xml); return <View {...rest} />; } };
+});
+
 describe('TechIcon accessibility', () => {
   afterEach(() => jest.restoreAllMocks());
   it('decorative icons are hidden from screen readers on native', async () => {
@@ -23,5 +29,19 @@ describe('TechIcon accessibility', () => {
     expect(props.accessibilityRole).toBe('image');
     expect(props.accessibilityLabel).toBe('Doğrulanmış');
     expect(props.accessibilityElementsHidden).toBeUndefined();
+  });
+});
+
+describe('TechIcon svg markup', () => {
+  const xmlOf = async (el: React.ReactElement) => {
+    captured.length = 0;
+    await render(el);
+    return captured[captured.length - 1];
+  };
+  it('decorative icons carry aria-hidden in the markup', async () => {
+    expect(await xmlOf(<TechIcon name="event" />)).toContain('aria-hidden="true"');
+  });
+  it('labelled icons do NOT carry aria-hidden in the markup', async () => {
+    expect(await xmlOf(<TechIcon name="verified" accessibilityLabel="Doğrulanmış" />)).not.toContain('aria-hidden');
   });
 });

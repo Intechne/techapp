@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { TechIcon, colors, fonts, layout, space, type TechIconName } from '../design-system';
+import { TechIcon, colors, fonts, layout, space, type, type TechIconName } from '../design-system';
 import { AuthEmailScreen } from '../features/auth/AuthEmailScreen';
 import { AuthOtpScreen } from '../features/auth/AuthOtpScreen';
 import { ProfileBootstrapScreen } from '../features/auth/ProfileBootstrapScreen';
@@ -67,6 +67,9 @@ const OpportunitiesStack = () => <Opportunities.Navigator screenOptions={stackOp
 const CommunityStack = () => <Community.Navigator screenOptions={stackOptions}><Community.Screen name="CommunityHome" component={CommunityScreen} /><Community.Screen name="TeamDetail" component={TeamDetailScreen} /><Community.Screen name="TeamWorkspace" component={TeamWorkspaceScreen} /><Community.Screen name="TeamTaskEditor" component={TeamTaskEditorScreen} /><Community.Screen name="CreateTeam" component={CreateTeamScreen} /></Community.Navigator>;
 const ProfileStack = () => <Profile.Navigator screenOptions={stackOptions}><Profile.Screen name="ProfileHome" component={ProfileScreen} /><Profile.Screen name="CheckIn" component={CheckInScreen} /><Profile.Screen name="EditProfile" component={EditProfileScreen} /><Profile.Screen name="ExperienceEditor" component={ExperienceEditorScreen} /><Profile.Screen name="ExperienceDetail" component={ExperienceDetailScreen} />{eventJourney(Profile)}</Profile.Navigator>;
 
+/** Bottom tab label cap (dp): wide enough for "Etkinlikler" at the 12 pt minimum (57 dp) with a little slack, narrow enough for 5 tabs at 320 dp. */
+const TAB_LABEL_MAX_WIDTH = 64;
+
 const TABS: Record<keyof MainTabParamList, { label: string; icon: TechIconName }> = {
   DiscoverTab: { label: 'Keşfet', icon: 'discover' },
   EventsTab: { label: 'Etkinlikler', icon: 'event' },
@@ -89,7 +92,7 @@ function MainTabs() {
         tabBarInactiveTintColor: colors.textSecondary,
         // 5 tabs at 320 dp leave 54 dp of label width after the item's 5 dp padding, but "Etkinlikler" needs 57 dp at the 12 pt minimum:
         // let the label use the padding (negative margin) instead of shrinking the font or hiding the text.
-        tabBarLabelStyle: { fontFamily: fonts.bodySemibold, fontSize: 12, ...(sideNavigation ? null : { alignSelf: 'stretch' as const, maxWidth: 64, textAlign: 'center' as const, marginHorizontal: -space[1] }) },
+        tabBarLabelStyle: { fontFamily: fonts.bodySemibold, fontSize: type.caption.fontSize, ...(sideNavigation ? null : { alignSelf: 'stretch' as const, maxWidth: TAB_LABEL_MAX_WIDTH, textAlign: 'center' as const, marginHorizontal: -space[1] }) },
         tabBarAllowFontScaling: false,
         tabBarStyle: sideNavigation
           ? { backgroundColor: colors.surface, borderRightColor: colors.border, borderRightWidth: 1, minWidth: 96, paddingTop: 24 }

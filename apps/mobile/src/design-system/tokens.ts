@@ -21,6 +21,12 @@ export const colors = {
   dangerSoft: '#FFF0F1',
   white: '#FFFFFF',
   scrim: 'rgba(32, 36, 31, 0.45)',
+  limePressed: '#C9E556',
+  dangerSoftPressed: '#FBDDE0',
+  /** Chip surface on dark imagery (poster, hero). */
+  onDarkChip: 'rgba(255,255,255,0.86)',
+  /** Decorative Iris tint for rings on an Iris block: Iris mixed ~27% toward white. Never for text. */
+  irisMuted: '#7C78E1',
 } as const;
 
 /** Poster tones for event / content visuals: [background, foreground]. */
@@ -70,3 +76,28 @@ export const type = {
   eyebrow: { fontFamily: fonts.bodyBold, fontSize: 12, lineHeight: 16, letterSpacing: 0.8 },
 } as const;
 export type TypeVariant = keyof typeof type;
+
+/** Elevation levels (Android `elevation`, iOS/web shadow via `elevationStyle`). */
+export const elevation = { none: 0, raised: 2, sheet: 8 } as const;
+export type ElevationLevel = keyof typeof elevation;
+
+/**
+ * Semantic layer (light). Components read these names, not raw colours. Mirrors tokens.json `semantic.light`.
+ * `semantic.dark` is a draft in tokens.json only: it is deliberately not exported (dark mode stays off).
+ * Contrast rule: Lime is a fill/text colour on dark backgrounds only; on light backgrounds it carries Ink text (`text.onLime`).
+ */
+export const semantic = {
+  light: {
+    bg: { canvas: colors.canvas, surface: colors.surface, sunken: colors.surfaceSunken, inverse: tones.ink.bg },
+    text: { primary: colors.ink, secondary: colors.textSecondary, inverse: colors.white, onAction: colors.white, onLime: colors.ink, onInverseAccent: tones.ink.fg },
+    border: { default: colors.border, strong: colors.borderStrong },
+    action: { primary: colors.primary, primaryPressed: colors.primaryPressed, primarySoft: colors.primarySoft, lime: colors.lime, limePressed: colors.limePressed },
+    status: {
+      success: colors.moss, successSoft: colors.mossSoft,
+      warning: tones.apricot.fg, warningSoft: tones.apricot.bg,
+      danger: colors.danger, dangerSoft: colors.dangerSoft,
+      info: tones.iris.fg, infoSoft: colors.primarySoft,
+    },
+    decor: { irisMuted: colors.irisMuted, apricot: colors.apricot, lime: colors.lime },
+  },
+} as const;

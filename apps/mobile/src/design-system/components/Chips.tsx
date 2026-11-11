@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { colors, layout, radius, space } from '../tokens';
+import { colors, fonts, layout, radius, space, tones } from '../tokens';
 import { Text } from '../Text';
 import { TechIcon, type TechIconName } from '../TechIcon';
 
@@ -34,9 +34,9 @@ const tagTones: Record<TagTone, { bg: string; fg: string }> = {
   iris: { bg: colors.primarySoft, fg: colors.primary },
   moss: { bg: colors.mossSoft, fg: colors.moss },
   neutral: { bg: colors.surfaceSunken, fg: colors.ink },
-  onDark: { bg: 'rgba(255,255,255,0.86)', fg: colors.ink },
+  onDark: { bg: colors.onDarkChip, fg: colors.ink },
   danger: { bg: colors.dangerSoft, fg: colors.danger },
-  apricot: { bg: '#FFE8DD', fg: '#763C2C' },
+  apricot: { bg: tones.apricot.bg, fg: tones.apricot.fg },
 };
 
 export function Tag({ label, tone = 'iris', icon }: { label: string; tone?: TagTone; icon?: TechIconName }) {
@@ -44,7 +44,7 @@ export function Tag({ label, tone = 'iris', icon }: { label: string; tone?: TagT
   return (
     <View style={[styles.tag, { backgroundColor: t.bg }]}>
       {icon && <TechIcon name={icon} size={14} color={t.fg} />}
-      <Text variant="caption" style={{ color: t.fg, fontFamily: 'DMSans_700Bold', letterSpacing: 0.4 }}>{label}</Text>
+      <Text variant="caption" style={{ color: t.fg, fontFamily: fonts.bodyBold, letterSpacing: 0.4 }}>{label}</Text>
     </View>
   );
 }
@@ -78,6 +78,6 @@ const styles = StyleSheet.create({
   chipSelected: { backgroundColor: colors.ink, borderColor: colors.ink },
   tag: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', borderRadius: radius.small, paddingHorizontal: space[2], paddingVertical: 5 },
   segmented: { flexDirection: 'row', gap: 4, backgroundColor: colors.surfaceSunken, borderRadius: radius.control, padding: 4 },
-  segment: { flex: 1, minHeight: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  segment: { flex: 1, minHeight: 40, borderRadius: radius.small, alignItems: 'center', justifyContent: 'center' },
   segmentActive: { backgroundColor: colors.surface },
 });

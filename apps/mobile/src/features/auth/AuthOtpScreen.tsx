@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Button, Input, Notice, Screen, Text, TextButton, space } from '../../design-system';
+import { AppHeader, Button, Input, Notice, Screen, Text, TextButton, colors, space, type } from '../../design-system';
 import { makeError, parsePayload, toAppError } from '../../lib/errors';
 import { accountStateSchema } from '../../lib/database.types';
 import { getSupabase } from '../../lib/supabase';
@@ -88,10 +88,10 @@ export function AuthOtpScreen({ navigation }: NativeStackScreenProps<RootStackPa
       <Text variant="body" color="textSecondary" style={{ marginTop: space[3] }}>{email} adresine bir e-posta gönderdik. İçindeki 6 haneli kodu buraya yaz.</Text>
       <View style={{ marginTop: space[6], gap: space[4] }}>
         <Input label="Doğrulama kodu" value={code} onChangeText={onChangeCode} keyboardType="number-pad"
-          textContentType="oneTimeCode" autoComplete="one-time-code" maxLength={6} autoFocus style={{ letterSpacing: 8, fontSize: 22 }} />
+          textContentType="oneTimeCode" autoComplete="one-time-code" maxLength={6} autoFocus style={{ letterSpacing: space[2], fontSize: type.title.fontSize }} />
         {error && <Notice tone="danger">{toAppError(error).message}</Notice>}
         <TextButton label={waiting ? `Yeni kod iste (${wait} sn)` : 'Yeni kod iste'} disabled={waiting || resend.isPending || verify.isPending}
-          color={waiting ? '#666D66' : undefined} onPress={() => resend.mutate()} />
+          color={waiting ? colors.textSecondary : undefined} onPress={() => resend.mutate()} />
       </View>
     </Screen>
   );

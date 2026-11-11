@@ -203,7 +203,7 @@ export function ProfileScreen({ navigation }: NativeStackScreenProps<ProfileStac
 
 const styles = StyleSheet.create({
   cover: { backgroundColor: tones.iris.bg, borderRadius: radius.hero, minHeight: 132, padding: space[5], justifyContent: 'flex-start', overflow: 'hidden' },
-  coverArt: { position: 'absolute', right: -18, top: 18, width: 120, height: 120, borderWidth: 20, borderRadius: 32, borderColor: tones.iris.fg, opacity: 0.16, transform: [{ rotate: '-25deg' }] },
+  coverArt: { position: 'absolute', right: -18, top: 18, width: 120, height: 120, borderWidth: 20, borderRadius: radius.card, borderColor: tones.iris.fg, opacity: 0.16, transform: [{ rotate: '-25deg' }] },
   identity: { flexDirection: 'row', gap: space[3], marginTop: -space[7], paddingHorizontal: space[3] },
   avatarRing: { borderRadius: radius.pill, borderWidth: 4, borderColor: colors.canvas, backgroundColor: colors.canvas },
   stats: { flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radius.card, borderWidth: 1, borderColor: colors.border, paddingVertical: space[4], marginVertical: space[5] },

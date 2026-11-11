@@ -18,11 +18,12 @@ interface Props {
 
 /** The single icon API. Open Circuit v2: 24×24 grid, 1.75 stroke, round caps/joins. Decorative by default. */
 export function TechIcon({ name, size = 24, color = colors.ink, filled = false, accessibilityLabel }: Props) {
-  // The markup itself is aria-hidden (web renders this SVG as DOM); labelled icons are exposed through the wrapper props below.
+  // Web renders this SVG as DOM: only decorative icons carry aria-hidden in the markup, labelled ones must stay exposed.
+  const hiddenAttr = accessibilityLabel ? '' : ' aria-hidden="true"';
   const xml = useMemo(
     () =>
-      `<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${((filled && iconFillPaths[name]) || iconPaths[name]).replaceAll('currentColor', color)}</svg>`,
-    [name, color, filled],
+      `<svg xmlns="http://www.w3.org/2000/svg"${hiddenAttr} viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${((filled && iconFillPaths[name]) || iconPaths[name]).replaceAll('currentColor', color)}</svg>`,
+    [name, color, filled, hiddenAttr],
   );
   // Labelled icons stay exposed as images. Decorative ones are hidden from screen readers on every target:
   // native props are not valid DOM attributes on web, where react-native-web maps `aria-hidden` instead.

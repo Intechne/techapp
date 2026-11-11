@@ -1,7 +1,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
-import { Card, Divider, MetadataRow, Notice, Tag, Text, colors, fonts, radius, space } from '../../design-system';
+import { Card, Divider, MetadataRow, Notice, Tag, Text, colors, fonts, radius, space, type } from '../../design-system';
 import { formatDateRange, formatLastUpdated, formatTime, formatTimeRange } from '../../lib/dates';
 import type { ParticipationCard } from '../../lib/database.types';
 import { placeLabel } from './labels';
@@ -30,7 +30,7 @@ export function ParticipationCardView({ card: c, cachedAt }: { card: Participati
         <View accessible accessibilityRole="image" accessibilityLabel={`Giriş kodu. Kısa kod: ${c.short_code.split('').join(' ')}`}
           style={{ alignItems: 'center', backgroundColor: colors.white, borderRadius: radius.control, borderWidth: 1, borderColor: colors.border, padding: space[5], marginTop: space[5], gap: space[3] }}>
           <QRCode value={c.qr_payload} size={208} color={colors.ink} backgroundColor={colors.white} ecl="M" />
-          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 18, letterSpacing: 4, color: colors.ink }}>{c.short_code}</Text>
+          <Text style={{ fontFamily: fonts.bodyBold, fontSize: type.cardTitle.fontSize, letterSpacing: space[1], color: colors.ink }}>{c.short_code}</Text>
         </View>
         <Text variant="caption" color="textSecondary" style={{ marginTop: space[3], textAlign: 'center' }}>Ekran parlaklığını artırırsan kod daha hızlı okunur.</Text>
       </Card>

@@ -73,3 +73,19 @@ design-source/icons/
   Önizleme: `python tools/render_spec.py out.png` (resvg-py + Pillow gerekir). Illustrator master: `tools/parts.py` + `build-master.jsx.tmpl`
   (Illustrator Beta, osascript; dolu durumlar Pathfinder ile gerçek vektöre dönüştürülür — SVG mask'ı Illustrator içe almaz).
 - Mevcut adlar korundu (geri uyumlu). Kullanım güncellemeleri: hata durumu `warning`, çevrim dışı `offline`, ödül fırsatı `badge`, profilde takım `team`.
+
+## 7. İkon anlam tablosu (Faz 4 sözleşmesi)
+
+Bir ikon yalnız aşağıdaki anlamda kullanılır; başka anlam gerekiyorsa yeni ikon çizilir, mevcut ikon ödünç alınmaz.
+
+| İkon | Yalnız şu anlam | Düzeltilen kullanım |
+|---|---|---|
+| `clock` | zaman, son tarih, bekleme | `Notice` warning tonu → `warning` |
+| `shield` | veli onayı, güvenlik, gizlilik | `Notice` danger ve OTP hatası → `error` |
+| `robot` | robotik kategori | fırsat `competition` → `badge`; takım kartlarında `categoryIcon` |
+| `verified` | kurum doğrulaması / doğrulanmış deneyim | — |
+| `offline` | bağlantı yok | çevrimdışı kart etiketi tonu apricot → nötr (Task 4'te onay) |
+| `error` / `warning` | hata / dikkat bildirimi (`Notice` danger / warning) | `shield` ve `clock` bu rollerden çıktı |
+| saat glifi rozet içinde | check-in sonucu | 24 px glif 40 px yuvarlak rozet içinde |
+
+Erişilebilirlik: `TechIcon` varsayılan olarak dekoratiftir ve SVG işaretlemesi `aria-hidden` taşır; `accessibilityLabel` verilen ikon **taşımaz** (testle korunur).

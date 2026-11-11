@@ -1,4 +1,5 @@
 export * from './tokens';
+export * from './elevation';
 export * from './Text';
 export * from './TechIcon';
 export * from './BrandMark';

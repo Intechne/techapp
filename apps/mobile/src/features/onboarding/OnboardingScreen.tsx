@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Button, Chip, Screen, Select, Text, TextButton, colors, radius, space } from '../../design-system';
+import { Button, Chip, Screen, Select, Text, TextButton, colors, radius, space, tones } from '../../design-system';
 import { track } from '../../lib/analytics';
 import type { EducationStage } from '../../lib/database.types';
 import { EDUCATION_STAGES, FALLBACK_INTERESTS } from './options';
@@ -58,9 +58,9 @@ export function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
-  art: { backgroundColor: '#253E35', borderRadius: radius.hero, minHeight: 250, padding: space[5], justifyContent: 'flex-end', overflow: 'hidden', marginTop: space[4] },
-  orbit: { position: 'absolute', right: -40, top: -20, width: 210, height: 210, borderRadius: 105, borderWidth: 12, borderColor: colors.primary, transform: [{ scaleY: 0.8 }, { rotate: '-20deg' }] },
-  orbitTwo: { position: 'absolute', right: 6, top: 30, width: 116, height: 116, borderRadius: 58, borderWidth: 8, borderColor: colors.lime, opacity: 0.85 },
-  orb: { position: 'absolute', right: 52, top: 74, width: 28, height: 28, borderRadius: 14, backgroundColor: colors.apricot },
+  art: { backgroundColor: tones.ink.bg, borderRadius: radius.hero, minHeight: 250, padding: space[5], justifyContent: 'flex-end', overflow: 'hidden', marginTop: space[4] },
+  orbit: { position: 'absolute', right: -40, top: -20, width: 210, height: 210, borderRadius: radius.pill, borderWidth: 12, borderColor: colors.primary, transform: [{ scaleY: 0.8 }, { rotate: '-20deg' }] },
+  orbitTwo: { position: 'absolute', right: 6, top: 30, width: 116, height: 116, borderRadius: radius.pill, borderWidth: 8, borderColor: colors.lime, opacity: 0.85 },
+  orb: { position: 'absolute', right: 52, top: 74, width: 28, height: 28, borderRadius: radius.pill, backgroundColor: colors.apricot },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginTop: space[6] },
 });

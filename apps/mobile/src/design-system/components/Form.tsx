@@ -1,6 +1,6 @@
 import React, { forwardRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
-import { colors, fonts, layout, radius, space } from '../tokens';
+import { colors, fonts, layout, radius, space, type } from '../tokens';
 import { Text } from '../Text';
 import { TechIcon } from '../TechIcon';
 
@@ -101,7 +101,7 @@ export function DateField({ label, value, onChangeText, error, help }: { label: 
 const styles = StyleSheet.create({
   input: {
     minHeight: 52, borderRadius: radius.control, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surface,
-    paddingHorizontal: space[4], fontFamily: fonts.body, fontSize: 16, color: colors.ink,
+    paddingHorizontal: space[4], fontFamily: fonts.body, fontSize: type.body.fontSize, color: colors.ink,
   },
   focused: { borderColor: colors.primary, borderWidth: 2 },
   errored: { borderColor: colors.danger },
@@ -109,12 +109,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: space[2], minHeight: 52, borderRadius: radius.control, borderWidth: 1,
     borderColor: colors.border, backgroundColor: colors.surface, paddingHorizontal: space[4],
   },
-  searchInput: { flex: 1, fontFamily: fonts.body, fontSize: 16, color: colors.ink, minHeight: layout.touchTarget },
+  searchInput: { flex: 1, fontFamily: fonts.body, fontSize: type.body.fontSize, color: colors.ink, minHeight: layout.touchTarget },
   toggleRow: { flexDirection: 'row', gap: space[3], minHeight: layout.touchTarget, alignItems: 'flex-start', paddingVertical: space[2] },
-  box: { width: 24, height: 24, borderRadius: 7, borderWidth: 1.5, borderColor: colors.borderStrong, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  box: { width: 24, height: 24, borderRadius: radius.small, borderWidth: 1.5, borderColor: colors.borderStrong, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
   boxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
   radioCard: { flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: 56, borderRadius: radius.control, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, padding: space[4] },
   radioCardChecked: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-  radioDot: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: colors.borderStrong, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
-  radioDotInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary },
+  radioDot: { width: 22, height: 22, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.borderStrong, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
+  radioDotInner: { width: 10, height: 10, borderRadius: radius.pill, backgroundColor: colors.primary },
 });

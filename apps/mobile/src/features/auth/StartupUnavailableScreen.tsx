@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { BackHandler, View } from 'react-native';
-import { AppHeader, Button, Card, MetadataRow, Screen, Tag, TechIcon, Text, colors, space } from '../../design-system';
+import { AppHeader, Button, Card, MetadataRow, Screen, Tag, TechIcon, Text, colors, radius, space } from '../../design-system';
 import { formatDateRange, formatLastUpdated } from '../../lib/dates';
 import type { UnavailableReason } from '../../lib/sessionRestore';
 import type { SavedCard } from '../events/offlineCard';
@@ -66,7 +66,7 @@ export function StartupUnavailableScreen({ reason, onRetry, retrying = false, lo
   return (
     <Screen contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
       <View style={{ gap: space[3] }} accessibilityRole="alert">
-        <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: 56, height: 56, borderRadius: radius.pill, backgroundColor: colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
           <TechIcon name="link" size={26} color={colors.ink} />
         </View>
         <Text variant="title">{copy.title}</Text>

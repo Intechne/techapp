@@ -19,8 +19,8 @@ interface ButtonProps extends Omit<PressableProps, 'style' | 'children'> {
 const palette: Record<Kind, { bg: string; pressed: string; fg: string; border?: string }> = {
   primary: { bg: colors.primary, pressed: colors.primaryPressed, fg: colors.white },
   secondary: { bg: colors.surface, pressed: colors.canvas, fg: colors.ink, border: colors.border },
-  lime: { bg: colors.lime, pressed: '#C9E556', fg: colors.ink },
-  danger: { bg: colors.dangerSoft, pressed: '#FBDDE0', fg: colors.danger },
+  lime: { bg: colors.lime, pressed: colors.limePressed, fg: colors.ink },
+  danger: { bg: colors.dangerSoft, pressed: colors.dangerSoftPressed, fg: colors.danger },
 };
 
 export function Button({ label, kind = 'primary', icon, iconRight, loading, disabled, style, ...rest }: ButtonProps) {

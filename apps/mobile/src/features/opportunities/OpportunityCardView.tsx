@@ -10,7 +10,7 @@ interface Props { item: OpportunityWithOrg; followed?: boolean; onPress: () => v
 export const OpportunityCardView = React.memo(function OpportunityCardView({ item, followed, onPress, onToggleFollow }: Props) {
   const type = OPPORTUNITY_TYPE[item.type]; const deadline = deadlineView(item.closes_at);
   return (
-    <Card onPress={onPress} style={{ gap: space[2], borderRadius: 19 }} accessibilityLabel={`${item.title}. ${type.label}. ${deadline.label}.`}>
+    <Card onPress={onPress} style={{ gap: space[2], borderRadius: radius.card }} accessibilityLabel={`${item.title}. ${type.label}. ${deadline.label}.`}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
         <View style={{ width: 46, height: 46, borderRadius: radius.control, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}><TechIcon name={type.icon} color={colors.primary} /></View>
         <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: space[2] }}><Tag label={type.label.toLocaleUpperCase('tr')} /><Tag label={deadline.label.toLocaleUpperCase('tr')} tone={urgencyTone(deadline.urgency)} icon="clock" /></View>

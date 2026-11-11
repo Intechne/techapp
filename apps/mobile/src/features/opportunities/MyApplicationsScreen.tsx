@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, ApplicationStatus, Button, Card, EmptyState, ErrorState, LoadingSkeleton, MetadataRow, Modal, Notice, ResponsiveGrid, Screen, Text, TextButton, space, useToast } from '../../design-system';
+import { AppHeader, ApplicationStatus, Button, Card, EmptyState, ErrorState, LoadingSkeleton, MetadataRow, Modal, Notice, ResponsiveGrid, Screen, Text, TextButton, colors, space, useToast } from '../../design-system';
 import { formatDate } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
 import type { OpportunitiesStackParamList } from '../../navigation/types';
@@ -33,7 +33,7 @@ export function MyApplicationsScreen({ navigation }: NativeStackScreenProps<Oppo
                 {a.status === 'info_requested' && <Notice tone="warning">Kurum senden ek bilgi istiyor. Yakında buradan yanıtlayabileceksin; şimdilik kurumun sana ulaşmasını bekle.</Notice>}
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' }}>
                   <TextButton label="Çağrıyı gör" iconRight="arrow" onPress={() => navigation.navigate('OpportunityDetail', { opportunityId: a.opportunity.id })} />
-                  {OPEN.includes(a.status) && <TextButton label="Geri çek" color="#B8323D" onPress={() => setTarget(a.id)} />}
+                  {OPEN.includes(a.status) && <TextButton label="Geri çek" color={colors.danger} onPress={() => setTarget(a.id)} />}
                 </View>
               </Card>))}</ResponsiveGrid>}
       <Modal visible={!!target} title="Başvurunu geri çekelim mi?" onClose={() => setTarget(null)}>

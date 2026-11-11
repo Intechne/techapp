@@ -81,7 +81,7 @@ export const EventCard = React.memo(function EventCard({ model, saved, onPress, 
 
 export function MiniCard({ icon, title, body, onPress }: { icon: TechIconName; title: string; body: string; onPress?: () => void }) {
   return (
-    <Card onPress={onPress} style={{ flex: 1, minHeight: 136, gap: space[2], borderRadius: 19 }}>
+    <Card onPress={onPress} style={{ flex: 1, minHeight: 136, gap: space[2], borderRadius: radius.card }}>
       <View style={styles.orgLogo}><TechIcon name={icon} color={colors.primary} /></View>
       <Text variant="label">{title}</Text>
       <Text variant="caption" color="textSecondary">{body}</Text>
@@ -91,7 +91,7 @@ export function MiniCard({ icon, title, body, onPress }: { icon: TechIconName; t
 
 export function ListCard({ icon, title, body, footnote, onPress }: { icon: TechIconName; title: string; body?: string; footnote?: string; onPress?: () => void }) {
   return (
-    <Card onPress={onPress} style={{ flexDirection: 'row', gap: space[3], alignItems: 'flex-start', borderRadius: 19 }}>
+    <Card onPress={onPress} style={{ flexDirection: 'row', gap: space[3], alignItems: 'flex-start', borderRadius: radius.card }}>
       <View style={styles.orgLogo}><TechIcon name={icon} color={colors.primary} /></View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text variant="cardTitle">{title}</Text>
@@ -121,7 +121,7 @@ export function ProfileCard({ name, headline, onPress }: { name: string | null; 
 
 const styles = StyleSheet.create({
   poster: { padding: space[4], justifyContent: 'space-between', overflow: 'hidden' },
-  posterArt: { position: 'absolute', right: -14, top: 22, width: 112, height: 112, borderWidth: 18, borderRadius: 30, opacity: 0.17, transform: [{ rotate: '-25deg' }] },
+  posterArt: { position: 'absolute', right: -14, top: 22, width: 112, height: 112, borderWidth: 18, borderRadius: radius.card, opacity: 0.17, transform: [{ rotate: '-25deg' }] },
   meta: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[2], minHeight: 28 },
   organizer: { flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: 56 },
