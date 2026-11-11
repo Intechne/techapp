@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   AppHeader, Avatar, Button, Card, Divider, EmptyState, ErrorState, ListCard, LoadingSkeleton, MetadataRow, Modal, Notice, ResponsiveGrid, Screen,
-  SegmentedControl, Tag, TechIcon, Text, colors, radius, space, tones, useToast,
+  RegistrationStatus, SegmentedControl, Tag, TechIcon, Text, colors, radius, space, tones, useToast,
 } from '../../design-system';
-import { formatDate } from '../../lib/dates';
+import { formatDate, formatDateTime } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
 import type { ProfileStackParamList } from '../../navigation/types';
 import { deleteAccount, signOut } from '../auth/authService';
@@ -14,10 +14,12 @@ import { useAccountState, useSession } from '../auth/SessionProvider';
 import { usePrefs } from '../onboarding/PrefsProvider';
 import { PERSONAL_PREFS_RESET } from '../../lib/localPrefs';
 import { usePendingIntent } from '../auth/pendingIntent';
+import { eventKeys, fetchMyRegistrations } from '../events/api';
 import { useMyCv } from './api';
+import { profileStats } from './profileStats';
 import type { CvExperience } from './cvSchema';
 import { EDUCATION_LABEL, KIND_ICON, KIND_LABEL, TEAM_ROLE_LABEL } from './labels';
-import { formatRange, isVerified } from './logic';
+import { formatRange } from './logic';
 import { CvShareCard } from './CvShareCard';
 import { ProvenanceBadge } from './ProvenanceBadge';
 
@@ -48,6 +50,8 @@ export function ProfileScreen({ navigation }: NativeStackScreenProps<ProfileStac
   const [segment, setSegment] = useState<(typeof SEGMENTS)[number]>('Deneyimler');
 
   const cv = useMyCv();
+  // Same key as Katılımlarım, so the cache is shared and nothing extra is fetched when both are visited.
+  const regs = useQuery({ queryKey: eventKeys.myRegistrations(userId), queryFn: fetchMyRegistrations, enabled: !!userId });
   const intent = usePendingIntent();
   const out = useMutation({ mutationFn: signOut, onSuccess: () => { intent.clear(); toast.show('Çıkış yapıldı.'); }, onError: (e) => toast.show(toAppError(e).message, 'danger') });
   const del = useMutation({ mutationFn: deleteAccount, onSuccess: () => { setConfirmDelete(false); intent.clear(); update(PERSONAL_PREFS_RESET); toast.show('Hesabın silindi.'); } });
@@ -68,7 +72,8 @@ export function ProfileScreen({ navigation }: NativeStackScreenProps<ProfileStac
     <Screen wide header={<AppHeader brand />} refreshing={cv.isRefetching} onRefresh={() => { void cv.refetch(); void account.refetch(); }}>
       {cv.isPending ? <LoadingSkeleton cards={2} /> : cv.isError ? <ErrorState error={toAppError(cv.error)} onRetry={() => void cv.refetch()} /> : (() => {
         const { profile, experiences, participations, volunteering, teams, share_token: shareToken } = cv.data;
-        const verifiedCount = experiences.filter((x) => isVerified(x)).length;
+        const stats = profileStats(cv.data, regs.data ?? [], new Date());
+        const verifiedCount = stats.verified;
         const subtitle = [profile.city, profile.education_stage ? EDUCATION_LABEL[profile.education_stage] : null].filter(Boolean).join(' · ');
         return (
           <>
@@ -92,11 +97,30 @@ export function ProfileScreen({ navigation }: NativeStackScreenProps<ProfileStac
                 <Button style={{ marginTop: space[3] }} label="Profilimi tamamla" onPress={() => navigation.getParent()?.getParent()?.navigate('ProfileBootstrap')} /></View>
             )}
 
-            <View style={styles.stats} accessible accessibilityLabel={`${experiences.length} deneyim, ${verifiedCount} doğrulanmış, ${participations.length} katılım`}>
-              {([['Deneyim', experiences.length], ['Doğrulanmış', verifiedCount], ['Katılım', participations.length]] as const).map(([label, n]) => (
+            <View style={styles.stats} accessible accessibilityLabel={`${experiences.length} deneyim, ${verifiedCount} doğrulanmış, ${stats.attended} katıldığı etkinlik`}>
+              {([['Deneyim', experiences.length], ['Doğrulanmış', verifiedCount], ['Katıldığı', stats.attended]] as const).map(([label, n]) => (
                 <View key={label} style={{ flex: 1, alignItems: 'center' }}><Text variant="section" color={label === 'Doğrulanmış' ? 'moss' : 'ink'}>{n}</Text><Text variant="caption" color="textSecondary">{label}</Text></View>
               ))}
             </View>
+
+            {stats.upcoming.length > 0 && (
+              <View style={{ marginBottom: space[5], gap: space[2] }}>
+                <View style={styles.upcomingHead}>
+                  <Text variant="label">Yaklaşan</Text>
+                  {stats.upcoming.length > 3 && <Button kind="secondary" label="Tümünü gör" onPress={() => navigation.navigate('MyRegistrations')} />}
+                </View>
+                {stats.upcoming.slice(0, 3).map((r) => {
+                  return (
+                    <Card key={r.id} onPress={() => navigation.navigate('RegistrationStatus', { registrationId: r.id })} style={{ gap: space[2] }}
+                      accessibilityLabel={`${r.event.title}, yaklaşan kayıt. Durumu aç`}>
+                      <RegistrationStatus status={r.status} />
+                      <Text variant="cardTitle">{r.event.title}</Text>
+                      <MetadataRow icon="event">{formatDateTime(r.event.starts_at)}</MetadataRow>
+                    </Card>
+                  );
+                })}
+              </View>
+            )}
 
             <View style={{ flexDirection: 'row', gap: space[2], flexWrap: 'wrap' }}>
               <Button style={{ flex: 1, minWidth: 140 }} icon="plus" label="Deneyim ekle" onPress={() => navigation.navigate('ExperienceEditor', {})} />
@@ -183,6 +207,7 @@ const styles = StyleSheet.create({
   identity: { flexDirection: 'row', gap: space[3], marginTop: -space[7], paddingHorizontal: space[3] },
   avatarRing: { borderRadius: radius.pill, borderWidth: 4, borderColor: colors.canvas, backgroundColor: colors.canvas },
   stats: { flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radius.card, borderWidth: 1, borderColor: colors.border, paddingVertical: space[4], marginVertical: space[5] },
+  upcomingHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
   teamRow: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
   teamIcon: { width: 46, height: 46, borderRadius: radius.control, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
