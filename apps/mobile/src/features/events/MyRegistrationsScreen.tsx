@@ -13,7 +13,7 @@ import { placeLabel } from './labels';
 
 export function MyRegistrationsScreen({ navigation }: NativeStackScreenProps<SharedEventParamList, 'MyRegistrations'>) {
   const { userId } = useSession();
-  const q = useQuery({ queryKey: eventKeys.myRegistrations(userId), queryFn: fetchMyRegistrations, enabled: !!userId });
+  const q = useQuery({ queryKey: eventKeys.myRegistrations(userId), queryFn: () => fetchMyRegistrations(userId!), enabled: !!userId });
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={{ flex: 1, backgroundColor: colors.canvas }}>

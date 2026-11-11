@@ -56,23 +56,24 @@ export async function withdrawApplication(applicationId: string): Promise<Applic
   if (error) throw toAppError(error);
   return data;
 }
-export async function fetchMyApplications(): Promise<ApplicationWithOpportunity[]> {
+/** Org staff can read applicants' rows under RLS; "mine" is filtered by user_id here, not left to policy. */
+export async function fetchMyApplications(userId: string): Promise<ApplicationWithOpportunity[]> {
   const { data, error } = await getSupabase().from('applications')
-    .select('*, opportunity:opportunities(id, title, type, closes_at, organization:organizations(name))').order('created_at', { ascending: false }).limit(100)
+    .select('*, opportunity:opportunities(id, title, type, closes_at, organization:organizations(name))').eq('user_id', userId).order('created_at', { ascending: false }).limit(100)
     .overrideTypes<ApplicationWithOpportunity[], { merge: false }>();
   if (error) throw toAppError(error);
   return data;
 }
-export async function fetchMyApplicationFor(opportunityId: string): Promise<ApplicationRow | null> {
-  const { data, error } = await getSupabase().from('applications').select('*').eq('opportunity_id', opportunityId).neq('status', 'withdrawn')
+export async function fetchMyApplicationFor(userId: string, opportunityId: string): Promise<ApplicationRow | null> {
+  const { data, error } = await getSupabase().from('applications').select('*').eq('user_id', userId).eq('opportunity_id', opportunityId).neq('status', 'withdrawn')
     .order('created_at', { ascending: false }).limit(1).maybeSingle();
   if (error) throw toAppError(error);
   return data;
 }
 
 /** "Takip et": a followed call shows up in Son tarihler → Takip ettiklerim. Stored as the user's own bookmark (RLS). */
-export async function fetchFollowedOpportunityIds(): Promise<string[]> {
-  const { data, error } = await getSupabase().from('bookmarks').select('target_id').eq('target_type', 'opportunity');
+export async function fetchFollowedOpportunityIds(userId: string): Promise<string[]> {
+  const { data, error } = await getSupabase().from('bookmarks').select('target_id').eq('user_id', userId).eq('target_type', 'opportunity');
   if (error) throw toAppError(error);
   return data.map((b) => b.target_id);
 }
@@ -80,7 +81,7 @@ export async function setFollowed(userId: string, opportunityId: string, follow:
   const supabase = getSupabase();
   const { error } = follow
     ? await supabase.from('bookmarks').upsert({ user_id: userId, target_type: 'opportunity', target_id: opportunityId }, { onConflict: 'user_id,target_type,target_id', ignoreDuplicates: true })
-    : await supabase.from('bookmarks').delete().eq('target_type', 'opportunity').eq('target_id', opportunityId);
+    : await supabase.from('bookmarks').delete().eq('user_id', userId).eq('target_type', 'opportunity').eq('target_id', opportunityId);
   if (error) throw toAppError(error);
 }
 

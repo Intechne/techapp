@@ -14,7 +14,7 @@ const OPEN = ['submitted', 'in_review', 'info_requested'];
 
 export function MyApplicationsScreen({ navigation }: NativeStackScreenProps<OpportunitiesStackParamList, 'MyApplications'>) {
   const { userId } = useSession(); const qc = useQueryClient(); const toast = useToast();
-  const q = useQuery({ queryKey: opportunityKeys.myApplications(userId), queryFn: fetchMyApplications, enabled: !!userId });
+  const q = useQuery({ queryKey: opportunityKeys.myApplications(userId), queryFn: () => fetchMyApplications(userId!), enabled: !!userId });
   const [target, setTarget] = useState<string | null>(null);
   const withdraw = useMutation({ mutationFn: withdrawApplication, onSuccess: async () => { setTarget(null); await qc.invalidateQueries({ queryKey: ['applications'] }); toast.show('Başvurun geri çekildi.'); } });
 

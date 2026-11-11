@@ -18,7 +18,7 @@ export function OpportunityDetailScreen({ navigation, route }: NativeStackScreen
   const { opportunityId } = route.params;
   const { userId } = useSession(); const account = useAccountState(); const intent = usePendingIntent(); const toast = useToast();
   const q = useQuery({ queryKey: opportunityKeys.detail(opportunityId), queryFn: () => fetchOpportunity(opportunityId) });
-  const mine = useQuery({ queryKey: opportunityKeys.myApplicationFor(opportunityId, userId), queryFn: () => fetchMyApplicationFor(opportunityId), enabled: !!userId });
+  const mine = useQuery({ queryKey: opportunityKeys.myApplicationFor(opportunityId, userId), queryFn: () => fetchMyApplicationFor(userId!, opportunityId), enabled: !!userId });
   const follow = useFollowedOpportunities();
 
   useFocusEffect(useCallback(() => {

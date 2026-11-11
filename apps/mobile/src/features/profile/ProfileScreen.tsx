@@ -51,7 +51,7 @@ export function ProfileScreen({ navigation }: NativeStackScreenProps<ProfileStac
 
   const cv = useMyCv();
   // Same key as Katılımlarım, so the cache is shared and nothing extra is fetched when both are visited.
-  const regs = useQuery({ queryKey: eventKeys.myRegistrations(userId), queryFn: fetchMyRegistrations, enabled: !!userId });
+  const regs = useQuery({ queryKey: eventKeys.myRegistrations(userId), queryFn: () => fetchMyRegistrations(userId!), enabled: !!userId });
   const intent = usePendingIntent();
   const out = useMutation({ mutationFn: signOut, onSuccess: () => { intent.clear(); toast.show('Çıkış yapıldı.'); }, onError: (e) => toast.show(toAppError(e).message, 'danger') });
   const del = useMutation({ mutationFn: deleteAccount, onSuccess: () => { setConfirmDelete(false); intent.clear(); update(PERSONAL_PREFS_RESET); toast.show('Hesabın silindi.'); } });

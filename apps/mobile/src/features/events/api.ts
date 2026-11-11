@@ -70,9 +70,10 @@ export async function fetchRegistration(registrationId: string): Promise<Registr
   return data;
 }
 
-export async function fetchMyRegistrations(): Promise<RegistrationWithEvent[]> {
+/** RLS also lets organisation staff read their attendees' rows, so "mine" is filtered by the signed-in user explicitly. */
+export async function fetchMyRegistrations(userId: string): Promise<RegistrationWithEvent[]> {
   const { data, error } = await getSupabase().from('event_registrations')
-    .select(`*, event:events(${EVENT_SELECT})`).order('created_at', { ascending: false }).limit(50)
+    .select(`*, event:events(${EVENT_SELECT})`).eq('user_id', userId).order('created_at', { ascending: false }).limit(50)
     .overrideTypes<RegistrationWithEvent[], { merge: false }>();
   if (error) throw toAppError(error);
   return data;

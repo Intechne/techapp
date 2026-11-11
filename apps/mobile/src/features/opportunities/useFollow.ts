@@ -8,7 +8,7 @@ import { fetchFollowedOpportunityIds, opportunityKeys, setFollowed } from './api
 export function useFollowedOpportunities() {
   const { userId } = useSession();
   const qc = useQueryClient(); const toast = useToast();
-  const query = useQuery({ queryKey: opportunityKeys.followed(userId), queryFn: fetchFollowedOpportunityIds, enabled: !!userId });
+  const query = useQuery({ queryKey: opportunityKeys.followed(userId), queryFn: () => fetchFollowedOpportunityIds(userId!), enabled: !!userId });
   const mutation = useMutation({
     mutationFn: ({ id, follow }: { id: string; follow: boolean }) => setFollowed(userId!, id, follow),
     onSuccess: async (_d, v) => { await qc.invalidateQueries({ queryKey: opportunityKeys.followed(userId) }); toast.show(v.follow ? 'Takibe aldın. Son tarihler ekranında göreceksin.' : 'Takipten çıkarıldı.'); },
