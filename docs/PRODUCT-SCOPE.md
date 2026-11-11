@@ -32,7 +32,7 @@ Robotik güçlü bir alandır; ürün yalnız robotik yarışmacıları için ta
 
 ## v4 → yeni yapı eşlemesi (33 ekran)
 
-Durum: ✅ taşındı · 🟡 kısmen · ⚪ başlamadı · 🔒 feature flag arkasında, pilot dışı
+Durum: ✅ taşındı · 🟡 kısmen · ⚪ başlamadı · 🔒 taşınmadı, pilot dışı (kodu yok; feature flag da henüz yok)
 
 | v4 ekranı | Yeni konum | Faz | Durum |
 |---|---|---|---|
@@ -64,19 +64,19 @@ Durum: ✅ taşındı · 🟡 kısmen · ⚪ başlamadı · 🔒 feature flag ar
 | `HelpScreen` | Profil > Yardım | 10 | ⚪ |
 | `LegalScreen` | Profil > Yasal metinler (metinler hukuktan gelecek; uydurulmadı) | 10 | ⚪ |
 | `PerksScreen` | Ayrıcalıklar | sonraki | 🔒 |
-| `FundingScreen` | Fonla | sonraki | 🔒 `features.funding` |
+| `FundingScreen` | Fonla | sonraki | 🔒 |
 | `ProjectDetailScreen` | Fonla > proje | sonraki | 🔒 |
 | `CreateProjectScreen` | Fonla > proje oluştur | sonraki | 🔒 |
-| `WalletScreen` | Cüzdan | sonraki | 🔒 `features.wallet` |
-| `AICoachScreen` | AI Koç / eşleşme | sonraki | 🔒 `features.aiCoach` |
+| `WalletScreen` | Cüzdan | sonraki | 🔒 |
+| `AICoachScreen` | AI Koç / eşleşme | sonraki | 🔒 |
 
 v4 servisleri: `services/cv.ts` (CV dışa aktarma) → Phase 8 sonrası · `services/matching.ts` → üretime taşınmadı (sabit 0.8 bağlam puanı ve boş listede sıfıra bölme; yeniden ele alınırsa açıklanabilir öneri olarak) · `services/billing.ts` (`BILLING_MODE = 'demo'`) → taşınmadı · `services/secure.ts` → `lib/secureSessionStorage.ts` olarak gerçek auth'a bağlandı · `context/AppContext.tsx` → kaldırıldı (varsayılan `captain` rolü, yerel cüzdan, yerel `verified`).
 
 v4'te olmayan yeni ekranlar: `RegistrationStatus`, `ParticipationCard`, `MyRegistrations`, `CheckIn` (organizatör), veli web sayfası.
 
-## Sonraki faz modülleri (feature flag)
+## Sonraki faz modülleri (taşınmadı)
 
-`apps/mobile/src/lib/env.ts` → `features`: `funding`, `wallet`, `paidLearning`, `techRank`, `aiCoach` — hepsi `false`. Bu modüller silinmedi; ilk pilotun ön koşulu değildir ve gerçek ödeme / ölçüm / entegrasyon altyapısı olmadan açılmaz.
+Bu modüller (Fonla, Cüzdan, ücretli eğitim, TechRank, AI Koç) **v5'e taşınmadı**: kodları uygulamada yok ve şu an bir feature flag da yok (`apps/mobile/src/lib/env.ts`'te `features` nesnesi bulunmuyor). v4 kapsamı bu belgede kayıtlı; silinmiş sayılmaz. İlk pilotun ön koşulu değildir; taşındıklarında flag (varsayılan kapalı) + gerçek ödeme / ölçüm / entegrasyon altyapısıyla gelir.
 
 - **Ödeme:** entitlement, makbuz doğrulama, restore, iade, başarısız işlem ve sunucu doğrulaması ayrı bir modül olarak tasarlanacak. Gerçek para bakiyesi uygulamadaki bir sayı değildir.
 - **TechRank / eşleşme:** sonuç kaynağı, itiraz ve güncelleme sözleşmesi olmadan bilimsel yetkinlik skoru üretilmez.

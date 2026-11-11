@@ -1,38 +1,45 @@
 > **V5 — 11 Kasım 2026 (dal `feat/v5-pilot-platform`).** Güncel durum bu bölümdedir. 7 Ekim ve daha eski bölümler **tarihsel kayıttır**; çelişen yerde bu bölüm geçerlidir. ✅ yalnız bugün ölçülen ya da kanıtı yazılı olan şey içindir.
 
 ## V5 — 11 Kasım 2026
-Dal `feat/v5-pilot-platform` (`feat/techapp-stabilization` @ `a0a97c5`'ten). Commit'ler: `97f9cea`, `b1f0cf3`, `fef8e5a` (Open Circuit v2 ikonları), `1815770` (test portu / expo-doctor / SDK 57 yamaları), `fe5a478` (HIG denetimi). Dal `feat/v5-pilot-platform` fe5a478'e kadar GitHub'a itildi (yedek push, kullanıcı izniyle, Intechne hesabı üzerinden); sonraki commit'ler her görev incelemesinden sonra itilir.
+Dal `feat/v5-pilot-platform` (`feat/techapp-stabilization` @ `a0a97c5`'ten). Commit'ler: `97f9cea`, `b1f0cf3`, `fef8e5a` (Open Circuit v2 ikonları), `1815770` (test portu / expo-doctor / SDK 57 yamaları), `fe5a478` (HIG denetimi), sonra pilot görevleri ve final review düzeltmeleri (`89f0556`…`f0a03fd`). Dal `feat/v5-pilot-platform` fe5a478'e kadar GitHub'a itildi (yedek push, kullanıcı izniyle, Intechne hesabı üzerinden); sonraki commit'ler her görev incelemesinden sonra itilir.
 Pilot adayı: Cezeri Robot Ligi, Ümraniye, 27–29 Kasım 2026 — yalnız görevliler, Intechne ekibi ve az sayıda gönüllü test kullanıcısıyla kontrollü pilot; resmî takım kaydı TechApp dışında kalır. Hedef dondurma 21 Kasım; go/no-go 24 Kasım, kararı kullanıcı verir.
 
-### Bugünkü ölçümler (2026-11-11)
+### Bugünkü ölçümler (2026-11-11, son güncelleme final-review düzeltmeleri sonrası)
 | Kalem | Durum | Kanıt |
 |---|---|---|
-| Veritabanı + Edge testleri | ✅ | `npm run db:test` **109/109** (düz komut; 54329 doluysa boş port seçer). 15 migration; `20261111000100_team_membership_notes_privacy` 11 Kasım'da staging'e uygulandı (dry-run'da yalnız bu dosya, kullanıcı onaylı) |
-| Mobil | ✅ | `verify` **160/160** (24 süit) + typecheck + lint |
-| Admin / web | ✅ | typecheck temiz |
+| Veritabanı + Edge testleri | ✅ | `npm run db:test` **125/125** (11 dosya; 122 + 3 `free-port`). Geçici Postgres tercihen `54339`'da; `54329` (Keşif) hiçbir durumda seçilmez. 17 migration |
+| Mobil | ✅ | `npm --prefix apps/mobile run verify` → typecheck temiz, lint **0**, jest **295/295** (38 süit), `--forceExit` olmadan, "worker failed to exit" uyarısı yok |
+| Admin / web | ✅ | `npm --prefix apps/admin run typecheck` ve `apps/web` typecheck temiz |
 | expo-doctor | ✅ | `npm --prefix apps/mobile run doctor` **21/21** (expo-doctor 1.20.5 sabit) |
-| HIG Doctor | 🟡 | `npx hig-doctor apps/mobile`: 2 olası bulgu (TechIcon SVG metin rengi; OTP alanı letterSpacing/fontSize), 124 olumlu kalıp — [rapor](docs/audits/2026-11-11-hig-doctor.md). Otomatik denetim HIG uyumunu kanıtlamaz |
-| EAS Android build | 🟡 | `cbdda535` (preview), commit `a0a97c5`, FINISHED 2026-10-07: native derleme o commit için kanıtlı. APK artefaktının süresi doldu; **hiçbir cihazda/emülatörde çalıştırılmadı**. Mevcut dal için yeni build yok |
+| HIG Doctor | ✅ (otomatik) | `npx hig-doctor apps/mobile --fail-on serious` → **0 critical**, 1 moderate (OTP `autoFocus`, bilinçli), kapı geçer. Otomatik denetim HIG uyumunu kanıtlamaz; ilk rapor [docs/audits/2026-11-11-hig-doctor.md](docs/audits/2026-11-11-hig-doctor.md) |
+| EAS Android build | 🟡 | Development build `3e02e2cf` (commit `b28ea0a`) derlendi ve **Android 16 emülatöründe çalıştırıldı**: 8 adımlık yolculuk 7/8 PASS (adım 7 FAIL → D1), bulunan D1–D10 kodda düzeltildi; emülatörde yeniden doğrulama bekliyor ([QA](docs/qa/2026-11-pilot-journey-android.md)). Preview/release build yok; gerçek Android cihaz yok |
+| EAS preview ortamı | ✅ | `preview` ortamı doğrulandı: `EXPO_PUBLIC_APP_ENV=preview`, staging URL + publishable key, DSN yok; `preview` kanalında OTA update yok |
 | EAS iOS build | 🟡 | production `8af1d94c` FINISHED 2026-09-19 (`34dbc05`); development/simulator `cb297b76` 2026-09-19. Cihazda/simülatörde çalıştırılmadı |
-| Staging Supabase `pacvhcnawtnkauvguoaw` | 🟡 | 11 Kasım: migration geçmişi **15/15** senkron; remote güvenlik regresyonu **32/32 PASS** (yeni 19–19d: takım katılım notu/kadro gizliliği), rollback sonrası kalıntı 0 (sayılarla). Gerçek e-postalı uygulama E2E'si (adult + minor/veli) bugün henüz koşulmadı — Task 14 |
+| Staging Supabase `pacvhcnawtnkauvguoaw` | 🟡 | Migration geçmişi **17/17** senkron (`20261111000100`, `20261112000100`, `20261112000200` dahil); remote güvenlik regresyonu **38/38 PASS** (20–20f kısa kodla check-in dahil), rollback, kalıntı 0. Gerçek e-postalı uygulama E2E'si (adult + minor/veli) bu dal için henüz koşulmadı |
 | Production Supabase | ⛔ | Ayrı proje yok; EAS `production` ortamı hâlâ staging'i gösteriyor, env guard bunu bilerek reddeder |
-| Crash reporting | ⛔ | Sentry onaylı (PII/18 yaş altı şartlarıyla), henüz kurulmadı |
+| Crash reporting | 🟡 | Sentry kodu kurulu (PII temizleme, ortam ayrımı) ama **KAPALI**: DSN yok → `Sentry.init` çağrılmaz. Açık: DSN bağlantısı ve saklama süresi kararı ([CRASH-REPORTING](docs/CRASH-REPORTING.md)) |
+| Haptics / Reanimated | ✅ (kod) | `react-native-reanimated` + `react-native-worklets` + `expo-haptics` kurulu (PressableScale, check-in geri bildirimi); dev build'de derlendi. Haptic emülatörde gözlemlenemedi |
+
+**Final review düzeltmeleri (11 Kasım):** C1 süresi dolmuş token ile çevrimdışı soğuk açılışta kayıtlı kartlar açılış ekranında; I1 iptal edilen
+kaydın çevrimdışı kartı silinir; I2 "Son güncelleme" tarih + saat; M1 çıkıştan sonra biten kart isteği kaydedilmez; M3 jest çıkış uyarısı;
+M4 hatalı OTP'de yeniden gönderme beklemesi; M6 test portu. Ayrıntı ve cihaz yeniden test adımları:
+`.superpowers/sdd/2026-11-11-techapp-v5-phase1-2/final-review.md` → "Final fixes". Hepsi yalnız jest/vitest ile kanıtlı; cihazda değil.
 
 ### Pilot kapısı (spec §7 — hepsi ✅ olmadan "pilota hazır" denmez)
 | # | Kapı | Durum | Neden · sorumlu |
 |---|---|---|---|
-| 1 | Staging adult + minor/veli E2E, gerçek e-posta teslimiyle, son build üzerinde | 🟡 | 7 Ekim PASS (eski commit); bugünkü build ile yeniden koşulmadı · geliştirme |
+| 1 | Staging adult + minor/veli E2E, gerçek e-posta teslimiyle, son build üzerinde | 🟡 | 7 Ekim PASS (eski commit); bu dalın build'iyle yeniden koşulmadı · geliştirme |
 | 2 | Ayrı production Supabase (migration, OTP şablonu, SMTP, secret'lar) | ⛔ | Proje yok; açılması kullanıcı onayı gerektirir · kullanıcı + geliştirme |
 | 3 | Hukuk: aydınlatma + veli onayı + koşullar onaylı ve sürümlü | ⛔ | Metinler yok (`/gizlilik`, `/kosullar` "hazırlanıyor"); gerçek kullanıcıya açılma blokeri · kullanıcı / hukuk |
-| 4 | EAS Android + iOS, emülatörde 8 adımlık yolculuk, gerçek iPhone + Android, Huawei check-in | ⛔ | Hiçbir build cihazda/emülatörde çalıştırılmadı; iOS cihaz/dağıtım yetkisi yok · geliştirme + kullanıcı |
-| 5 | Remote güvenlik regresyonu, yeni tablo RLS, 18 yaş altı görünürlük denetimi | 🟡 | Staging remote regresyon 32/32 PASS (11 Kasım); yerel `pilot-privacy` 14 test; açık: `teams.created_by` anon okunabilir (KNOWN-ISSUES) · geliştirme |
-| 6 | Erişilebilirlik turu + HIG Doctor'da serious yok | 🟡 | HIG Doctor'da 2 olası bulgu; TalkBack/büyük yazı/320 pt turu yapılmadı · geliştirme |
-| 7 | Crash reporting açık veya kapalı olduğu yazılı kabul | ⛔ | Sentry kurulmadı; yazılı kabul de yok · geliştirme + kullanıcı |
+| 4 | EAS Android + iOS, emülatörde 8 adımlık yolculuk, gerçek iPhone + Android, Huawei check-in | ⛔ | Dev build emülatörde koştu (7/8, D1–D10 sonradan kodda düzeltildi); preview build + emülatör tekrarı, gerçek Android cihaz, iOS ve Huawei yok · geliştirme + kullanıcı |
+| 5 | Remote güvenlik regresyonu, yeni tablo RLS, 18 yaş altı görünürlük denetimi | 🟡 | Staging remote regresyon 38/38 PASS; yerel `pilot-privacy`; açık: `teams.created_by` / `recruitment_posts.created_by` anon okunabilir (KNOWN-ISSUES) · geliştirme |
+| 6 | Erişilebilirlik turu + HIG Doctor'da serious yok | 🟡 | HIG Doctor 0 critical / 1 moderate; emülatörde yazı ölçeği 2.0 PASS, 320 dp turu yapıldı (D6/D8 bulundu, kodda düzeltildi, yeniden bakılacak); TalkBack sesli turu yapılamadı · geliştirme |
+| 7 | Crash reporting açık veya kapalı olduğu yazılı kabul | ⛔ | Sentry kurulu ama kapalı (DSN yok); "kapalı" için yazılı kabul ya da DSN + saklama kararı yok · geliştirme + kullanıcı |
 | 8 | Etkinlik günü planı (görevli hesapları, cihaz başına check-in testi, admin web + kısa kod yedeği) | ⛔ | Plan yazılmadı · kullanıcı + geliştirme |
 
 ### Ürün gerçeği (kod üzerinde kontrol edildi, cihazda değil)
 - **Var:** Fırsatlar (detay, başvuru, başvurularım, son tarihler) ve Topluluk (takım detayı, takım oluşturma, takım çalışma alanı kanban, görev düzenleyici) artık salt okunur değil; profilde deneyim düzenleyici/detay, CV paylaşımı ve gönüllü alanı var. `apps/admin` boş değil (etkinlik, fırsat, doğrulama, onay, check-in sayfaları).
-- **Yok:** öğrenme ekranları, Kaydedilenler ekranı (yer imi arayüzü yalnız fırsatlarda), bildirimler (uygulama içi + push), uygulama içi ayarlar/gizlilik/rıza merkezi/yardım/yasal ekranlar, takım etkinlik kaydı (DB `registration_mode='team'` kaydı reddeder), birleşik arama (yalnız etkinlik), etkinlik/fırsat/takım kapak görselleri (kolon yok), crash reporting, Reanimated / Gesture Handler / Haptics. Admin'de kapak yükleme, oturum programı düzenleyici, kurum/üye yönetimi, audit ekranı eksik.
+- **Yok:** öğrenme ekranları, Kaydedilenler ekranı (yer imi arayüzü yalnız fırsatlarda), bildirimler (uygulama içi + push), uygulama içi ayarlar/gizlilik/rıza merkezi/yardım/yasal ekranlar, takım etkinlik kaydı (DB `registration_mode='team'` kaydı reddeder), birleşik arama (yalnız etkinlik), etkinlik/fırsat/takım kapak görselleri (kolon yok), Gesture Handler (Reanimated + Haptics + Sentry kodu var; Sentry DSN'siz kapalı). Ödeme / Cüzdan / Fonla / TechRank / AI Koç modülleri taşınmadı (feature flag yok; `env.ts`'te `features` nesnesi yok). Admin'de kapak yükleme, oturum programı düzenleyici, kurum/üye yönetimi, audit ekranı eksik.
 - Uygulama ikonu/splash Expo yer tutucusu **değil** ("Açık devre T" amblemi); ikon sistemi Open Circuit v2 (50 SVG + 32 dolu durum).
 
 > **Tarihsel bölümler:** aşağıdaki 7 Ekim ve daha eski bölümler geçmiş kaydıdır; güncel hâli için yukarıdaki V5 bölümüne bakın.

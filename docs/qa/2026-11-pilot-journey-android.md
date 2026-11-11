@@ -82,8 +82,8 @@ uyarıyla çalıştı). 106 dosya, 357 tespit: 131 iyi, **1 critical**, 1 modera
 - **Durum:** düzeltildi (commit 9c3af36 + 4a33514), emülatörde yeniden doğrulanacak. Sunucu: `check_in_by_short_code(etkinlik, kod)`
   (`20261112000100_checkin_short_code.sql`; görevli+etkinlik başına 10 dk'da 20 hatalı arama → 429, eşleşen kayıt tam token ile
   `check_in_participant`'a devredilir). Mobil: Giriş kontrolü ekranında etkinlik seçimi (tek etkinlik otomatik seçili), kısa kod →
-  yeni RPC, `TA1.` token ve kamera → eski RPC (seçili etkinlik `p_expected_event_id` olarak gider). Yerel web önizlemesinde doğrulandı;
-  staging'e migration henüz uygulanmadı (kullanıcı onayıyla).
+  yeni RPC, `TA1.` token ve kamera → eski RPC (seçili etkinlik `p_expected_event_id` olarak gider). Yerel web önizlemesinde doğrulandı.
+  Migration'lar (`20261112000100`, `20261112000200`) **staging'de uygulandı**; remote regresyon 20–20f PASS (toplam 38/38, ec57862).
 
 ### D2 — P1 · Düzenleyen/görevli hesabında "Katılımlarım" ve profil "Yaklaşan" başkalarının kayıtlarını gösteriyor
 - **Durum:** düzeltildi (commit 1a7a0a3), emülatörde yeniden doğrulanacak. Web önizlemede organizatör Profil ve Katılımlarım'da yalnız kendi tek kaydını görüyor.
@@ -101,6 +101,10 @@ uyarıyla çalıştı). 106 dosya, 357 tespit: 131 iyi, **1 critical**, 1 modera
 
 ### D3 — P1 · Çevrimdışı soğuk açılışta katılım kartına ulaşılamıyor
 - **Durum:** düzeltildi (commit 4898898; Katılımlarım'da 'Çevrimdışı · kayıtlı kartların'), emülatörde yeniden doğrulanacak. Profil 'Yaklaşan' kapsam dışı.
+  **Final review C1 (e3bc716):** 4898898 yalnız erişim token'ı ~1 saatten yeniyken işe yarıyordu; daha eski token'la çevrimdışı açılış
+  `StartupUnavailableScreen`'de kalıyordu. Artık bu ekranda da saklı oturumun kullanıcısına ait kartlar listelenir ve salt okunur açılır;
+  "Son güncelleme" tarih + saat gösterir (I2), iptal edilen kaydın kartı silinir (I1). Yeniden doğrulama **token 1 saatten eskiyken**
+  yapılmalı (adımlar: final-review.md → "Final fixes").
 - **Beklenen (spec §3 adım 6):** son alınan imzalı kart önbellekten, "son güncelleme" etiketiyle görüntülenir.
 - **Gerçek:** önbellek (`offlineCard.ts`, SecureStore) var ve aynı oturumda karta dönünce çalışıyor. Ama uygulama çevrimdışıyken
   yeniden başlatılınca karta giden tüm yollar ağa bağlı: Etkinlikler → Katılımlarım ~30 sn iskelet sonrası "Bağlantı yok gibi

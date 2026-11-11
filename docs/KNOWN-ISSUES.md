@@ -8,13 +8,13 @@ Son güncelleme: 2026-11-11 (V5). Güncel durumun tek kaynağı `IMPLEMENTATION-
 
 | # | Konu | Durum |
 |---|---|---|
-| 1 | iOS / Android build | EAS'ta derlendi: Android preview `cbdda535` (commit `a0a97c5`, 2026-10-07; APK süresi doldu), iOS production `8af1d94c` ve development `cb297b76` (2026-09-19). **Hiçbiri bir cihazda ya da emülatörde çalıştırılmadı**; mevcut dal için yeni build yok. Native SecureStore, kamera, klavye, geri jesti doğrulanmadı. `expo-doctor` 21/21 (11 Kasım). |
-| 2 | Gerçek Supabase projesi (staging) | 🟡 11 Kasım: staging `pacvhcnawtnkauvguoaw` 15/15 migration, remote regresyon **32/32** (rollback, kalıntı 0). Uygulama üzerinden gerçek e-postalı E2E 7 Ekim'de PASS, 11 Kasım'da henüz koşulmadı. Yepyeni adult hesap E2E'si de PASS (onaylanan tek kullanımlık test hesabı, sonra silindi). |
+| 1 | iOS / Android build | 🟡 Android development build `3e02e2cf` (commit `b28ea0a`) derlendi ve **Android 16 emülatöründe** çalıştırıldı: 8 adımlık yolculuk 7/8, bulunan D1–D10 kodda düzeltildi, emülatörde yeniden doğrulama bekliyor (`docs/qa/2026-11-pilot-journey-android.md`). Preview/release build yok; **gerçek Android cihaz, iOS cihaz/simülatör ve Huawei denenmedi**. iOS production `8af1d94c` / development `cb297b76` (2026-09-19) hiç çalıştırılmadı. Kamera ile QR okutma ve haptic emülatörde doğrulanmadı. `expo-doctor` 21/21 (11 Kasım). |
+| 2 | Gerçek Supabase projesi (staging) | 🟡 11 Kasım: staging `pacvhcnawtnkauvguoaw` **17/17** migration (`20261111000100`, `20261112000100`, `20261112000200` dahil), remote regresyon **38/38** (rollback, kalıntı 0). Uygulama üzerinden gerçek e-postalı E2E 7 Ekim'de PASS, 11 Kasım'da henüz koşulmadı. Yepyeni adult hesap E2E'si de PASS (onaylanan tek kullanımlık test hesabı, sonra silindi). |
 | 3 | Edge Functions (`guardian-dispatch`, `delete-account`) | Deploy edildi ve gerçek JWT ile çağrıldı (veli e-postası; test hesabı silme). Personel/moderatör silme yolu yalnız yerel testte. Function logları CLI'dan okunamıyor (Dashboard). |
 | 4 | `…000500_storage.sql` | Testlerde no-op. `storage.buckets` sütunları ve `storage.foldername()` canlı projeye karşı denenmedi. |
 | 5 | Gerçek e-posta teslimi (OTP, veli) | 🟡 7 Ekim'de doğrulandı (OTP kodu ve veli e-postası gerçek gelen kutusuna ulaştı), bugün yeniden çalıştırılmadı. OTP süre dolumu / hız limiti denenmedi. |
 | 6 | Huawei / HMS | Cihaz testi yok. `expo-camera` QR taramasının GMS'siz davranışı bilinmiyor (`docs/HUAWEI.md`). |
-| 7 | Erişilebilirlik | Roller, etiketler, 44 pt hedefler, reduced motion kodda var. VoiceOver/TalkBack, en büyük yazı ölçeği ve 320 pt genişlik **denetlenmedi**. |
+| 7 | Erişilebilirlik | 🟡 Roller, etiketler, 44 pt hedefler, reduced motion kodda var. Emülatörde yazı ölçeği 2.0 PASS ve 320 dp turu yapıldı (D6/D8 bulundu, kodda düzeltildi, yeniden bakılacak). **TalkBack/VoiceOver sesli turu yapılmadı** (emülatörde adb dokunuşu TouchExplorer'dan geçmiyor). |
 | 8 | PostgREST'in `experiences_with_status` görünümünü embed edebilmesi | Denenmedi. |
 
 ## Remote Supabase ile ilgili açıklar
@@ -32,7 +32,7 @@ Son güncelleme: 2026-11-11 (V5). Güncel durumun tek kaynağı `IMPLEMENTATION-
 - `database.generated.ts` artık staging'den (`supabase gen types --linked`) üretiliyor; kanonik kaynak budur. `db:types:local` (yerel üretici) kozmetik olarak farklı çıktı verir (`isOneToOne`, `__InternalSupabase` yok) — `db:types:check` remote'a karşı çalıştırılmalı.
 - Web önizleme: `RegistrationStatus` / `EventDetail` derin bağlantısı (URL ile doğrudan açma) Keşfet'e düşüyor; kenar çubuğu "Etkinlikler" sekmesi tıklamada gezinmiyor. Native'de ayrıca bakılacak.
 - ~~Web: OTP ekranı e-postayı URL'ye yazıyor (`AuthOtp?email=…`)~~ — **Çözüldü** (a8d9c5a + düzeltme turu): e-posta route param yerine yalnız modül belleğinde (`otpFlow`) tutuluyor.
-- Profil özetindeki "Katılım" sayacı onaylı kayıtta 0 kalıyor (muhtemelen yalnız check-in sayıyor) — ürün kararı teyit edilmeli.
+- ~~Profil özetindeki "Katılım" sayacı onaylı kayıtta 0 kalıyor~~ — **Çözüldü** (6fb7d52): sayaç check-in'e dayanır (katıldığı etkinlik), yaklaşan kayıtlar ayrı listelenir; etiket "Katılım".
 - Admin paneli bir SPA'dır: oturum 7 Ekim'den beri `sessionStorage`'da (sekme kapanınca biter; httpOnly cookie değil). Build-time CSP + `public/_headers`. Yetki tamamen RLS/RPC'de olduğu için veri sızıntısı yaratmaz; XSS yüzeyini küçük tutmak için panelde üçüncü taraf script yok. Disk kısıtı nedeniyle Next.js yerine Vite seçildi; SSR gerekirse taşınabilir.
 - Admin panelinde eksikler: kapak görseli yükleme, oturum (session) programı düzenleme, kurum/üye yönetimi, audit log ekranı, etiketler. Rol kapısı ekranı (rolsüz kullanıcı) görsel olarak denenmedi; veri tarafı DB testleriyle kanıtlı.
 - Yerel auth gateway gerçek GoTrue değildir (hız sınırı, kod süresi, e-posta şablonu farklıdır).
@@ -40,9 +40,9 @@ Son güncelleme: 2026-11-11 (V5). Güncel durumun tek kaynağı `IMPLEMENTATION-
 - Veli isteklerinin süre dolumu tembel çalışır; `pg_cron` zamanlaması dağıtımda eklenmeli.
 - `app.current_policy_version()` sabit bir taslak sürüm döner; gerçek sürümleme tablosu yok.
 - Uygulama ikonu / splash artık yer tutucu değil ("Açık devre T" amblemi, `design-source/brand`); cihazda bakılmadı.
-- **Crash raporlama yok** (Sentry onaylı, kurulmadı) ve gerçek analytics sink'i yok (`expo-updates` var). **Push bildirimi yok.**
-- HIG Doctor: 2 olası bulgu (TechIcon SVG metin rengi; OTP alanı letterSpacing/fontSize) — `docs/audits/2026-11-11-hig-doctor.md`.
-- Reanimated, Gesture Handler, Haptics henüz yok; pilot build'inde Reanimated + Haptics + Sentry planlı.
+- **Crash raporlama kapalı:** Sentry kodu kurulu (PII temizleme, ortam ayrımı) ama DSN olmadığı için `Sentry.init` hiç çağrılmaz. Açık: DSN bağlantısı, saklama süresi kararı ve pilot kapısı 7 için "kapalı"nın yazılı kabulü (`docs/CRASH-REPORTING.md`). Gerçek analytics sink'i yok (`expo-updates` var). **Push bildirimi yok.**
+- HIG Doctor (11 Kasım, final review düzeltmeleri sonrası): `--fail-on serious` kapısı geçer, **0 critical**, 1 moderate (OTP alanı `autoFocus`, bilinçli). İlk rapor `docs/audits/2026-11-11-hig-doctor.md`. Otomatik denetim HIG uyumunu kanıtlamaz.
+- Reanimated + worklets + `expo-haptics` kurulu (PressableScale, check-in geri bildirimi; dev build'de derlendi). Gesture Handler yok.
 - **Dal `feat/v5-pilot-platform`:** fe5a478'e kadar GitHub'a itildi (yedek push, kullanıcı izniyle, Intechne hesabı üzerinden); sonraki commit'ler her görev incelemesinden sonra itilir.
 - **Açık (pilot sonrası, takımlar pilot dışına açılmadan önce kapatılmalı):** `teams.created_by` ve `recruitment_posts.created_by` herkese açık okunur (anon dahil). Reşit olmayan bir takım kurucusunun kullanıcı UUID'si (adı değil) görünür; 18 yaşını doldurup `discoverable` olduğunda bu UUID profiline bağlanabilir. Şimdi düzeltilmedi: istemciler bu tabloları `select('*')` ile okuyor, sütun yetkisini daraltmak bu sözleşmeyi kırar (sorgular sütun listesine geçmeli). Kaynak: Task 9 gizlilik denetimi (`supabase/tests/pilot-privacy.test.ts`).
 - Yerel yığın 7 Ekim'den beri yeni migration'ları mevcut veritabanına uygular (`supabase_migrations.schema_migrations`).
@@ -58,7 +58,7 @@ Son güncelleme: 2026-11-11 (V5). Güncel durumun tek kaynağı `IMPLEMENTATION-
 - **Yönetim paneli (`apps/admin`) boş değildir:** etkinlik, fırsat, doğrulama talepleri, Intechne onay kuyruğu, kayıt listesi ve web check-in var. Eksik: kapak yükleme, oturum programı düzenleyici, kurum/üye yönetimi, audit ekranı.
 - Organizatör tarafında mobilde yalnız check-in var; etkinlik oluşturma/yayınlama ve kayıt değerlendirme admin web'de.
 - Fırsat başvurularında veli akışı yok; yaşı tutmayan başvuran reddedilir.
-- Fonla, Cüzdan, ücretli eğitim, TechRank, AI Koç, ARENO: feature flag arkasında kapalı, kodu taşınmadı.
+- Fonla, Cüzdan, ücretli eğitim, TechRank, AI Koç, ARENO: **kodu taşınmadı**; uygulamada bu modüller yok. Feature flag de yok (`src/lib/env.ts`'te `features` nesnesi bulunmuyor); gelecekte eklenirse flag + sunucu doğrulamasıyla gelir.
 
 ## Hukuki / politika kararı bekleyenler
 
