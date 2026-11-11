@@ -75,17 +75,28 @@ describe('AuthOtpScreen', () => {
     expect(n.replace).not.toHaveBeenCalled();
   });
 
-  it('shows the honest invalid-or-expired copy and enables the resend button when the server says the code expired', async () => {
-    otpFlow.begin('ada@example.com');
-    mockVerifyOtp.mockResolvedValueOnce({ data: {}, error: { code: 'otp_expired', message: 'Token has expired or is invalid', status: 403 } });
-    const n = nav();
-    await render(wrap(<AuthOtpScreen {...asProps(n)} />));
-    await fireEvent.changeText(screen.getByLabelText('Doğrulama kodu'), '123456');
-    await act(async () => {});
-    expect(screen.getByText('Kod hatalı ya da süresi dolmuş. Kontrol edip tekrar dene ya da yeni kod iste.')).toBeTruthy();
-    const resend = screen.getByRole('button', { name: 'Yeni kod iste' });
-    expect(resend.props.accessibilityState?.disabled ?? false).toBe(false);
-    expect(otpFlow.email()).toBe('ada@example.com');
+  it('a wrong code shows the honest copy but keeps the resend cooldown until the countdown ends', async () => {
+    jest.useFakeTimers();
+    try {
+      otpFlow.begin('ada@example.com');
+      // Supabase answers otp_expired for a wrong code too.
+      mockVerifyOtp.mockResolvedValueOnce({ data: {}, error: { code: 'otp_expired', message: 'Token has expired or is invalid', status: 403 } });
+      const n = nav();
+      await render(wrap(<AuthOtpScreen {...asProps(n)} />));
+      await fireEvent.changeText(screen.getByLabelText('Doğrulama kodu'), '123456');
+      await act(async () => { await jest.advanceTimersByTimeAsync(10); }); // TanStack notifies via setTimeout(0)
+      expect(screen.getByText('Kod hatalı ya da süresi dolmuş. Kontrol edip tekrar dene ya da yeni kod iste.')).toBeTruthy();
+      const cooling = screen.getByRole('button', { name: /^Yeni kod iste \(\d+ sn\)$/ });
+      expect(cooling.props.accessibilityState?.disabled).toBe(true);
+      await fireEvent.press(cooling);
+      expect(mockSignInWithOtp).not.toHaveBeenCalled();
+      for (let i = 0; i < 60; i += 1) await act(async () => { await jest.advanceTimersByTimeAsync(1000); });
+      const resend = screen.getByRole('button', { name: 'Yeni kod iste' });
+      expect(resend.props.accessibilityState?.disabled ?? false).toBe(false);
+      expect(otpFlow.email()).toBe('ada@example.com');
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('clears the e-mail from memory when the screen unmounts without success', async () => {

@@ -61,8 +61,9 @@ export function AuthOtpScreen({ navigation }: NativeStackScreenProps<RootStackPa
     mutationFn: () => signInWithEmailOtp(email ?? ''),
     onSuccess: () => { setWait(RESEND_SECONDS); setCode(''); lastSubmitted.current = null; verify.reset(); },
   });
-  const expired = verify.error ? toAppError(verify.error).code === 'otp_expired' : false;
-  const waiting = wait > 0 && !expired;
+  // A failed verify does not lift the cooldown: Supabase reports a wrong code as `otp_expired` too, and a resend inside 60 s
+  // would only earn a 429. (A real code lives far longer than 60 s, so a genuinely expired one never waits here.)
+  const waiting = wait > 0;
   const onChangeCode = (t: string) => {
     const digits = t.replace(/\D/g, '').slice(0, 6);
     setCode(digits);
