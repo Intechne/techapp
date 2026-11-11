@@ -13,7 +13,7 @@ const mockHaptics = jest.requireMock('../../../lib/haptics').haptics as Record<'
 let mockGranted = true;
 let mockScan: ((e: { data: string }) => void) | undefined;
 jest.mock('expo-camera', () => {
-  const { View } = require('react-native');
+  const { View } = jest.requireActual('react-native');
   return {
     useCameraPermissions: () => [{ granted: mockGranted }, jest.fn()],
     CameraView: (p: { onBarcodeScanned?: (e: { data: string }) => void }) => { mockScan = p.onBarcodeScanned; return <View testID="camera" />; },
