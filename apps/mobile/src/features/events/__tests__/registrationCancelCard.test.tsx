@@ -21,11 +21,13 @@ jest.mock('../api', () => ({
   fetchRegistration: (...a: unknown[]) => mockFetchReg(...a),
   cancelRegistration: (...a: unknown[]) => mockCancel(...a),
   fetchGuardianRequest: async () => null,
+  fetchEligibility: async () => ({ event_id: 'e1', authenticated: true, eligible: true, reasons: [], guardian_required: false }),
   fetchMyRegistrations: (...a: unknown[]) => mockFetchMine(...a),
   fetchParticipationCard: jest.fn(),
   eventKeys: {
     registration: (id: string) => ['registrations', id], guardian: (id: string) => ['registrations', id, 'guardian'],
-    myRegistrations: (u: string | null) => ['registrations', 'mine', u], card: (id: string) => ['registrations', id, 'card'],
+    eligibility: (id: string, u: string | null) => ['events', 'eligibility', id, u],
+    myRegistrations: (u: string | null) => ['registrations', 'mine', u], card: (u: string | null, id: string) => ['registrations', id, 'card', u],
   },
 }));
 jest.mock('../../auth/SessionProvider', () => ({ useSession: () => ({ userId: 'u1' }) }));

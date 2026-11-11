@@ -3,7 +3,7 @@ import { AccessibilityInfo, StyleSheet, TextInput, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Button, Card, ErrorState, Input, Notice, Screen, Select, Skeleton, TechIcon, Text, checkInOutcomeView, colors, radius, space } from '../../design-system';
+import { AppHeader, Button, Card, ErrorState, Input, Notice, Screen, Select, Skeleton, TechIcon, Text, checkInOutcomeView, checkInResultView, colors, radius, space } from '../../design-system';
 import { formatDateRange, formatTimeRange, formatTime } from '../../lib/dates';
 import { haptics } from '../../lib/haptics';
 import { toAppError } from '../../lib/errors';
@@ -78,7 +78,7 @@ export function CheckInScreen({ navigation }: NativeStackScreenProps<ProfileStac
   }, [resets, permission?.granted]);
 
   const outcome = mutation.data
-    ? { ...checkInOutcomeView[mutation.data.result], detail: mutation.data.result === 'checked_in' ? 'Hoş geldin diyebilirsin.' : `İlk giriş saati: ${formatTime(mutation.data.checked_in_at)}. Aynı kodla ikinci giriş kaydedilmedi.`, name: mutation.data.holder_name ?? 'Katılımcı' }
+    ? checkInResultView(mutation.data)
     : mutation.error
       ? { ...checkInOutcomeView.failed, detail: toAppError(mutation.error).message, name: null }
       : null;

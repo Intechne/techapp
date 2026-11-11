@@ -2,6 +2,7 @@ import React from 'react';
 import { Tag } from './Chips';
 import type { TechIconName } from '../TechIcon';
 import type { RegistrationStatus as RegStatus, GuardianStatus } from '../../lib/database.types';
+import { formatTime } from '../../lib/dates';
 
 type Tone = 'iris' | 'moss' | 'neutral' | 'danger' | 'apricot';
 interface StatusView { label: string; tone: Tone; icon?: TechIconName }
@@ -16,6 +17,9 @@ export const registrationStatusView: Record<RegStatus, StatusView> = {
   rejected: { label: 'UYGUN BULUNMADI', tone: 'danger' },
   expired: { label: 'SÜRESİ DOLDU', tone: 'neutral' },
 };
+
+/** A confirmed registration whose holder has already been checked in: the card is no longer what matters. */
+export const checkedInRegistrationView: StatusView = { label: 'GİRİŞ YAPILDI', tone: 'moss', icon: 'check' };
 
 export const guardianStatusView: Record<GuardianStatus | 'not_sent', StatusView> = {
   not_sent: { label: 'VELİ ONAYI GEREKLİ', tone: 'apricot', icon: 'shield' },
@@ -51,10 +55,20 @@ export const checkInOutcomeView = {
   failed: { title: 'GİRİŞ ONAYLANMADI', tone: 'danger', icon: 'close', spoken: 'Giriş onaylanmadı' },
 } as const satisfies Record<string, { title: string; tone: Tone; icon: TechIconName; spoken: string }>;
 
+/** Result block of a successful scan: outcome wording plus the two detail sentences (kept here, not in the screen). */
+export function checkInResultView(r: { result: 'checked_in' | 'already_checked_in'; checked_in_at: string; holder_name: string | null }) {
+  return {
+    ...checkInOutcomeView[r.result],
+    detail: r.result === 'checked_in' ? 'Hoş geldin diyebilirsin.' : `İlk giriş saati: ${formatTime(r.checked_in_at)}. Aynı kodla ikinci giriş kaydedilmedi.`,
+    name: r.holder_name ?? 'Katılımcı',
+  };
+}
+
 export function StatusBadge({ view }: { view: StatusView }) {
   return <Tag label={view.label} tone={view.tone} icon={view.icon} />;
 }
-export const RegistrationStatus = ({ status }: { status: RegStatus }) => <StatusBadge view={registrationStatusView[status]} />;
+export const RegistrationStatus = ({ status, checkedIn }: { status: RegStatus; checkedIn?: boolean }) =>
+  <StatusBadge view={checkedIn && status === 'confirmed' ? checkedInRegistrationView : registrationStatusView[status]} />;
 export const ApplicationStatus = ({ status }: { status: keyof typeof applicationStatusView }) => <StatusBadge view={applicationStatusView[status]} />;
 export const VolunteerStatus = ({ status }: { status: keyof typeof volunteerStatusView }) => <StatusBadge view={volunteerStatusView[status]} />;
 

@@ -9,18 +9,22 @@ const MIGRATIONS = join(ROOT, 'supabase', 'migrations');
 
 interface Raised { status: number; code: string; prefix: boolean }
 
-function raisedCodes(): Map<string, Raised> {
-  const out = new Map<string, Raised>();
-  for (const file of readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort()) {
-    const sql = readFileSync(join(MIGRATIONS, file), 'utf8');
-    for (const m of sql.matchAll(/app\.fail\(\s*(\d{3})\s*,\s*'([a-z0-9_]+)'(\s*\|\|)?/g)) {
-      const prefix = m[3] !== undefined; // e.g. 'guardian_request_' || g.status
-      const key = prefix ? `${m[2]}*` : m[2]!;
-      out.set(key, { status: Number(m[1]), code: m[2]!, prefix });
-    }
+/** Map key is `status:code`: the same code raised with two statuses must be reported twice, not overwritten. */
+function collectRaised(sql: string, out: Map<string, Raised> = new Map()): Map<string, Raised> {
+  for (const m of sql.matchAll(/app\.fail\(\s*(\d{3})\s*,\s*'([a-z0-9_]+)'(\s*\|\|)?/g)) {
+    const prefix = m[3] !== undefined; // e.g. 'guardian_request_' || g.status
+    out.set(`${m[1]}:${m[2]}${prefix ? '*' : ''}`, { status: Number(m[1]), code: m[2]!, prefix });
   }
   return out;
 }
+function raisedCodes(): Map<string, Raised> {
+  const out = new Map<string, Raised>();
+  for (const file of readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort()) collectRaised(readFileSync(join(MIGRATIONS, file), 'utf8'), out);
+  return out;
+}
+/** Allow-list / copy key of a raised code (prefix codes end in `*`). */
+const copyKey = (r: Raised) => (r.prefix ? `${r.code}*` : r.code);
+const byCopyKey = (raised: Map<string, Raised>, key: string) => [...raised.values()].filter((r) => copyKey(r) === key);
 
 const LOCK = 'guards a server-owned column the app never writes; 403 falls back to the generic "yetkin yok" sentence';
 const WEB = 'raised only by the anonymous guardian page RPCs; copy lives in apps/web/app/veli/GuardianConsent.tsx';
@@ -46,23 +50,28 @@ describe('error copy coverage', () => {
 
   it('finds the database codes (sanity)', () => {
     expect(raised.size).toBeGreaterThan(100);
-    expect(raised.get('team_members_only')).toEqual({ status: 403, code: 'team_members_only', prefix: false });
+    expect(raised.get('403:team_members_only')).toEqual({ status: 403, code: 'team_members_only', prefix: false });
+  });
+
+  it('the same code raised with two different statuses is reported under both', () => {
+    const out = collectRaised(`perform app.fail(403, 'dup_code'); perform app.fail(409, 'dup_code'); perform app.fail(404, 'pre_' || x);`);
+    expect([...out.keys()].sort()).toEqual(['403:dup_code', '404:pre_*', '409:dup_code']);
   });
 
   it('every app.fail code has Turkish copy in errors.ts, or an allow-list reason', () => {
-    const missing = [...raised.keys()].filter((key) => !hasErrorCopy(key) && !(key in ALLOWED)).sort();
+    const missing = [...new Set([...raised.values()].map(copyKey))].filter((key) => !hasErrorCopy(key) && !(key in ALLOWED)).sort();
     expect(missing).toEqual([]);
   });
 
   it('the allow-list stays honest: no stale entry, no entry that already has copy', () => {
-    const stale = Object.keys(ALLOWED).filter((key) => !raised.has(key) || hasErrorCopy(key));
+    const stale = Object.keys(ALLOWED).filter((key) => byCopyKey(raised, key).length === 0 || hasErrorCopy(key));
     expect(stale).toEqual([]);
   });
 
   it('allow-listed lock codes are all 403 and fall back to the generic forbidden sentence', () => {
     for (const [key, reason] of Object.entries(ALLOWED)) {
       if (reason !== LOCK) continue;
-      expect([key, raised.get(key)?.status]).toEqual([key, 403]);
+      expect([key, byCopyKey(raised, key).map((r) => r.status)]).toEqual([key, byCopyKey(raised, key).map(() => 403)]);
       expect([key, makeError(key, 403).code]).toEqual([key, 'forbidden']);
     }
   });

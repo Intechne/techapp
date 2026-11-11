@@ -13,7 +13,7 @@ import { ParticipationCardView } from './ParticipationCardView';
 export function ParticipationCardScreen({ navigation, route }: NativeStackScreenProps<SharedEventParamList, 'ParticipationCard'>) {
   const { registrationId } = route.params;
   const { userId } = useSession();
-  const card = useQuery({ queryKey: eventKeys.card(registrationId), queryFn: () => fetchCardWithOfflineFallback(userId, registrationId), staleTime: 0 });
+  const card = useQuery({ queryKey: eventKeys.card(userId, registrationId), queryFn: () => fetchCardWithOfflineFallback(userId, registrationId), staleTime: 0 });
 
   if (card.isPending) return <Screen header={<AppHeader onBack={navigation.goBack} />}><LoadingSkeleton cards={1} /></Screen>;
   if (card.isError) return <Screen header={<AppHeader onBack={navigation.goBack} />}><ErrorState error={toAppError(card.error)} onRetry={() => void card.refetch()} /></Screen>;

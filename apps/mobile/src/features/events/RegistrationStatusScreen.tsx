@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Button, Card, ErrorState, LoadingSkeleton, MetadataRow, Modal, Notice, RegistrationStatus, Screen, StatusBadge, StatusTimeline, TechIcon, Text, colors, guardianStatusView, registrationSteps, space, useToast, type TechIconName } from '../../design-system';
+import { AppHeader, Button, Card, ErrorState, LoadingSkeleton, Skeleton, MetadataRow, Modal, Notice, RegistrationStatus, Screen, StatusBadge, StatusTimeline, TechIcon, Text, colors, guardianStatusView, registrationSteps, space, useToast, type TechIconName } from '../../design-system';
 import { formatDateRange, formatDateTime, isPast } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
 import type { RegistrationStatus as Status } from '../../lib/database.types';
 import type { SharedEventParamList } from '../../navigation/types';
-import { cancelRegistration, eventKeys, fetchGuardianRequest, fetchRegistration } from './api';
+import { cancelRegistration, eventKeys, fetchEligibility, fetchGuardianRequest, fetchRegistration } from './api';
 import { placeLabel } from './labels';
 import { dropCard, dropCards } from './offlineCard';
 import { useSession } from '../auth/SessionProvider';
@@ -29,8 +29,12 @@ export function RegistrationStatusScreen({ navigation, route }: NativeStackScree
   const [confirmCancel, setConfirmCancel] = useState(false);
   const reg = useQuery({ queryKey: eventKeys.registration(registrationId), queryFn: () => fetchRegistration(registrationId), refetchOnWindowFocus: 'always' });
   const needsGuardian = reg.data?.status === 'pending_guardian';
-  // Also read for finished registrations: a guardian request on record is what puts the guardian step on the timeline.
-  const guardian = useQuery({ queryKey: eventKeys.guardian(registrationId), queryFn: () => fetchGuardianRequest(registrationId), enabled: !!reg.data });
+  // The server says whether this event needs a guardian for this user (age is never computed here).
+  const eventId = reg.data?.event_id;
+  const eligibility = useQuery({ queryKey: eventKeys.eligibility(eventId ?? '', userId), queryFn: () => fetchEligibility(eventId!), enabled: !!eventId });
+  const guardianRequired = needsGuardian || eligibility.data?.guardian_required === true;
+  // Also read for finished registrations of a minor: a guardian request on record is what puts the guardian step on the timeline.
+  const guardian = useQuery({ queryKey: eventKeys.guardian(registrationId), queryFn: () => fetchGuardianRequest(registrationId), enabled: !!reg.data && guardianRequired });
 
   const cancel = useMutation({
     mutationFn: () => cancelRegistration(registrationId),
@@ -55,12 +59,14 @@ export function RegistrationStatusScreen({ navigation, route }: NativeStackScree
   const r = reg.data; const h = HEADLINE[r.status];
   const live = (['confirmed', 'waitlisted', 'pending_guardian', 'pending_review'] as Status[]).includes(r.status);
   const guardianView = guardianStatusView[guardian.data?.status ?? 'not_sent'];
-  const steps = registrationSteps(r.status, needsGuardian || !!guardian.data);
+  const steps = registrationSteps(r.status, guardianRequired);
+  // Until the server has said whether a guardian step belongs in the line, draw a 4-step skeleton so the card does not grow later.
+  const stepsUnknown = !guardianRequired && eligibility.isPending && r.status !== 'cancelled';
   const canSendGuardian = needsGuardian && (!guardian.data || guardian.data.status !== 'pending');
 
   return (
     <Screen header={<AppHeader onBack={navigation.goBack} title="Kayıt durumu" />} refreshing={reg.isRefetching}
-      onRefresh={() => { void reg.refetch(); if (needsGuardian) void guardian.refetch(); }}
+      onRefresh={() => { void reg.refetch(); void eligibility.refetch(); if (guardianRequired) void guardian.refetch(); }}
       footer={
         r.status === 'confirmed' ? <Button label="Katılım kartını göster" icon="ticket" onPress={() => navigation.navigate('ParticipationCard', { registrationId })} />
           : needsGuardian ? <Button label={canSendGuardian ? 'Veli onayı iste' : 'Bağlantıyı yeniden gönder'} icon="shield" onPress={() => navigation.navigate('GuardianRequest', { registrationId })} />
@@ -80,10 +86,19 @@ export function RegistrationStatusScreen({ navigation, route }: NativeStackScree
         <MetadataRow icon="location">{placeLabel(r.event)}</MetadataRow>
       </Card>
 
-      {steps.length > 0 && (
+      {(steps.length > 0 || stepsUnknown) && (
         <Card style={{ marginTop: space[3] }}>
           <Text variant="eyebrow" color="textSecondary" style={{ marginBottom: space[3] }}>SÜREÇ</Text>
-          <StatusTimeline steps={steps} />
+          {stepsUnknown ? (
+            <View testID="timeline-skeleton" style={{ gap: space[4] }}>
+              {[0, 1, 2, 3].map((i) => <View key={i} testID="timeline-skeleton-step"><Skeleton width="60%" height={20} /></View>)}
+            </View>
+          ) : <StatusTimeline steps={steps} />}
+          {guardianRequired && guardian.isError && (
+            <Pressable accessibilityRole="button" onPress={() => void guardian.refetch()} style={styles.inlineRetry}>
+              <Text variant="bodySmall" color="danger">Veli durumu alınamadı · Tekrar dene</Text>
+            </Pressable>
+          )}
         </Card>
       )}
 
@@ -110,5 +125,6 @@ export function RegistrationStatusScreen({ navigation, route }: NativeStackScree
 }
 
 const styles = StyleSheet.create({
+  inlineRetry: { minHeight: 44, justifyContent: 'center', marginTop: space[2] },
   icon: { width: 76, height: 76, borderRadius: 26, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: space[5], marginBottom: space[5] },
 });

@@ -18,7 +18,7 @@ const mockFetchMine = jest.fn();
 jest.mock('../api', () => ({
   fetchMyRegistrations: (...a: unknown[]) => mockFetchMine(...a),
   fetchParticipationCard: jest.fn(),
-  eventKeys: { myRegistrations: (u: string | null) => ['registrations', 'mine', u], card: (id: string) => ['registrations', id, 'card'] },
+  eventKeys: { myRegistrations: (u: string | null) => ['registrations', 'mine', u], card: (u: string | null, id: string) => ['registrations', id, 'card', u] },
 }));
 let mockUser = 'u1';
 jest.mock('../../auth/SessionProvider', () => ({ useSession: () => ({ userId: mockUser }) }));

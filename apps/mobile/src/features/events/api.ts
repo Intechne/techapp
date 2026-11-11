@@ -114,6 +114,6 @@ export const eventKeys = {
   eligibility: (id: string, userId: string | null) => ['events', 'eligibility', id, userId] as const,
   registration: (id: string) => ['registrations', id] as const,
   myRegistrations: (userId: string | null) => ['registrations', 'mine', userId] as const,
-  card: (id: string) => ['registrations', id, 'card'] as const,
+  card: (userId: string | null, registrationId: string) => ['registrations', registrationId, 'card', userId] as const,
   guardian: (id: string) => ['registrations', id, 'guardian'] as const,
 };

@@ -15,8 +15,9 @@ jest.mock('expo-secure-store', () => ({
   deleteItemAsync: async (k: string) => { mockStore.delete(k); },
 }));
 const mockFetch = jest.fn();
-jest.mock('../api', () => ({ fetchParticipationCard: (...a: unknown[]) => mockFetch(...a), eventKeys: { card: (id: string) => ['registrations', id, 'card'] } }));
-jest.mock('../../auth/SessionProvider', () => ({ useSession: () => ({ userId: 'u1' }) }));
+jest.mock('../api', () => ({ fetchParticipationCard: (...a: unknown[]) => mockFetch(...a), eventKeys: { card: (u: string | null, id: string) => ['registrations', id, 'card', u] } }));
+let mockUser: string | null = 'u1';
+jest.mock('../../auth/SessionProvider', () => ({ useSession: () => ({ userId: mockUser }) }));
 jest.mock('react-native-qrcode-svg', () => () => null);
 
 const REG = '11111111-1111-4111-8111-111111111111';
@@ -27,12 +28,15 @@ const card: ParticipationCard = {
 };
 const metrics = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
 const renderScreen = async () => {
+  return renderWith();
+};
+const renderWith = async () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   const props = { navigation: { goBack: jest.fn() }, route: { params: { registrationId: REG } } } as unknown as React.ComponentProps<typeof ParticipationCardScreen>;
   await render(<SafeAreaProvider initialMetrics={metrics}><QueryClientProvider client={client}><ParticipationCardScreen {...props} /></QueryClientProvider></SafeAreaProvider>);
 };
 
-beforeEach(() => { mockStore.clear(); mockFetch.mockReset(); });
+beforeEach(() => { mockStore.clear(); mockFetch.mockReset(); mockUser = 'u1'; });
 
 describe('ParticipationCardScreen offline behaviour', () => {
   it('shows the fresh card with the brightness hint and no offline label', async () => {
@@ -56,5 +60,19 @@ describe('ParticipationCardScreen offline behaviour', () => {
     await waitFor(() => expect(screen.getByText('Katılım kartı, kaydın onaylandığında hazır olacak.')).toBeTruthy());
     expect(screen.queryByText('Robotik Günü')).toBeNull();
     expect(await loadCard('u1', REG)).toBeNull();
+  });
+  it('finds the saved card on first load even when the session arrives late', async () => {
+    await saveCard('u1', card);
+    mockFetch.mockRejectedValue(makeError('network_unreachable', 0));
+    mockUser = null;
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+    const props = { navigation: { goBack: jest.fn() }, route: { params: { registrationId: REG } } } as unknown as React.ComponentProps<typeof ParticipationCardScreen>;
+    const ui = () => <SafeAreaProvider initialMetrics={metrics}><QueryClientProvider client={client}><ParticipationCardScreen {...props} /></QueryClientProvider></SafeAreaProvider>;
+    const view = await render(ui());
+    await waitFor(() => expect(screen.queryByText('Robotik Günü')).toBeNull());
+    mockUser = 'u1';
+    await view.rerender(ui());
+    expect(await screen.findByText('Robotik Günü')).toBeTruthy();
+    expect(screen.getByText(/çevrimdışı$/)).toBeTruthy();
   });
 });
