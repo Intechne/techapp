@@ -5,7 +5,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import pg from 'pg';
 
-const DEFAULT_PORT = 54329;
+/**
+ * Preferred port for the throwaway test Postgres. Not 54329: that is Keşif's local Postgres, and if it happened to be stopped
+ * the tests would start on it and could be mistaken for (or block) the neighbour. Override with TECHAPP_TEST_PG_PORT.
+ */
+export const DEFAULT_PORT = 54339;
+/** Ports of other local projects that the auto-fallback must never pick either. */
+export const AVOID_PORTS: readonly number[] = [54329];
 
 function tryListen(port: number): Promise<number | null> {
   return new Promise((resolve) => {
@@ -18,13 +24,17 @@ function tryListen(port: number): Promise<number | null> {
   });
 }
 
-/** Returns `preferred` if it is free, otherwise an OS-assigned free port. */
-export async function freePort(preferred: number): Promise<number> {
-  const ok = await tryListen(preferred);
-  if (ok !== null) return ok;
-  const any = await tryListen(0);
-  if (any === null) throw new Error('No free TCP port available for test Postgres');
-  return any;
+/** Returns `preferred` if it is free, otherwise an OS-assigned free port that is not in `avoid`. */
+export async function freePort(preferred: number, avoid: readonly number[] = AVOID_PORTS): Promise<number> {
+  if (!avoid.includes(preferred)) {
+    const ok = await tryListen(preferred);
+    if (ok !== null) return ok;
+  }
+  for (let i = 0; i < 10; i += 1) {
+    const any = await tryListen(0);
+    if (any !== null && !avoid.includes(any)) return any;
+  }
+  throw new Error('No free TCP port available for test Postgres');
 }
 
 const MIGRATIONS = join(__dirname, '..', 'migrations');

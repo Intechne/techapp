@@ -5,7 +5,7 @@ Kural: kod yazmak tamamlanma değildir. Test edilmeyen bir şey için "çalış�
 ## Komutlar
 
 ```bash
-npm run db:test                        # veritabanı + Edge: 95 test (54329 doluysa boş port seçer)
+npm run db:test                        # veritabanı + Edge: 95 test (tercih 54339; doluysa boş port, 54329 asla)
 npm --prefix apps/mobile run typecheck # tsc --noEmit (strict + noUncheckedIndexedAccess)
 npm --prefix apps/mobile run lint      # expo lint + mimari kuralları
 npm --prefix apps/mobile test          # jest: 93 test (15 süit)
@@ -13,7 +13,7 @@ npm --prefix apps/mobile run verify    # typecheck + lint + test (93/93)
 npm --prefix apps/mobile run doctor    # expo-doctor 1.20.5 (sabit): 21/21
 ```
 
-Sayılar 11 Kasım 2026'da ölçüldü. `db:test` için `54329` portu doluysa komut otomatik olarak boş bir port seçer; elle `PORT` vermek gerekmez. HIG Doctor: `npx hig-doctor apps/mobile` (bkz. `docs/audits/2026-11-11-hig-doctor.md`).
+Sayılar 11 Kasım 2026'da ölçüldü. `db:test` geçici Postgres'i tercihen `54339`'da açar; doluysa işletim sisteminden boş bir port alır. `54329` (Keşif'in yerel Postgres'i) hiçbir durumda seçilmez — Keşif kapalı olsa bile (`AVOID_PORTS`, `supabase/tests/free-port.test.ts`). Sabit port gerekiyorsa `TECHAPP_TEST_PG_PORT=<port> npm run db:test`. HIG Doctor: `npx hig-doctor apps/mobile` (bkz. `docs/audits/2026-11-11-hig-doctor.md`).
 
 ## Veritabanı testleri — 95 test, Edge dahil (`supabase/tests/`; aşağıdaki dosya dökümü 2026-09 tarihli ve eksiktir)
 
