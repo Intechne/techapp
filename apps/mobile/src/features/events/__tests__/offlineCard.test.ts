@@ -53,6 +53,37 @@ describe('offline participation card store', () => {
   });
 });
 
+describe('expiry, serialisation', () => {
+  const at = (iso: string) => () => Date.parse(iso);
+  it('drops a card past valid_until', async () => {
+    await saveCard('u1', card);
+    expect(await loadCard('u1', REG, at('2026-12-01T12:00:01Z'))).toBeNull();
+    expect([...mockStore.keys()].some((k) => k.startsWith('card.u1.'))).toBe(false);
+  });
+  it('falls back to ends_at + 12 h when valid_until is unusable', async () => {
+    const odd = { ...card, valid_until: 'not-a-date' };
+    await saveCard('u1', odd);
+    expect((await loadCard('u1', REG, at('2026-12-02T00:00:00Z')))?.card.registration_id).toBe(REG);
+    expect(await loadCard('u1', REG, at('2026-12-02T00:00:01Z'))).toBeNull();
+    expect([...mockStore.keys()].some((k) => k.startsWith('card.u1.'))).toBe(false);
+  });
+  it('returns a still-valid card', async () => {
+    await saveCard('u1', card);
+    expect(await loadCard('u1', REG, at('2026-12-01T10:00:00Z'))).not.toBeNull();
+  });
+  it('prunes expired entries when saving another card', async () => {
+    await saveCard('u1', card);
+    await saveCard('u1', { ...card, registration_id: 'r2', valid_until: '2027-01-01T00:00:00Z' }, at('2026-12-05T00:00:00Z'));
+    expect(JSON.parse(mockStore.get('card.index')!)).toEqual(['card.u1.r2']);
+  });
+  it('keeps both keys when two saves overlap, and clearCards empties the store', async () => {
+    await Promise.all([saveCard('u1', card), saveCard('u1', { ...card, registration_id: 'r2' })]);
+    expect(JSON.parse(mockStore.get('card.index')!).sort()).toEqual([`card.u1.${REG}`, 'card.u1.r2'].sort());
+    await clearCards();
+    expect(mockStore.size).toBe(0);
+  });
+});
+
 describe('fetchCardWithOfflineFallback', () => {
   it('saves the fresh card after a successful fetch', async () => {
     mockFetch.mockResolvedValue(card);
@@ -80,6 +111,11 @@ describe('fetchCardWithOfflineFallback', () => {
     mockFetch.mockRejectedValue(makeError(code, status));
     await expect(fetchCardWithOfflineFallback('u1', REG)).rejects.toMatchObject({ code });
     expect(await loadCard('u1', REG)).toBeNull();
+  });
+  it.each([['contract_mismatch', 500], ['unknown', 0], ['not_configured', 0]])('never shows a cached card on %s', async (code, status) => {
+    await saveCard('u1', card);
+    mockFetch.mockRejectedValue(makeError(code, status === 500 ? 422 : status));
+    await expect(fetchCardWithOfflineFallback('u1', REG)).rejects.toBeTruthy();
   });
   it('never shows a cached card on 401', async () => {
     await saveCard('u1', card);

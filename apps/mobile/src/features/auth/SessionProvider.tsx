@@ -58,7 +58,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     void restoreSessionOnLaunch(getSupabase(), { timeoutMs: attempt === 0 ? RESTORE_TIMEOUT_MS : RETRY_RESTORE_TIMEOUT_MS }).then((outcome) => {
       if (cancelled) return;
-      if (outcome.kind === 'ok') { setSession(outcome.session); setStatus('ready'); }
+      if (outcome.kind === 'ok') {
+        setSession(outcome.session); setStatus('ready');
+        // Keychain outlives an uninstall: with no session at launch no saved card can belong to anyone. Never blocks startup.
+        if (!outcome.session) void clearCards().catch(() => {});
+      }
       else { setUnavailableReason(outcome.reason); setStatus('unavailable'); track('startup_unavailable', { reason: outcome.reason }); }
     });
     return () => { cancelled = true; };

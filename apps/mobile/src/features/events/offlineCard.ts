@@ -25,47 +25,86 @@ const writeIndex = (keys: string[]) => keys.length
   ? SecureStore.setItemAsync(INDEX_KEY, JSON.stringify(keys), options)
   : SecureStore.deleteItemAsync(INDEX_KEY, options);
 
-export async function saveCard(userId: string, card: ParticipationCard): Promise<void> {
-  if (!enabled()) return;
-  const key = keyOf(userId, card.registration_id);
-  await SecureStore.setItemAsync(key, JSON.stringify({ card, savedAt: new Date().toISOString() }), options);
-  const index = await readIndex();
-  if (!index.includes(key)) await writeIndex([...index, key]);
+/** Index mutations run one at a time so overlapping saves/drops cannot lose an entry. */
+let queue: Promise<unknown> = Promise.resolve();
+const serialised = <T>(task: () => Promise<T>): Promise<T> => {
+  const run = queue.then(task, task);
+  queue = run.catch(() => {});
+  return run;
+};
+
+const EXPIRY_GRACE_MS = 12 * 60 * 60 * 1000;
+/** A card is useless after `valid_until`; if that is unusable, 12 h after the event ends. */
+export function isExpired(card: ParticipationCard, now: number): boolean {
+  const validUntil = Date.parse(card.valid_until);
+  if (Number.isFinite(validUntil)) return now > validUntil;
+  const ends = Date.parse(card.event.ends_at);
+  return !Number.isFinite(ends) || now > ends + EXPIRY_GRACE_MS;
 }
 
-export async function loadCard(userId: string, registrationId: string): Promise<{ card: ParticipationCard; savedAt: string } | null> {
-  if (!enabled()) return null;
-  const key = keyOf(userId, registrationId);
+function parseEntry(raw: string | null): { card: ParticipationCard; savedAt: string } | null {
+  if (raw === null) return null;
   try {
-    const raw = await SecureStore.getItemAsync(key, options);
-    if (raw === null) return null;
     const value = JSON.parse(raw) as { card?: unknown; savedAt?: unknown };
     const card = participationCardSchema.safeParse(value.card);
-    if (card.success && typeof value.savedAt === 'string' && card.data.registration_id === registrationId) return { card: card.data, savedAt: value.savedAt };
-  } catch { /* corrupt entry: dropped below */ }
+    return card.success && typeof value.savedAt === 'string' ? { card: card.data, savedAt: value.savedAt } : null;
+  } catch { return null; }
+}
+
+export function saveCard(userId: string, card: ParticipationCard, now: () => number = Date.now): Promise<void> {
+  if (!enabled()) return Promise.resolve();
+  return serialised(async () => {
+    const key = keyOf(userId, card.registration_id);
+    let index = await readIndex();
+    // Opportunistic prune of expired / unreadable entries.
+    const kept: string[] = [];
+    for (const k of index) {
+      if (k === key) { kept.push(k); continue; }
+      const entry = parseEntry(await SecureStore.getItemAsync(k, options).catch(() => null));
+      if (entry && !isExpired(entry.card, now())) kept.push(k);
+      else await SecureStore.deleteItemAsync(k, options).catch(() => {});
+    }
+    index = kept.includes(key) ? kept : [...kept, key];
+    await writeIndex(index); // index first: a crash leaves at worst an entry pointing at nothing
+    await SecureStore.setItemAsync(key, JSON.stringify({ card, savedAt: new Date(now()).toISOString() }), options);
+  });
+}
+
+export async function loadCard(userId: string, registrationId: string, now: () => number = Date.now): Promise<{ card: ParticipationCard; savedAt: string } | null> {
+  if (!enabled()) return null;
+  const key = keyOf(userId, registrationId);
+  let raw: string | null;
+  try { raw = await SecureStore.getItemAsync(key, options); } catch { return null; }
+  if (raw === null) return null;
+  const entry = parseEntry(raw);
+  if (entry && entry.card.registration_id === registrationId && !isExpired(entry.card, now())) return entry;
   await dropCard(userId, registrationId).catch(() => {});
   return null;
 }
 
-export async function dropCard(userId: string, registrationId: string): Promise<void> {
-  if (!enabled()) return;
-  const key = keyOf(userId, registrationId);
-  await SecureStore.deleteItemAsync(key, options);
-  const index = await readIndex();
-  if (index.includes(key)) await writeIndex(index.filter((k) => k !== key));
+export function dropCard(userId: string, registrationId: string): Promise<void> {
+  if (!enabled()) return Promise.resolve();
+  return serialised(async () => {
+    const key = keyOf(userId, registrationId);
+    await SecureStore.deleteItemAsync(key, options);
+    const index = await readIndex();
+    if (index.includes(key)) await writeIndex(index.filter((k) => k !== key));
+  });
 }
 
-export async function clearCards(): Promise<void> {
-  if (!enabled()) return;
-  const index = await readIndex();
-  await Promise.all(index.map((k) => SecureStore.deleteItemAsync(k, options).catch(() => {})));
-  await SecureStore.deleteItemAsync(INDEX_KEY, options);
+export function clearCards(): Promise<void> {
+  if (!enabled()) return Promise.resolve();
+  return serialised(async () => {
+    const index = await readIndex();
+    await Promise.all(index.map((k) => SecureStore.deleteItemAsync(k, options).catch(() => {})));
+    await SecureStore.deleteItemAsync(INDEX_KEY, options);
+  });
 }
 
 export interface CardResult { card: ParticipationCard; /** ISO time of the cached copy; null when the card is fresh from the server. */ cachedAt: string | null }
 
 /**
- * Fresh card when the server answers (and saved for offline use). Only an unreachable server / 5xx / timeout falls back to
+ * Fresh card when the server answers (and saved for offline use). Only an unreachable server / timeout / 429 / 5xx falls back to
  * the saved copy. A server verdict (not found, not confirmed, signed out) never shows a cached card; 404/409 also drop it.
  */
 export async function fetchCardWithOfflineFallback(userId: string | null, registrationId: string): Promise<CardResult> {
@@ -79,7 +118,7 @@ export async function fetchCardWithOfflineFallback(userId: string | null, regist
       await dropCard(userId, registrationId).catch(() => {});
       throw e;
     }
-    if (userId && (error.retryable || error.status === 0)) {
+    if (userId && (error.code === 'network_unreachable' || error.status === 429 || error.status >= 500)) {
       const cached = await loadCard(userId, registrationId);
       if (cached) return { card: cached.card, cachedAt: cached.savedAt };
     }
