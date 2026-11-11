@@ -126,7 +126,7 @@ ortam değişkenleri EAS'te remote Supabase'e (`pacvhcnawtnkauvguoaw`) işaret e
 bu Expo/RN kod tabanından üretilemez** — ayrı bir proje gerektirir. Huawei yolu = GMS'siz (HMS) Android AAB → AppGallery.
 
 **Production'a geçiş — sırayla, her biri Intechne'nin bir dış girdisini bekler:**
-1. **Remote migrations (ZORUNLU, ilk).** 7 Ekim: önce staging projesi; 13 migration (20261007000100 dahil) uygulanacak.
+1. **Remote migrations (ZORUNLU, ilk — istisna aşağıda).** **İstisna:** yetki *daraltan* migration'lar (ör. `20261112000300_hide_creator_columns`) eski istemcinin sorgularını kırar → önce yeni istemci (OTA/build), sonra migration (bkz. `KNOWN-ISSUES.md`). 7 Ekim: önce staging projesi; 13 migration (20261007000100 dahil) uygulanacak.
    (19 Eylül notu: o tarihte canlıda son 3 migration yoktu.) Uygulanmadan alınan production build, CV paylaşımı / gönüllü / unvan özellikleri kırık çıkar.
    `npx supabase link` (linkli) → `npx supabase db push` (DB parolası ya da `SUPABASE_ACCESS_TOKEN` gerekir) →
    `npm --prefix apps/mobile run db:types` → `npm --prefix apps/mobile run e2e:remote` (beklenen sonuç staging'de yeniden ölçülecek).

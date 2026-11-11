@@ -283,7 +283,7 @@ describe('pilot privacy · who founded a team or wrote a recruitment post', () =
     const post = (await asAnon((q) => q(`select ${POST_PUBLIC} from public.recruitment_posts where id = $1`, [postId]))).rows;
     expect(post).toHaveLength(1);
     expect(post[0]).toMatchObject({ id: postId, team_id: teamId, is_open: true });
-    // the same lists for a signed-in user, and the embed the app uses for "Takımlarım"
+    // the same lists for a signed-in user (the Takımlarım embed is covered by the Expo-web probe, not here)
     expect((await asUser(outsider, (q) => q(`select ${TEAM_PUBLIC} from public.teams where id = $1`, [teamId]))).rowCount).toBe(1);
     expect((await asUser(outsider, (q) => q(`select ${POST_PUBLIC} from public.recruitment_posts where id = $1`, [postId]))).rowCount).toBe(1);
   });
