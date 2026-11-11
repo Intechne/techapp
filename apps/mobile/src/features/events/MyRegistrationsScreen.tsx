@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { FlatList, RefreshControl, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
@@ -9,12 +9,17 @@ import { toAppError } from '../../lib/errors';
 import type { SharedEventParamList } from '../../navigation/types';
 import { useSession } from '../auth/SessionProvider';
 import { eventKeys, fetchMyRegistrations } from './api';
-import { isNetworkClassError, listCards } from './offlineCard';
+import { dropCards, isNetworkClassError, listCards } from './offlineCard';
 import { placeLabel } from './labels';
 
 export function MyRegistrationsScreen({ navigation }: NativeStackScreenProps<SharedEventParamList, 'MyRegistrations'>) {
   const { userId } = useSession();
   const q = useQuery({ queryKey: eventKeys.myRegistrations(userId), queryFn: () => fetchMyRegistrations(userId!), enabled: !!userId });
+  // Registrations the server lists as not confirmed must not keep an offline card (cancelled elsewhere, rejected, expired).
+  const notConfirmed = (q.data ?? []).filter((r) => r.status !== 'confirmed').map((r) => r.id).join(',');
+  useEffect(() => {
+    if (userId && notConfirmed) void dropCards(userId, notConfirmed.split(',')).catch(() => {});
+  }, [userId, notConfirmed]);
 
   // Cold start without network: the list needs the server, but a card saved earlier on this device still opens (this user's only).
   // Only when there is nothing to show: with stale data the list stays and a small notice says it may be out of date.

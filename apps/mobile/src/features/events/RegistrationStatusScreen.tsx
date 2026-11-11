@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -9,6 +9,8 @@ import type { RegistrationStatus as Status } from '../../lib/database.types';
 import type { SharedEventParamList } from '../../navigation/types';
 import { cancelRegistration, eventKeys, fetchGuardianRequest, fetchRegistration } from './api';
 import { placeLabel } from './labels';
+import { dropCard, dropCards } from './offlineCard';
+import { useSession } from '../auth/SessionProvider';
 
 const HEADLINE: Record<Status, { eyebrow: string; title: string; body: string; icon: TechIconName; good: boolean }> = {
   confirmed: { eyebrow: 'GÜZEL BİR BAŞLANGIÇ', title: 'Yerini ayırdık.', body: 'Katılım kartın hazır. Etkinlik günü girişte göstermen yeterli.', icon: 'check', good: true },
@@ -23,6 +25,7 @@ const HEADLINE: Record<Status, { eyebrow: string; title: string; body: string; i
 export function RegistrationStatusScreen({ navigation, route }: NativeStackScreenProps<SharedEventParamList, 'RegistrationStatus'>) {
   const { registrationId } = route.params;
   const qc = useQueryClient(); const toast = useToast();
+  const { userId } = useSession();
   const [confirmCancel, setConfirmCancel] = useState(false);
   const reg = useQuery({ queryKey: eventKeys.registration(registrationId), queryFn: () => fetchRegistration(registrationId), refetchOnWindowFocus: 'always' });
   const needsGuardian = reg.data?.status === 'pending_guardian';
@@ -33,10 +36,18 @@ export function RegistrationStatusScreen({ navigation, route }: NativeStackScree
     mutationFn: () => cancelRegistration(registrationId),
     onSuccess: async () => {
       setConfirmCancel(false);
+      // The card is void now: an offline copy must not keep showing a valid-looking QR.
+      if (userId) await dropCard(userId, registrationId).catch(() => {});
       await Promise.all([qc.invalidateQueries({ queryKey: ['registrations'] }), qc.invalidateQueries({ queryKey: ['events'] })]);
       toast.show('Kaydın iptal edildi.');
     },
   });
+
+  // The server says this registration is not (or no longer) confirmed: drop any saved offline card for it.
+  const status = reg.data?.status;
+  useEffect(() => {
+    if (userId && status && status !== 'confirmed') void dropCards(userId, [registrationId]).catch(() => {});
+  }, [userId, status, registrationId]);
 
   if (reg.isPending) return <Screen header={<AppHeader onBack={navigation.goBack} />}><LoadingSkeleton cards={1} /></Screen>;
   if (reg.isError) return <Screen header={<AppHeader onBack={navigation.goBack} />}><ErrorState error={toAppError(reg.error)} onRetry={() => void reg.refetch()} /></Screen>;

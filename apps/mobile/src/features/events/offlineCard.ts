@@ -121,6 +121,22 @@ export function dropCard(userId: string, registrationId: string): Promise<void> 
 }
 
 /**
+ * Drops the saved cards of these registrations if any are stored: the client learned they are no longer confirmed (cancelled,
+ * rejected, expired …), so an offline copy would show a QR that the gate will refuse. Only indexed entries are touched.
+ */
+export function dropCards(userId: string, registrationIds: string[]): Promise<void> {
+  if (!enabled() || registrationIds.length === 0) return Promise.resolve();
+  return serialised(async () => {
+    const doomed = new Set(registrationIds.map((id) => keyOf(userId, id)));
+    const index = await readIndex();
+    const kept = index.filter((k) => !doomed.has(k));
+    if (kept.length === index.length) return;
+    await Promise.all(index.filter((k) => doomed.has(k)).map((k) => SecureStore.deleteItemAsync(k, options).catch(() => {})));
+    await writeIndex(kept);
+  });
+}
+
+/**
  * Keeps only this user's saved cards. Run when a launch restore settles signed in: any other identity's entry on this device
  * (left from before an uninstall, or from a startup where a different session was stored) goes, so the store never holds
  * more than the current holder's tickets.
