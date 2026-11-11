@@ -63,10 +63,53 @@ const COPY: Record<string, string> = {
   team_manage_forbidden: 'Bunu yalnızca takımın kaptanı ya da mentoru yapabilir.',
   membership_not_active: 'Bu kişi artık takımın aktif üyesi değil.',
   title_too_long: 'Unvan en fazla 60 karakter olabilir.',
+  // teams
+  team_members_only: 'Bu takımın üyelerini yalnız takım üyeleri görebilir.',
+  team_not_found: 'Bu takım bulunamadı ya da artık aktif değil.',
+  team_name_invalid: 'Takım adı en az 2 karakter olmalı.',
+  team_create_limit: 'En fazla 5 takım kurabilirsin.',
+  team_closed_to_requests: 'Bu takım şu an katılım isteği almıyor.',
+  already_team_member: 'Zaten bu takımın üyesisin.',
+  membership_not_found: 'Bu üyelik bulunamadı.',
+  membership_not_pending: 'Bu katılım isteği artık beklemede değil.',
+  last_captain: 'Takımın tek kaptanı sensin. Önce başka bir üyeyi kaptan yap.',
+  demote_captain_first: 'Bir kaptanı çıkarmadan önce rolünü değiştirmen gerekiyor.',
+  cannot_change_own_role: 'Kendi rolünü değiştiremezsin. Bunu takımdaki başka bir kaptan yapabilir.',
+  cannot_remove_self: 'Kendini takımdan çıkaramazsın; istersen takımdan ayrılabilirsin.',
+  task_not_found: 'Bu görev bulunamadı.',
+  task_forbidden: 'Bu görevi yalnızca sorumlusu ya da takımın kaptanı ve mentoru güncelleyebilir.',
+  assignee_not_team_member: 'Görevi yalnızca takımın aktif üyelerinden birine verebilirsin.',
+  recruitment_post_not_found: 'Bu ilan artık yayında değil.',
+  recruitment_closed: 'Bu ilan şu an başvuru almıyor.',
+  recruitment_application_not_pending: 'Bu başvuru artık karar beklemiyor.',
+  // opportunities, experiences, learning
+  opportunity_not_found: 'Bu fırsat artık yayında değil.',
+  applications_not_open: 'Bu fırsatın başvuruları henüz açılmadı.',
+  applications_closed: 'Bu fırsatın başvuruları kapandı.',
+  application_not_found: 'Bu başvuru bulunamadı.',
+  application_not_withdrawable: 'Bu başvuru artık geri çekilemiyor.',
+  motivation_too_long: 'Yazdığın metin en fazla 2000 karakter olabilir. Biraz kısaltır mısın?',
+  experience_not_found: 'Bu deneyim bulunamadı.',
+  experience_is_draft: 'Doğrulama istemeden önce deneyimini yayınlaman gerekiyor.',
+  organization_not_found: 'Bu kurum bulunamadı.',
+  lesson_not_found: 'Bu ders artık yayında değil.',
+  bookmark_target_not_found: 'Kaydetmek istediğin içerik artık yayında değil.',
+  // profile, CV, check-in, requests
+  discoverable_requires_adult: 'Profilini keşifte göstermek şimdilik 18 yaş ve üzeri için açık.',
+  cv_not_found: 'Bu CV bağlantısı geçerli değil ya da kapatılmış.',
+  event_not_active: 'Bu etkinlik şu an yayında değil, giriş kontrolü yapılamıyor.',
+  ticket_wrong_event: 'Bu kart başka bir etkinliğe ait.',
+  session_mismatch: 'Seçilen oturum bu etkinliğe ait değil.',
+  device_invalid: 'Bildirimler için cihazın kaydedilemedi. Uygulamayı yeniden açıp tekrar dener misin?',
+  idempotency_key_required: 'İşlem tamamlanamadı. Uygulamayı güncelleyip tekrar dener misin?',
+  idempotency_key_reused: 'Bu istek daha önce başka bir işlem için gönderilmiş. Sayfayı yenileyip tekrar dener misin?',
   contract_mismatch: 'Uygulama ile sunucu uyumsuz görünüyor. Uygulamayı güncelleyip tekrar dener misin?',
   server_error: 'Bizim tarafta bir sorun oluştu. Birazdan tekrar dener misin?',
   unknown: 'Beklenmedik bir sorun oluştu. Tekrar dener misin?',
 };
+
+/** True when the app has its own Turkish sentence for this machine code (used by the copy-coverage test). */
+export const hasErrorCopy = (code: string): boolean => Object.prototype.hasOwnProperty.call(COPY, code);
 
 const STATUS_FALLBACK: Record<number, string> = { 401: 'session_expired', 403: 'forbidden', 404: 'not_found', 429: 'rate_limited' };
 
