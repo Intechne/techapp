@@ -14,7 +14,7 @@ export type PressableScaleProps = Omit<PressableProps, 'style'> & {
 
 /**
  * Pressable with spring press feedback. The scale lives in a shared value and runs on the UI thread, so a press
- * never costs a React re-render for the animation; the spring is retargeted from its current value, so a quick
+ * never costs a React re-render for the animation (the `pressed` state only updates when `style` is a function); the spring is retargeted from its current value, so a quick
  * second press interrupts cleanly instead of queueing. With reduced motion, or when disabled, nothing scales.
  * Scrolling is untouched: Pressable cancels press-in when a parent scroll view claims the gesture, which springs back.
  */
@@ -26,16 +26,16 @@ export function PressableScale({ scaleTo = motion.pressScale, disabled, style, o
   const animate = !reduced && !disabled;
 
   const handleIn = useCallback((e: GestureResponderEvent) => {
-    setPressed(true);
+    if (typeof style === 'function') setPressed(true);
     if (animate) scale.set(withSpring(scaleTo, motion.spring.snappy));
     onPressIn?.(e);
-  }, [animate, scale, scaleTo, onPressIn]);
+  }, [animate, scale, scaleTo, onPressIn, style]);
 
   const handleOut = useCallback((e: GestureResponderEvent) => {
-    setPressed(false);
+    if (typeof style === 'function') setPressed(false);
     if (animate) scale.set(withSpring(1, motion.spring.snappy));
     onPressOut?.(e);
-  }, [animate, scale, onPressOut]);
+  }, [animate, scale, onPressOut, style]);
 
   const resolved = typeof style === 'function' ? style({ pressed }) : style;
   return (

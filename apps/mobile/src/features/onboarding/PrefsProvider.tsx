@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { setHapticsEnabledFromPrefs } from '../../lib/haptics';
 import { defaultPrefs, loadPrefs, savePrefs, type LocalPrefs } from '../../lib/localPrefs';
 
 interface Api { prefs: LocalPrefs; ready: boolean; update: (patch: Partial<Omit<LocalPrefs, 'version'>>) => void }
@@ -8,6 +9,8 @@ export function PrefsProvider({ children }: { children: React.ReactNode }) {
   const [prefs, setPrefs] = useState(defaultPrefs);
   const [ready, setReady] = useState(false);
   useEffect(() => { loadPrefs().then(setPrefs).finally(() => setReady(true)); }, []);
+  // Single owner of the haptics flag: off until prefs load (fail closed), then mirrors the stored/updated value.
+  useEffect(() => { setHapticsEnabledFromPrefs(ready && prefs.haptics); }, [ready, prefs.haptics]);
   // Functional update: never writes a stale snapshot back (the v4 reset bug).
   const update = useCallback((patch: Partial<Omit<LocalPrefs, 'version'>>) => {
     setPrefs((current) => { const next = { ...current, ...patch }; void savePrefs(next); return next; });
