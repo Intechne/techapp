@@ -47,7 +47,13 @@ veri minimizasyonu; saklama süresi belgelenir; DSN yoksa kurulum hazır, bağla
   anahtarda yalnız makine kodu (`otp_expired`, `render_crash`; `^[a-z][a-z0-9_]{0,63}$`) ve sayısal `status_code` kalır;
   kişinin yazdığı kod (OTP) kalmaz. `captureError`'ın `code` etiketi de aynı kurala uyar.
 - Context'ler: SDK'nın teknik context'leri (`app`, `device`, `os`, `culture`, `runtime`, `trace`, `ota_updates`,
-  `react_native_context`) olduğu gibi kalır (yalnız cihaz adı silinir); diğer her context `extra` gibi temizlenir.
+  `react_native_context`) olduğu gibi kalır; diğer her context `extra` gibi temizlenir. `device` context'inden `name`,
+  `id` ve `device_unique_identifier` silinir (kurulu RN SDK kaynağında JS tarafı bunları yazmıyor; Android native SDK
+  `device.id`'ye kurulum kimliğini koyabildiği için ihtiyaten). Model kimlikleri (`model`, `model_id`, `family`), bellek,
+  ekran, pil gibi teknik alanlar **geçer**.
+- Uzun metin: her metin değeri filtrelenmeden önce 8 KB'a kesilir (`…[truncated]`), sondaki yarım kelime de atılır (yarım
+  e-posta/token sızmasın). Desenler sınırlı/doğrusal; URL query'si regex yerine tek geçişlik token taramasıyla atılır.
+  Büyük ya da kötü niyetli bir yük `beforeSend` içinde JS thread'ini kilitleyemez (testte 100 KB girdiler < 200 ms).
 - HTTP isteği gövdesi, başlıkları, çerezleri, query string'i, ortam değişkenleri: silinir. Her URL'den `?…` ve `#…` atılır
   (veli onay bağlantısı token'ı dahil).
 - Konsol çıktısı, ağ (xhr/fetch) breadcrumb'ları, dokunma/navigasyon breadcrumb'ları: kayıt edilmez. `Sentry.wrap`

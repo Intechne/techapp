@@ -18,14 +18,45 @@ const PATTERNS: [RegExp, string][] = [
   [/\bTA1\.[A-Za-z0-9._~+/=-]+/g, FILTERED], // participation card QR payload
   // UUIDs: user / registration / team ids. Issue grouping is stack based, so nothing useful is lost.
   [/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, FILTERED],
-  // E-mail, Unicode-safe (ayşe.yılmaz@okul.k12.tr): anything that is not a separator around an @ and a dotted domain.
-  [/[^\s@"'<>()[\]{},;:\/\\?=&#]+@[^\s@"'<>()[\]{},;:\/\\?=&#]+\.[^\s@"'<>()[\]{},;:\/\\?=&#.]{2,}/gu, FILTERED],
+  // E-mail, Unicode-safe (ayşe.yılmaz@okul.k12.tr): non-separators around an @ and a dotted domain. Every part is
+  // bounded (local 64, label 63, at most 8 labels, TLD 24) so the cost per start position is constant: linear overall.
+  [/[^\s@"'<>()[\]{},;:\/\\?=&#]{1,64}@(?:[^\s@"'<>()[\]{},;:\/\\?=&#.]{1,63}\.){1,8}[^\s@"'<>()[\]{},;:\/\\?=&#.]{2,24}/gu, FILTERED],
   [/(^|\D)\d{6}(?!\d)/g, `$1${FILTERED}`], // stand-alone 6-digit codes (OTP). No lookbehind: Hermes-safe.
-  [/([a-z][a-z0-9+.-]*:\/\/[^\s?#"'<>]*)[?#][^\s"'<>]*/gi, '$1'], // URL query string and fragment
 ];
 
+const URL_SCHEME_TAIL = /[a-z][a-z0-9+.-]{0,31}$/i;
+
+/**
+ * Removes the query string and fragment of every `scheme://…` URL. A token scan instead of one regex: a regex over
+ * `scheme://path` backtracks on every `://` (quadratic on input like `a://a://…`); this is one pass per token.
+ */
+function stripUrlQueries(value: string): string {
+  if (!value.includes('://')) return value;
+  return value.split(/([\s"'<>]+)/).map((token) => {
+    const at = token.indexOf('://');
+    if (at <= 0 || !URL_SCHEME_TAIL.test(token.slice(Math.max(0, at - 32), at))) return token;
+    const rest = token.slice(at + 3);
+    const cut = rest.search(/[?#]/);
+    return cut < 0 ? token : token.slice(0, at + 3 + cut);
+  }).join('');
+}
+
+// Every string is cut to 8 KB before the regex pass: a huge payload can never stall the JS thread inside beforeSend.
+const MAX_STRING = 8192;
+const TRUNCATED = '…[truncated]';
+const TRUNCATE_STOP = /[\s"'<>()[\]{},;]/;
+
+function truncate(value: string): string {
+  if (value.length <= MAX_STRING) return value;
+  // Drop the last, possibly cut, word too (back to whitespace / quote / bracket / comma): half an e-mail or token
+  // (`ayse@exa`) would no longer match its pattern and leak. A plain loop, no regex.
+  let end = MAX_STRING;
+  while (end > 0 && !TRUNCATE_STOP.test(value.charAt(end - 1))) end--;
+  return value.slice(0, end) + TRUNCATED;
+}
+
 export function scrubString(value: string): string {
-  return PATTERNS.reduce((s, [re, to]) => s.replace(re, to), value);
+  return stripUrlQueries(PATTERNS.reduce((s, [re, to]) => s.replace(re, to), truncate(value)));
 }
 
 // Values under these keys are never sent, whatever they look like.
@@ -86,7 +117,11 @@ export function scrubEvent<E extends ErrorEvent>(event: E): E | null {
     const contexts: NonNullable<E['contexts']> = {};
     for (const [name, ctx] of Object.entries(out.contexts)) {
       if (!SDK_CONTEXTS.has(name)) contexts[name] = scrubDeep(ctx);
-      else if (name === 'device' && ctx && 'name' in ctx) { const { name: _name, ...device } = ctx; contexts[name] = device; }
+      else if (name === 'device' && ctx) {
+        // Technical fields (model, family, memory…) stay; the name and any device identifier go.
+        const { name: _name, id: _id, device_unique_identifier: _uid, ...device } = ctx as Record<string, unknown>;
+        contexts[name] = device;
+      }
       else contexts[name] = ctx;
     }
     out.contexts = contexts;

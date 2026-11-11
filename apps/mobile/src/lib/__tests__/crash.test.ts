@@ -277,10 +277,59 @@ describe('scrubEvent', () => {
     expect(out.contexts!.device).toEqual({ model: 'iPhone15,2' });
   });
 
+  it('drops device identifiers (device.id / device_unique_identifier) and keeps the technical device fields', () => {
+    const out = scrubEvent({ type: undefined, contexts: { device: { id: 'install-uuid', device_unique_identifier: 'x', name: 'n', model: 'Pixel 8', family: 'Pixel', memory_size: 8 } } } as unknown as ErrorEvent)!;
+    expect(out.contexts!.device).toEqual({ model: 'Pixel 8', family: 'Pixel', memory_size: 8 });
+  });
+
   it('does not mutate its input', () => {
     const input = { type: undefined, message: 'code 482913', user: { id: 'u' } } as ErrorEvent;
     scrubEvent(input);
     expect(input).toEqual({ type: undefined, message: 'code 482913', user: { id: 'u' } });
+  });
+});
+
+describe('scrubString on large and adversarial input', () => {
+  const { scrubString } = jest.requireActual<Crash>('../crash');
+  const N = 100_000;
+  let seed = 7;
+  const hex = Array.from({ length: N }, () => { seed = (seed * 1103515245 + 12345) % 2 ** 31; return (seed % 16).toString(16); }).join('');
+
+  it.each([
+    ['a × 100k', 'a'.repeat(N)],
+    ['hex × 100k', hex],
+    ['"a." × 50k', 'a.'.repeat(N / 2)],
+    ['"a@" + dotted tail', 'a@' + 'a.'.repeat(N / 2 - 1)],
+    ['URL + long path', 'https://x.io/' + 'a'.repeat(N)],
+    ['scheme-like run', 'a+'.repeat(N / 2)],
+    ['repeated "a://"', 'a://'.repeat(N / 4)],
+  ])('%s finishes in < 200 ms and is truncated to 8 KB', (_label, input) => {
+    const t0 = Date.now();
+    const out = scrubString(input);
+    const ms = Date.now() - t0;
+    expect(ms).toBeLessThan(200);
+    expect(out.length).toBeLessThanOrEqual(8192 + '…[truncated]'.length);
+    expect(out.endsWith('…[truncated]')).toBe(true);
+  });
+
+  it('the bounded pattern alone is fast too (no cap): 8 KB adversarial input', () => {
+    // Exactly at the cap, so the regex pass sees the whole string.
+    for (const input of ['a'.repeat(8192), 'a@' + 'a.'.repeat(4095), hex.slice(0, 8192), 'a://'.repeat(2048), 'a.'.repeat(4096)]) {
+      const t0 = Date.now();
+      scrubString(input);
+      expect(Date.now() - t0).toBeLessThan(50);
+    }
+  });
+
+  it('a truncated string never ends in half an e-mail or token', () => {
+    const input = 'x '.repeat(4094) + 'ayse.yilmaz@example.com ' + 'y'.repeat(100);
+    const out = scrubString(input);
+    expect(out).not.toMatch(/ayse|yilmaz/);
+    expect(out.endsWith('…[truncated]')).toBe(true);
+  });
+
+  it('short strings are not truncated', () => {
+    expect(scrubString('kısa mesaj')).toBe('kısa mesaj');
   });
 });
 
