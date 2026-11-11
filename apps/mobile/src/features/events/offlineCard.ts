@@ -86,13 +86,15 @@ export async function loadCard(userId: string, registrationId: string, now: () =
  * Every saved card of this user that is still valid, for a cold start without network. Expired and unreadable entries are
  * deleted on the way; other users' entries are never read or returned. Soonest event first.
  */
-export function listCards(userId: string, now: Date = new Date()): Promise<{ registrationId: string; card: ParticipationCard; savedAt: string }[]> {
+export interface SavedCard { registrationId: string; card: ParticipationCard; savedAt: string }
+
+export function listCards(userId: string, now: Date = new Date()): Promise<SavedCard[]> {
   if (!enabled()) return Promise.resolve([]);
   return serialised(async () => {
     const prefix = `card.${safe(userId)}.`;
     const index = await readIndex();
     const kept: string[] = [];
-    const found: { registrationId: string; card: ParticipationCard; savedAt: string }[] = [];
+    const found: SavedCard[] = [];
     for (const key of index) {
       if (!key.startsWith(prefix)) { kept.push(key); continue; }
       let raw: string | null = null;
@@ -115,6 +117,23 @@ export function dropCard(userId: string, registrationId: string): Promise<void> 
     await SecureStore.deleteItemAsync(key, options);
     const index = await readIndex();
     if (index.includes(key)) await writeIndex(index.filter((k) => k !== key));
+  });
+}
+
+/**
+ * Keeps only this user's saved cards. Run when a launch restore settles signed in: any other identity's entry on this device
+ * (left from before an uninstall, or from a startup where a different session was stored) goes, so the store never holds
+ * more than the current holder's tickets.
+ */
+export function keepOnlyCardsOf(userId: string): Promise<void> {
+  if (!enabled()) return Promise.resolve();
+  return serialised(async () => {
+    const prefix = `card.${safe(userId)}.`;
+    const index = await readIndex();
+    const kept = index.filter((k) => k.startsWith(prefix));
+    if (kept.length === index.length) return;
+    await Promise.all(index.filter((k) => !k.startsWith(prefix)).map((k) => SecureStore.deleteItemAsync(k, options).catch(() => {})));
+    await writeIndex(kept);
   });
 }
 

@@ -9,7 +9,7 @@ import { track } from '../../lib/analytics';
 import { RESTORE_TIMEOUT_MS, RETRY_RESTORE_TIMEOUT_MS, restoreSessionOnLaunch, type UnavailableReason } from '../../lib/sessionRestore';
 import { queryClient } from '../../lib/queryClient';
 import { otpFlow } from './otpFlow';
-import { clearCards } from '../events/offlineCard';
+import { clearCards, keepOnlyCardsOf } from '../events/offlineCard';
 
 /**
  * A signed-in identity ended (sign-out, expiry, or a different account signed in): everything rendered or cached for it
@@ -60,8 +60,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       if (cancelled) return;
       if (outcome.kind === 'ok') {
         setSession(outcome.session); setStatus('ready');
-        // Keychain outlives an uninstall: with no session at launch no saved card can belong to anyone. Never blocks startup.
+        // Keychain outlives an uninstall: with no session at launch no saved card can belong to anyone; with one, only that
+        // user's cards may stay (the startup offline screen scoped by the stored session can never leave another's). Never blocks.
         if (!outcome.session) void clearCards().catch(() => {});
+        else void keepOnlyCardsOf(outcome.session.user.id).catch(() => {});
       }
       else { setUnavailableReason(outcome.reason); setStatus('unavailable'); track('startup_unavailable', { reason: outcome.reason }); }
     });

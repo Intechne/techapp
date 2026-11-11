@@ -5,6 +5,7 @@ import { env } from './env';
 import { createTimeoutFetch } from './fetchWithTimeout';
 import { makeError } from './errors';
 import { secureSessionStorage } from './secureSessionStorage';
+import { sessionStorageKey } from './storedSession';
 import type { Database } from './database.types';
 
 let client: SupabaseClient<Database> | null = null;
@@ -15,7 +16,7 @@ export function getSupabase(): SupabaseClient<Database> {
   if (!client) {
     client = createClient<Database>(env.supabaseUrl, env.supabasePublishableKey, {
       // OTP only: sessions never arrive through a URL, so supabase-js must not look for tokens in one.
-      auth: { storage: secureSessionStorage, autoRefreshToken: true, persistSession: true, detectSessionInUrl: false },
+      auth: { storage: secureSessionStorage, storageKey: sessionStorageKey(env.supabaseUrl), autoRefreshToken: true, persistSession: true, detectSessionInUrl: false },
       // Every request has a deadline: a dead network or unreachable host must surface as an error, never an endless wait.
       global: { fetch: createTimeoutFetch() },
     });
