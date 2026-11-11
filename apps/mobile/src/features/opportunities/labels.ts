@@ -1,4 +1,5 @@
-import type { TechIconName } from '../../design-system';
+import { metaJoin, type RowCardProps, type RowLines, type StatusView, type TechIconName } from '../../design-system';
+import { formatDate } from '../../lib/dates';
 import type { OpportunityRow, OpportunityType } from '../../lib/database.types';
 import { EDUCATION_LABEL } from '../profile/labels';
 
@@ -41,6 +42,34 @@ export function groupByMonth<T extends Pick<OpportunityRow, 'closes_at'>>(rows: 
   return [...groups].map(([month, items]) => ({ month, items }));
 }
 export const placeOf = (o: Pick<OpportunityRow, 'is_remote' | 'city'>) => (o.is_remote ? 'Çevrim içi' : o.city ?? 'Yer belirtilmedi');
+
+/** Remaining-days tag for a deadline: wording from deadlineView, tone from urgencyTone, clock glyph (time / deadline). */
+export function deadlineTag(closesAtIso: string, now: Date = new Date()): StatusView {
+  const d = deadlineView(closesAtIso, now);
+  return { label: d.label.toLocaleUpperCase('tr'), tone: urgencyTone(d.urgency), icon: 'clock' };
+}
+
+/** Typical opportunity row on a phone: two-line title, two-line meta, deadline tag footnote (skeleton shape). */
+export const OPPORTUNITY_ROW_LINES: RowLines = { title: 2, secondary: 2, footnote: 'tag' };
+
+type OpportunityRowSource = Pick<OpportunityRow, 'type' | 'title' | 'closes_at' | 'is_remote' | 'city' | 'audience_note' | 'reward_note' | 'is_demo'>;
+
+/**
+ * One opportunity row everywhere (Fırsatlar list, Keşfet "Sıradaki adımın"): type · place · audience · reward as the
+ * secondary line (two lines at most), footnote = remaining-days tag + absolute "Son başvuru" date. The screen adds the
+ * trailing control (save / chevron) and navigation.
+ */
+export function toOpportunityRow(o: OpportunityRowSource, now: Date = new Date()): Omit<RowCardProps, 'trailing' | 'onPress'> {
+  const type = OPPORTUNITY_TYPE[o.type];
+  return {
+    leading: { kind: 'icon', icon: type.icon },
+    title: o.title,
+    secondary: metaJoin([type.label, placeOf(o), o.audience_note, o.reward_note]),
+    footnoteTag: deadlineTag(o.closes_at, now),
+    footnote: `Son başvuru: ${formatDate(o.closes_at)}`,
+    isDemo: o.is_demo,
+  };
+}
 
 /** Human-readable value of a shared profile field, as the applicant will see it before sending. */
 export function formatSharedValue(field: string, value: unknown): string {

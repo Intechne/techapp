@@ -3,9 +3,8 @@ import { View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Chip, ChipRail, EmptyState, ErrorState, HeroCard, IconButton, LoadingSkeleton, MiniCard, OfflineBanner, PosterCard, RowCard, Screen, SearchInput, SectionHeader, Text, keepTogether, space } from '../../design-system';
+import { AppHeader, Chip, ChipRail, EmptyState, ErrorState, HeroCard, IconButton, LoadingSkeleton, MiniCard, OfflineBanner, PosterCard, RowCard, Screen, SearchInput, SectionHeader, Text, space } from '../../design-system';
 import { track } from '../../lib/analytics';
-import { formatDate } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
 import { getSupabase } from '../../lib/supabase';
 import type { InterestRow, OpportunityRow, TeamRow } from '../../lib/database.types';
@@ -13,7 +12,7 @@ import type { DiscoverStackParamList, MainTabParamList } from '../../navigation/
 import { useMyProfile } from '../profile/api';
 import { fetchEventsPage } from '../events/api';
 import { toEventPoster } from '../events/labels';
-import { OPPORTUNITY_TYPE } from '../opportunities/labels';
+import { toOpportunityRow } from '../opportunities/labels';
 import { kindIcon } from '../teams/labels';
 import { usePrefs } from '../onboarding/PrefsProvider';
 import { TEAM_PUBLIC_COLUMNS } from '../teams/api';
@@ -109,8 +108,7 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
           <SectionHeader title="Sıradaki adımın" actionLabel="Fırsatlar" onAction={() => navigation.getParent()?.navigate('OpportunitiesTab')} />
           <View style={{ gap: space[3] }}>
             {preview.data.opportunities.map((o) => (
-              <RowCard key={o.id} leading={{ kind: 'icon', icon: OPPORTUNITY_TYPE[o.type].icon }} title={o.title} secondary={o.summary}
-                footnote={`Son başvuru: ${keepTogether(formatDate(o.closes_at))}`} isDemo={o.is_demo} trailing={{ kind: 'chevron' }} onPress={() => openOpportunity(o.id)} />
+              <RowCard key={o.id} {...toOpportunityRow(o)} trailing={{ kind: 'chevron' }} onPress={() => openOpportunity(o.id)} />
             ))}
           </View>
         </>

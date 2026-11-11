@@ -1,9 +1,9 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import {
-  BookmarkButton, MiniCard, Poster, PosterCard, PosterCardSkeleton, RowCard, RowCardSkeleton, cardMetrics, layout,
-  type PosterCardProps, type RowCardProps,
+  BookmarkButton, MiniCard, Poster, PosterCard, PosterCardSkeleton, RowCard, RowCardSkeleton, cardLayout, cardMetrics, layout,
+  rowCardHeight, type PosterCardProps, type RowCardProps, type RowLines,
 } from '..';
 import { worstCase, worstCaseTitles } from '../../dev/fixtures/worstCase';
 
@@ -19,7 +19,7 @@ describe('PosterCard', () => {
   it.each(worstCaseTitles)('renders %p and speaks the full title, type and date as one button', async (title) => {
     await render(<PosterCard {...poster({ title, availability: { label: 'KAYIT KAPANDI', tone: 'danger' } })} />);
     const card = screen.getByRole('button', { name: new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\.`, 'u') });
-    expect(card.props.accessibilityLabel).toBe(`${title}. Hackathon. 17 Ekim 2026. İstanbul · Yüz yüze. Kayıt kapandı`);
+    expect(card.props.accessibilityLabel).toBe(`${title}. Hackathon. 17 Ekim 2026. İstanbul · Yüz yüze. Lise + üniversite. Ücretsiz. Kayıt kapandı`);
   });
 
   it('same geometry with no cover and with a broken cover URL', async () => {
@@ -110,6 +110,84 @@ describe('RowCard', () => {
   it('shows ÖRNEK only for demo rows', async () => {
     await render(<><RowCard leading={{ kind: 'icon', icon: 'team' }} title="Orbit" isDemo /><RowCard leading={{ kind: 'icon', icon: 'team' }} title="Nova" /></>);
     expect(screen.getAllByText('ÖRNEK')).toHaveLength(1);
+  });
+});
+
+describe('RowCard footnote tag', () => {
+  it('leads the footnote row, is spoken after the secondary line, and leaves the trailing slot to the bookmark', async () => {
+    const open = jest.fn(); const toggle = jest.fn();
+    await render(<RowCard leading={{ kind: 'icon', icon: 'badge' }} title="Genç Mucit Yarışması" secondary="Yarışma · Çevrim içi"
+      footnoteTag={{ label: 'SON 3 GÜN', tone: 'apricot', icon: 'clock' }} footnote="Son başvuru: 15 Kasım 2026"
+      trailing={{ kind: 'bookmark', saved: false, onToggle: toggle }} onPress={open} />);
+    const foot = screen.getByTestId('row-foot');
+    expect(within(foot).getByText(/^SON\s3\sGÜN$/)).toBeTruthy();
+    expect(within(foot).getByText(/^Son başvuru:\s15\sKasım\s2026$/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^Genç Mucit Yarışması\. Yarışma · Çevrim içi\. Son 3 gün\. Son başvuru: 15 Kasım 2026$/u })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Kaydet' }));
+    expect(toggle).toHaveBeenCalledTimes(1); expect(open).not.toHaveBeenCalled();
+  });
+
+  it('puts ÖRNEK on its own line when there is no tag row, never beside the wrapping footnote', async () => {
+    await render(<RowCard leading={{ kind: 'icon', icon: 'team' }} title="Orbit" footnote="Robotik · İstanbul · 12 üye" isDemo />);
+    expect(within(screen.getByTestId('row-foot')).queryByText('ÖRNEK')).toBeNull();
+    expect(screen.getByText('ÖRNEK')).toBeTruthy();
+  });
+
+  it('with a footnote tag, ÖRNEK joins the tag row and the footnote text sits below it', async () => {
+    await render(<RowCard leading={{ kind: 'icon', icon: 'badge' }} title="X" footnoteTag={{ label: 'SON 3 GÜN', tone: 'apricot' }} footnote="Son başvuru: 15 Kasım 2026" isDemo />);
+    const foot = screen.getByTestId('row-foot');
+    expect(within(foot).getAllByText('ÖRNEK')).toHaveLength(1);
+    expect(screen.getAllByText('ÖRNEK')).toHaveLength(1);
+    expect(flat(foot).flexDirection ?? 'column').toBe('column'); // stacked: tag row, then the footnote line
+  });
+});
+
+describe('numbers never break away from their unit', () => {
+  const BREAKABLE_AROUND_DIGIT = /\d [^\s]|[^\s:] \d/u; // plain U+0020 next to a digit
+  const text = (el: { props: { children?: unknown } }) => String(el.props.children);
+  it('in row secondary, footnote and tags, poster meta and availability, mini body', async () => {
+    await render(<>
+      <RowCard leading={{ kind: 'icon', icon: 'badge' }} title="X" secondary="Ödül: 50.000 ₺ · 3 kişilik takımlar" footnote="Son başvuru: 20 Kasım 2026"
+        footnoteTag={{ label: '8 GÜN KALDI', tone: 'moss', icon: 'clock' }} trailing={{ kind: 'status', view: { label: 'SON 2 YER', tone: 'apricot' } }} />
+      <PosterCard {...poster({ dateLabel: '5 Aralık – 6 Aralık 2026', placeLabel: 'İstanbul', audienceLabel: '14–18 yaş', feeLabel: '250 ₺', availability: { label: 'SON 3 YER', tone: 'apricot' } })} />
+      <MiniCard icon="team" title="Orbit" body="12 üye · 3 proje" />
+    </>);
+    const rendered = [
+      screen.getByTestId('row-secondary'), screen.getByTestId('row-footnote'), ...screen.getAllByTestId('poster-meta'),
+      screen.getByText(/^8\sGÜN\sKALDI$/), screen.getByText(/^SON\s2\sYER$/), screen.getByText(/^SON\s3\sYER$/), screen.getByText(/^12\süye/),
+    ].map(text);
+    expect(rendered).toHaveLength(8);
+    for (const t of rendered) expect(t).not.toMatch(BREAKABLE_AROUND_DIGIT);
+  });
+});
+
+describe('row height model (skeleton vs content)', () => {
+  // No text layout in Jest: line counts are given, not measured. The test proves the skeleton, the content and
+  // rowCardHeight() use the same line boxes and gaps, so a list whose rows wrap like `lines` does not jump.
+  it.each<RowLines>([
+    { title: 1, secondary: 1, footnote: 'text' },
+    { title: 2, secondary: 2, footnote: 'tag' },
+    { title: 1, secondary: 0, footnote: 'none' },
+    { title: 1, secondary: 2, footnote: 'text', demo: true },
+  ])('%p', async (lines) => {
+    await render(<>
+      <RowCard leading={{ kind: 'icon', icon: 'badge' }} title="Başlık" secondary="İkincil" footnote="Dipnot"
+        footnoteTag={{ label: 'SON 3 GÜN', tone: 'apricot' }} />
+      <RowCardSkeleton lines={lines} />
+    </>);
+    const all = { includeHiddenElements: true };
+    const [body, skel] = screen.getAllByTestId('row-body', all);
+    const title = flat(screen.getByText('Başlık')), secondary = flat(screen.getByTestId('row-secondary')), foot = flat(screen.getByTestId('row-foot'));
+    const pad = flat(body!).padding as number;
+    const textHeight = (title.lineHeight as number) * lines.title
+      + (lines.secondary ? (secondary.marginTop as number) + (secondary.lineHeight as number) * lines.secondary : 0)
+      + (lines.footnote === 'none' ? 0 : (foot.marginTop as number) + (flat(screen.getByTestId('row-footnote')).lineHeight as number)
+        + (lines.footnote === 'tag' ? cardLayout.tag + (foot.gap as number) : 0))
+      + (lines.demo && lines.footnote !== 'tag' ? (foot.marginTop as number) + cardLayout.demoTag : 0);
+    const fromContent = pad * 2 + Math.max(cardLayout.leadingTile, textHeight);
+    expect(rowCardHeight(lines)).toBe(fromContent);
+    expect(flat(skel!).minHeight).toBe(fromContent);
+    expect(flat(skel!).padding).toBe(pad);
   });
 });
 

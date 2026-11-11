@@ -1,5 +1,5 @@
 import type { TechIconName } from '../../design-system';
-import type { MembershipStatus, TaskPriority, TaskStatus, TeamRole } from './logic';
+import type { TaskPriority, TaskStatus, TeamRole } from './logic';
 
 export const TASK_STATUS_LABEL: Record<TaskStatus, string> = { todo: 'Yapılacak', doing: 'Devam ediyor', done: 'Tamamlandı' };
 export const TASK_ADVANCE_LABEL: Record<TaskStatus, string | null> = { todo: 'Başla', doing: 'Tamamla', done: null };
@@ -16,6 +16,5 @@ export const ROLE_OPTIONS: readonly { value: TeamRole; label: string; descriptio
   { value: 'member', label: 'Üye', description: 'Kendi görevlerini ilerletir.' },
 ];
 
-export const MEMBERSHIP_LABEL: Partial<Record<MembershipStatus, string>> = { active: 'ÜYESİN', pending: 'İSTEĞİN BEKLİYOR' };
 export const KIND_LABEL = { team: 'TAKIM', community: 'TOPLULUK' } as const;
 export const kindIcon = (kind: 'team' | 'community'): TechIconName => (kind === 'team' ? 'robot' : 'community');

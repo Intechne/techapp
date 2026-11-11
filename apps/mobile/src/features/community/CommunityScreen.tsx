@@ -2,15 +2,17 @@ import React, { useState } from 'react';
 import { View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Button, EmptyState, ErrorState, LoadingSkeleton, ResponsiveGrid, RowCard, Screen, SectionHeader, SegmentedControl, Tag, Text, formatCount, metaJoin, space } from '../../design-system';
+import { AppHeader, Button, EmptyState, ErrorState, LoadingSkeleton, ResponsiveGrid, RowCard, Screen, SectionHeader, SegmentedControl, Tag, Text, formatCount, membershipStatusView, metaJoin, space, type RowLines } from '../../design-system';
 import { toAppError } from '../../lib/errors';
 import type { CommunityStackParamList } from '../../navigation/types';
 import { useSession } from '../auth/SessionProvider';
 import { fetchMyTeams, fetchTeams, teamKeys } from '../teams/api';
-import { MEMBERSHIP_LABEL, ROLE_LABEL, ROLE_TONE, kindIcon } from '../teams/labels';
+import { ROLE_LABEL, ROLE_TONE, kindIcon } from '../teams/labels';
 
 const SEGMENTS = ['Topluluklar', 'Takımlar'] as const;
 const MEMBER = { one: 'üye', other: 'üye' };
+/** Typical team row on a phone: one-line name, two-line tagline, kategori · şehir · üye footnote (skeleton shape). */
+const TEAM_ROW_LINES: RowLines = { title: 1, secondary: 2, footnote: 'text' };
 
 export function CommunityScreen({ navigation }: NativeStackScreenProps<CommunityStackParamList, 'CommunityHome'>) {
   const { userId } = useSession();
@@ -36,7 +38,7 @@ export function CommunityScreen({ navigation }: NativeStackScreenProps<Community
             {mine.data.map((m) => (
               <RowCard key={m.id} leading={{ kind: 'icon', icon: kindIcon(m.team.kind) }} title={m.team.name}
                 secondary={m.status === 'active' ? 'Görevler, üyeler ve istekler' : 'Kaptanın isteğini değerlendirmesi bekleniyor.'}
-                trailing={{ kind: 'status', view: m.status === 'active' ? { label: ROLE_LABEL[m.role], tone: ROLE_TONE[m.role] } : { label: MEMBERSHIP_LABEL.pending ?? '', tone: 'apricot' } }}
+                trailing={{ kind: 'status', view: m.status === 'active' ? { label: ROLE_LABEL[m.role], tone: ROLE_TONE[m.role] } : membershipStatusView.pending }}
                 onPress={() => (m.status === 'active' ? navigation.navigate('TeamWorkspace', { teamId: m.team_id }) : navigation.navigate('TeamDetail', { teamId: m.team_id }))} />
             ))}
           </ResponsiveGrid>
@@ -45,7 +47,7 @@ export function CommunityScreen({ navigation }: NativeStackScreenProps<Community
 
       <SegmentedControl options={SEGMENTS} value={segment} onChange={setSegment} />
       <View style={{ marginTop: space[4] }}>
-        {list.isPending ? <LoadingSkeleton variant="row" /> : list.isError ? <ErrorState error={toAppError(list.error)} onRetry={() => void list.refetch()} />
+        {list.isPending ? <LoadingSkeleton variant="row" rowLines={TEAM_ROW_LINES} /> : list.isError ? <ErrorState error={toAppError(list.error)} onRetry={() => void list.refetch()} />
           : list.data.length === 0 ? <EmptyState icon="community" title="Burası yakında dolacak" body="İlk sen kur: takımını ya da topluluğunu oluştur, arkadaşlarını davet et." actionLabel="Takım kur" onAction={createTeam} />
             : (
               <ResponsiveGrid>

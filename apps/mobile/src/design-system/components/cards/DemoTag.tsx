@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { radius, semantic, space, type } from '../../tokens';
+import { radius, semantic, space } from '../../tokens';
 import { Text } from '../../Text';
 
 const sem = semantic.light;
@@ -9,8 +9,6 @@ const sem = semantic.light;
 export const DEMO_LABEL = 'ÖRNEK';
 /** Spoken at the end of a card label when the content is demo data. */
 export const DEMO_SPOKEN = 'Örnek içerik';
-/** Outer height: eyebrow line + vertical padding + hairline border. Lets a neighbouring text line centre on it. */
-export const DEMO_TAG_HEIGHT = type.eyebrow.lineHeight + space[1] + 2;
 
 /** Outlined, quiet: demo is provenance, not a status, so it never competes with availability tags. */
 export function DemoTag() {

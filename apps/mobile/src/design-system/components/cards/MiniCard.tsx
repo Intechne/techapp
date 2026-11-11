@@ -4,7 +4,7 @@ import { radius, semantic, space } from '../../tokens';
 import { Text } from '../../Text';
 import { TechIcon, type TechIconName } from '../../TechIcon';
 import { CardBase } from './CardBase';
-import { cardLabel, clipForSpeech } from './label';
+import { cardLabel, clipForSpeech, keepNumbersTogether } from './label';
 import { cardLayout, cardMetrics } from './metrics';
 
 const sem = semantic.light;
@@ -18,7 +18,7 @@ export function MiniCard({ icon, title, body, onPress }: MiniCardProps) {
       <View testID="mini-body" style={styles.body}>
         <View style={styles.tile}><TechIcon name={icon} color={sem.action.primary} /></View>
         <Text variant="cardTitle" numberOfLines={2} style={styles.title}>{title}</Text>
-        {!!body && <Text variant="caption" color={sem.text.secondary} numberOfLines={2} style={styles.text}>{body}</Text>}
+        {!!body && <Text variant="caption" color={sem.text.secondary} numberOfLines={2} style={styles.text}>{keepNumbersTogether(body)}</Text>}
       </View>
     </CardBase>
   );

@@ -23,8 +23,8 @@ interface CardBaseProps {
 
 /**
  * Base of every card: surface, hairline border, `radius.card`, one press target. Press feedback is a small spring scale
- * of the whole card (accessory included) on the UI thread plus a stronger border, which is the only cue under reduced
- * motion. A card without `onPress` is still one labelled element, just not a button.
+ * of the whole card (accessory included) on the UI thread plus a canvas-tinted background while pressed, which is the
+ * only cue under reduced motion. A card without `onPress` is still one labelled element, just not a button.
  */
 export function CardBase({ label, onPress, children, accessory, style, testID }: CardBaseProps) {
   const reduced = useReducedMotion();

@@ -41,8 +41,21 @@ export function metaJoin(parts: (string | null | undefined)[]): string {
   return parts.map((p) => (p ?? '').trim()).filter(Boolean).join('\u00A0· ');
 }
 
-/** Keeps a date (or any short value) on one line: "20 Kasım 2026" never breaks between month and year. */
+/** Keeps a short value on one line ("Son gün bugün", a tag): every space becomes non-breaking. */
 export const keepTogether = (s: string) => s.replace(/ /g, '\u00A0');
+
+/**
+ * A number never leaves its neighbours: the spaces on both sides of a digit run become non-breaking, so "8 gün kaldı",
+ * "Son 3 gün", "20 Kasım 2026" and "12.000+ üye" never split across lines. A label ending in a colon stays breakable
+ * ("Son başvuru:" / "20 Kasım 2026" on a narrow card), and so do spaces away from numbers.
+ * Cards apply it to every meta, footnote and tag they render, so callers cannot forget it.
+ */
+export function keepNumbersTogether(s: string): string;
+export function keepNumbersTogether(s: string | undefined): string | undefined;
+export function keepNumbersTogether(s: string | undefined): string | undefined {
+  if (!s) return s;
+  return s.replace(/(\d\S*) (?=\S)/gu, '$1\u00A0').replace(/([^\s:]) (?=\S*\d)/gu, '$1\u00A0');
+}
 
 const thousands = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 });
 
@@ -54,6 +67,6 @@ const thousands = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 });
 export function formatCount(n: number, noun: { one: string; other: string }): string {
   const v = Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
   const word = v === 1 ? noun.one : noun.other;
-  if (v < 1000) return `${v} ${word}`;
-  return `${thousands.format(Math.floor(v / 1000) * 1000)}+ ${word}`;
+  if (v < 1000) return `${v}\u00A0${word}`;
+  return `${thousands.format(Math.floor(v / 1000) * 1000)}+\u00A0${word}`;
 }

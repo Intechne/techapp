@@ -8,7 +8,7 @@ import type { StatusView } from '../Status';
 import { CardBase, CardSkeletonFrame, SkeletonLine } from './CardBase';
 import { BookmarkButton } from './BookmarkButton';
 import { DEMO_SPOKEN, DemoTag } from './DemoTag';
-import { cardLabel, metaJoin, spoken } from './label';
+import { cardLabel, keepNumbersTogether, keepTogether, metaJoin, spoken } from './label';
 import { cardLayout, cardMetrics } from './metrics';
 
 const sem = semantic.light;
@@ -84,9 +84,10 @@ function Cover({ fallback }: Pick<PosterCardProps, 'cover' | 'fallback'>) {
   );
 }
 
-/** Event / course card: 16:10 cover → status row (type, availability, save) → title (≤3 lines) → two meta lines. */
+/** Event / course card: 16:10 cover → status row (type, availability, ÖRNEK, save) → title (≤3 lines, two reserved) → two meta lines. */
 export const PosterCard = React.memo(function PosterCard(p: PosterCardProps) {
-  const label = cardLabel([p.title, spoken(p.typeLabel), p.dateLabel, p.placeLabel, spoken(p.availability?.label), p.isDemo ? DEMO_SPOKEN : null]);
+  // Everything visible is spoken, in reading order after the title: type, date, place, audience, fee, availability, demo.
+  const label = cardLabel([p.title, spoken(p.typeLabel), p.dateLabel, p.placeLabel, p.audienceLabel, p.feeLabel, spoken(p.availability?.label), p.isDemo ? DEMO_SPOKEN : null]);
   const second = metaJoin([p.audienceLabel, p.feeLabel]);
   const bookmark = p.onToggleSave
     ? (
@@ -102,25 +103,28 @@ export const PosterCard = React.memo(function PosterCard(p: PosterCardProps) {
       <View testID="poster-body" style={styles.body}>
         <View style={[styles.status, !!p.onToggleSave && styles.statusWithSave]}>
           <Text variant="eyebrow" color={sem.action.primary}>{p.typeLabel}</Text>
-          {p.availability && <Tag label={p.availability.label} tone={p.availability.tone} icon={p.availability.icon} />}
+          {p.availability && <Tag label={keepTogether(p.availability.label)} tone={p.availability.tone} icon={p.availability.icon} />}
           {p.isDemo && <DemoTag />}
         </View>
         <Text variant="cardTitle" numberOfLines={3} style={styles.title}>{p.title}</Text>
-        <Text variant="caption" style={styles.metaStrong}>{metaJoin([p.dateLabel, p.placeLabel])}</Text>
-        {!!second && <Text variant="caption" color={sem.text.secondary} style={styles.metaSecond}>{second}</Text>}
+        <Text testID="poster-meta" variant="caption" style={styles.metaStrong}>{keepNumbersTogether(metaJoin([p.dateLabel, p.placeLabel]))}</Text>
+        {!!second && <Text testID="poster-meta" variant="caption" color={sem.text.secondary} style={styles.metaSecond}>{keepNumbersTogether(second)}</Text>}
       </View>
     </CardBase>
   );
 });
 
-/** Loading state of PosterCard: same cover box, same body box, bars sitting in the real line boxes. */
+/** Loading state of PosterCard: same cover box, same body box (two title lines reserved), bars sitting in the real line boxes. */
 export function PosterCardSkeleton() {
   return (
     <CardSkeletonFrame testID="poster-skeleton">
       <View testID="poster-cover" style={[styles.cover, { backgroundColor: sem.bg.sunken }]} />
       <View testID="poster-body" style={styles.body}>
         <View style={styles.status}><SkeletonLine lineHeight={cardLayout.statusRow} width="28%" barHeight={type.eyebrow.lineHeight} /></View>
-        <View style={styles.title}><SkeletonLine lineHeight={type.cardTitle.lineHeight} width="82%" /></View>
+        <View style={styles.title}>
+          <SkeletonLine lineHeight={type.cardTitle.lineHeight} width="82%" />
+          <SkeletonLine lineHeight={type.cardTitle.lineHeight} width="48%" />
+        </View>
         <View style={styles.metaStrong}><SkeletonLine lineHeight={type.caption.lineHeight} width="64%" /></View>
         <View style={styles.metaSecond}><SkeletonLine lineHeight={type.caption.lineHeight} width="46%" /></View>
       </View>

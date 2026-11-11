@@ -42,6 +42,12 @@ export const applicationStatusView = {
   closed: { label: 'KAPANDI', tone: 'neutral' },
 } as const satisfies Record<string, StatusView>;
 
+/** A user's own team membership (Takımlarım). Roles are labels, not statuses: they stay in features/teams/labels. */
+export const membershipStatusView = {
+  active: { label: 'ÜYESİN', tone: 'moss' },
+  pending: { label: 'İSTEĞİN BEKLİYOR', tone: 'apricot', icon: 'clock' },
+} as const satisfies Record<string, StatusView>;
+
 export const volunteerStatusView = {
   pending: { label: 'GÖNÜLLÜ BAŞVURUN DEĞERLENDİRİLİYOR', tone: 'iris', icon: 'clock' },
   approved: { label: 'GÖNÜLLÜ EKİPTESİN', tone: 'moss', icon: 'check' },

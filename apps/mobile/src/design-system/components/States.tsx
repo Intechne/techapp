@@ -8,6 +8,7 @@ import { Button } from './Button';
 import { useReducedMotion } from '../useReducedMotion';
 import { PosterCardSkeleton } from './cards/PosterCard';
 import { RowCardSkeleton } from './cards/RowCard';
+import type { RowLines } from './cards/metrics';
 import type { AppError } from '../../lib/errors';
 
 interface EmptyProps { icon?: TechIconName; title: string; body?: string; actionLabel?: string; onAction?: () => void }
@@ -52,13 +53,13 @@ export function Skeleton({ width = '100%', height = 16, rounded = radius.small }
 
 /**
  * Loading state of a list: the skeleton variant of the card the list will show, so nothing jumps when data arrives.
- * `poster` for events/courses, `row` for opportunities, teams, registrations, applications.
+ * `poster` for events/courses, `row` for opportunities, teams, registrations, applications; `rowLines` is the list's
+ * typical row shape so the skeleton measures like the rows that replace it.
  */
-export function LoadingSkeleton({ cards = 2, variant = 'poster' }: { cards?: number; variant?: 'poster' | 'row' }) {
-  const Item = variant === 'row' ? RowCardSkeleton : PosterCardSkeleton;
+export function LoadingSkeleton({ cards = 2, variant = 'poster', rowLines }: { cards?: number; variant?: 'poster' | 'row'; rowLines?: RowLines }) {
   return (
     <View accessibilityLabel="Yükleniyor" accessibilityRole="progressbar" style={{ gap: space[3] }}>
-      {Array.from({ length: cards }, (_, i) => <Item key={i} />)}
+      {Array.from({ length: cards }, (_, i) => (variant === 'row' ? <RowCardSkeleton key={i} lines={rowLines} /> : <PosterCardSkeleton key={i} />))}
     </View>
   );
 }
