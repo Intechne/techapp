@@ -51,9 +51,17 @@ function parseEntry(raw: string | null): { card: ParticipationCard; savedAt: str
   } catch { return null; }
 }
 
-export function saveCard(userId: string, card: ParticipationCard, now: () => number = Date.now): Promise<void> {
+/**
+ * Bumped synchronously by every clearCards() (every identity end, and a session-less cold start). A save that started
+ * before a wipe carries the old value and is skipped, so a card fetched for the previous holder can't land after sign-out.
+ */
+let wipeEpoch = 0;
+
+/** `startedAt`: the wipe epoch when the card request began (omit for a direct save). A changed epoch means "skip". */
+export function saveCard(userId: string, card: ParticipationCard, now: () => number = Date.now, startedAt?: number): Promise<void> {
   if (!enabled()) return Promise.resolve();
   return serialised(async () => {
+    if (startedAt !== undefined && startedAt !== wipeEpoch) return; // identity ended since the fetch started
     const key = keyOf(userId, card.registration_id);
     let index = await readIndex();
     // Opportunistic prune of expired / unreadable entries.
@@ -154,6 +162,7 @@ export function keepOnlyCardsOf(userId: string): Promise<void> {
 }
 
 export function clearCards(): Promise<void> {
+  wipeEpoch += 1;
   if (!enabled()) return Promise.resolve();
   return serialised(async () => {
     const index = await readIndex();
@@ -175,9 +184,10 @@ export function isNetworkClassError(e: unknown): boolean {
  * the saved copy. A server verdict (not found, not confirmed, signed out) never shows a cached card; 404/409 also drop it.
  */
 export async function fetchCardWithOfflineFallback(userId: string | null, registrationId: string): Promise<CardResult> {
+  const startedAt = wipeEpoch;
   try {
     const card = await fetchParticipationCard(registrationId);
-    if (userId) await saveCard(userId, card).catch(() => {});
+    if (userId) await saveCard(userId, card, Date.now, startedAt).catch(() => {});
     return { card, cachedAt: null };
   } catch (e) {
     const error = toAppError(e);

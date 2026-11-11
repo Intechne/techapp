@@ -117,6 +117,22 @@ describe('fetchCardWithOfflineFallback', () => {
     mockFetch.mockRejectedValue(makeError(code, status));
     await expect(fetchCardWithOfflineFallback('u1', REG)).rejects.toBeTruthy();
   });
+  it('a fetch that completes after the identity ended (cards wiped) does not save the old holder’s card', async () => {
+    let resolve: (c: ParticipationCard) => void = () => {};
+    mockFetch.mockReturnValue(new Promise<ParticipationCard>((r) => { resolve = r; }));
+    const pending = fetchCardWithOfflineFallback('u1', REG);
+    await clearCards(); // sign-out while the request is in flight
+    resolve(card);
+    expect((await pending).card).toEqual(card); // the (unmounted) screen may still get it; the device keeps nothing
+    expect(await loadCard('u1', REG)).toBeNull();
+    expect(mockStore.size).toBe(0);
+  });
+  it('a later fetch for the new identity saves normally', async () => {
+    await clearCards();
+    mockFetch.mockResolvedValue(card);
+    await fetchCardWithOfflineFallback('u2', REG);
+    expect((await loadCard('u2', REG))?.card).toEqual(card);
+  });
   it('never shows a cached card on 401', async () => {
     await saveCard('u1', card);
     mockFetch.mockRejectedValue(makeError('auth_required', 401));
