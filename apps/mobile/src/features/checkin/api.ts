@@ -7,8 +7,11 @@ export const CHECKIN_ROLES: readonly string[] = ['owner', 'admin', 'checkin_staf
 
 export interface CheckInEvent { id: string; title: string; starts_at: string; ends_at: string }
 
-/** A full card token (QR payload): `TA1.<registration id>.<signature>`. Anything else typed by hand is a short code. */
-export const isFullToken = (input: string) => /^TA1\./.test(input.trim());
+/**
+ * A full card token (QR payload): `TA1.<registration id>.<signature>`. Anything else typed by hand is a short code.
+ * The prefix check ignores case (the field's keyboard may capitalise); the token itself is sent as typed, never re-cased.
+ */
+export const isFullToken = (input: string) => /^ta1\./i.test(input.trim());
 
 /** Same normalisation as the server: trim, upper-case, drop spaces and hyphens. */
 export const normaliseShortCode = (input: string) => input.replace(/[\s-]/g, '').toUpperCase();

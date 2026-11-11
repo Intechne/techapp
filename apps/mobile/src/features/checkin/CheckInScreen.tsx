@@ -3,7 +3,7 @@ import { AccessibilityInfo, StyleSheet, TextInput, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Button, Card, Input, Notice, Screen, Select, Skeleton, TechIcon, Text, checkInOutcomeView, colors, radius, space } from '../../design-system';
+import { AppHeader, Button, Card, ErrorState, Input, Notice, Screen, Select, Skeleton, TechIcon, Text, checkInOutcomeView, colors, radius, space } from '../../design-system';
 import { formatDateRange, formatTimeRange, formatTime } from '../../lib/dates';
 import { haptics } from '../../lib/haptics';
 import { toAppError } from '../../lib/errors';
@@ -61,6 +61,10 @@ export function CheckInScreen({ navigation }: NativeStackScreenProps<ProfileStac
     locked.current = true;
     mutation.mutate({ value, eventId, source });
   };
+  // The picker is convenience: when it cannot load, QR scans and full tokens still work.
+  const pickerError = account.isError ? account.error : events.isError ? events.error : null;
+  const pickerLoading = !pickerError && (account.isPending || events.isPending);
+  const retryPicker = () => { if (account.isError) void account.refetch(); else void events.refetch(); };
   const needsEvent = !eventId && !isFullToken(manual);
   const next = () => {
     mutation.reset(); locked.current = false; setManual(''); setScanning(true);
@@ -87,9 +91,9 @@ export function CheckInScreen({ navigation }: NativeStackScreenProps<ProfileStac
           <Text variant="display">Kodu okut.</Text>
           <Text variant="body" color="textSecondary" style={{ marginTop: space[2], marginBottom: space[4] }}>Katılımcının katılım kartındaki QR kodunu kameraya göster ya da kartın altındaki 8 karakterlik kodu yaz.</Text>
           <View style={{ marginBottom: space[4] }}>
-            {account.isPending || events.isPending ? <Skeleton height={64} rounded={radius.card} />
-              : events.isError ? <Notice tone="danger" title="Etkinlikler yüklenemedi">{toAppError(events.error).message}</Notice>
-              : list.length === 0 ? <Notice title="Bugün giriş kontrolü açılan bir etkinlik yok">Kısa kodla giriş için etkinlik gerekiyor. QR okutabilir ya da karttaki tam kodu yapıştırabilirsin.</Notice>
+            {pickerError ? <ErrorState error={toAppError(pickerError)} onRetry={retryPicker} />
+              : pickerLoading ? <Skeleton height={64} rounded={radius.card} />
+              : list.length === 0 ? <Notice title="Bugün giriş kontrolü açılan bir etkinlik yok">{"Kısa kodla giriş için etkinlik gerekiyor. Katılımcının QR'ını okutarak giriş yapabilirsin."}</Notice>
               : <Select label="Etkinlik" value={eventId} onChange={setChosen}
                   options={list.map((e) => ({ value: e.id, label: e.title, description: `${formatDateRange(e.starts_at, e.ends_at)} · ${formatTimeRange(e.starts_at, e.ends_at)}` }))} />}
           </View>
@@ -119,7 +123,7 @@ export function CheckInScreen({ navigation }: NativeStackScreenProps<ProfileStac
         <View style={{ marginTop: space[5], gap: space[3] }}>
           <Input ref={input} label="Kodu elle gir" value={manual} onChangeText={setManual} autoCapitalize="characters" autoCorrect={false} autoComplete="off" placeholder="ör. 0B8E1BD1" help="Kartta QR'ın altında yazan 8 karakterlik kod." />
           <Button kind="secondary" label="Kodu doğrula" loading={mutation.isPending} disabled={!manual.trim() || needsEvent} onPress={() => submit(manual, 'manual')} />
-          {needsEvent && <Text variant="caption" color="textSecondary">Önce etkinliği seç.</Text>}
+          {needsEvent && !pickerLoading && <Text variant="caption" color="textSecondary">Önce etkinliği seç.</Text>}
         </View>
       )}
     </Screen>

@@ -14,14 +14,16 @@ jest.mock('../../../lib/supabase', () => {
   const builder = (): Record<string, unknown> => {
     const b: Record<string, unknown> = {};
     for (const m of ['select', 'in', 'eq', 'gte', 'lte', 'order']) b[m] = (...a: unknown[]) => { mockFrom(m, ...a); return b; };
-    b.limit = async () => ({ data: mockEvents, error: null });
+    b.limit = () => (mockEventsPending ? new Promise(() => {}) : Promise.resolve({ data: mockEvents, error: null }));
     return b;
   };
   return { getSupabase: () => ({ rpc: (...a: unknown[]) => mockRpc(...a), from: (t: string) => { mockFrom('from', t); return builder(); } }) };
 });
-jest.mock('../../auth/SessionProvider', () => ({
-  useAccountState: () => ({ isPending: false, isSuccess: true, data: { organization_roles: [{ organization_id: 'org1', role: 'checkin_staff' }, { organization_id: 'org2', role: 'editor' }] } }),
-}));
+const ACCOUNT_OK = { isPending: false, isSuccess: true, isError: false, error: null, data: { organization_roles: [{ organization_id: 'org1', role: 'checkin_staff' }, { organization_id: 'org2', role: 'editor' }] } };
+let mockAccount: Record<string, unknown> = ACCOUNT_OK;
+const mockAccountRefetch = jest.fn();
+let mockEventsPending = false;
+jest.mock('../../auth/SessionProvider', () => ({ useAccountState: () => ({ ...mockAccount, refetch: mockAccountRefetch }) }));
 const EVENT_A = { id: 'evA', title: 'Robot Ligi Finali', starts_at: '2026-12-01T07:00:00Z', ends_at: '2026-12-01T15:00:00Z' };
 const EVENT_B = { id: 'evB', title: 'Atölye Günü', starts_at: '2026-12-01T09:00:00Z', ends_at: '2026-12-01T12:00:00Z' };
 jest.mock('../../../lib/haptics', () => ({ haptics: { success: jest.fn(), warning: jest.fn(), error: jest.fn(), selection: jest.fn() } }));
@@ -51,7 +53,7 @@ const ok = (result: 'checked_in' | 'already_checked_in') => ({ data: { result, r
 
 let announce: jest.SpyInstance;
 beforeEach(() => {
-  jest.clearAllMocks(); mockGranted = true; mockScan = undefined; mockEvents = [EVENT_A];
+  jest.clearAllMocks(); mockGranted = true; mockScan = undefined; mockEvents = [EVENT_A]; mockAccount = ACCOUNT_OK; mockEventsPending = false;
   announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => {});
 });
 const PLACEHOLDER = 'ör. 0B8E1BD1';
@@ -254,5 +256,55 @@ describe('manual check-in by short code (D1)', () => {
     await screen.findByText('Robot Ligi Finali');
     await typeAndSubmit('ABCDEF12');
     expect(await screen.findByText('Bu kodla eşleşen bir kayıt yok.')).toBeTruthy();
+  });
+
+  it('account state failing: the picker shows an error with retry, never an endless skeleton; QR and full tokens still work', async () => {
+    mockAccount = { isPending: false, isSuccess: false, isError: true, error: makeError('network_unreachable', 0), data: undefined };
+    mockRpc.mockResolvedValue(ok('checked_in'));
+    await renderScreen();
+    expect(screen.getByText('Bağlantı yok gibi görünüyor')).toBeTruthy();
+    await fireEvent.press(screen.getByText('Tekrar dene'));
+    expect(mockAccountRefetch).toHaveBeenCalledTimes(1);
+    expect(mockFrom).not.toHaveBeenCalledWith('from', 'events');
+    // a short code needs an event; a full token does not
+    await fireEvent.changeText(screen.getByPlaceholderText(PLACEHOLDER), '0B8E1BD1');
+    expect(verify().props.accessibilityState).toMatchObject({ disabled: true });
+    await typeAndSubmit('TA1.abc');
+    await screen.findByText('GİRİŞ ONAYLANDI');
+    expect(mockRpc).toHaveBeenCalledWith('check_in_participant', { p_token: 'TA1.abc' });
+    await fireEvent.press(screen.getByText('Sıradaki katılımcı'));
+    await act(async () => { mockScan!({ data: 'TA1.qr' }); });
+    await waitFor(() => expect(mockRpc).toHaveBeenLastCalledWith('check_in_participant', { p_token: 'TA1.qr' }));
+  });
+
+  it('while the events are loading the "Önce etkinliği seç." hint is not shown (the button stays disabled)', async () => {
+    mockEventsPending = true;
+    await renderScreen();
+    await fireEvent.changeText(screen.getByPlaceholderText(PLACEHOLDER), '0B8E1BD1');
+    expect(screen.queryByText('Önce etkinliği seç.')).toBeNull();
+    expect(verify().props.accessibilityState).toMatchObject({ disabled: true });
+  });
+
+  it('the TA1. prefix is recognised in any case and the token is sent trimmed but never re-cased; short codes are upper-cased', async () => {
+    mockRpc.mockResolvedValue(ok('checked_in'));
+    await renderScreen();
+    await screen.findByText('Robot Ligi Finali');
+    await typeAndSubmit('  ta1.11111111-2222-3333-4444-555555555555.abcdef  ');
+    await screen.findByText('GİRİŞ ONAYLANDI');
+    expect(mockRpc).toHaveBeenLastCalledWith('check_in_participant', { p_token: 'ta1.11111111-2222-3333-4444-555555555555.abcdef', p_expected_event_id: 'evA' });
+    await fireEvent.press(screen.getByText('Sıradaki katılımcı'));
+    await typeAndSubmit('Ta1.Mixed.Case');
+    await waitFor(() => expect(mockRpc).toHaveBeenLastCalledWith('check_in_participant', { p_token: 'Ta1.Mixed.Case', p_expected_event_id: 'evA' }));
+    await fireEvent.press(screen.getByText('Sıradaki katılımcı'));
+    await typeAndSubmit('ab12 cd34');
+    await waitFor(() => expect(mockRpc).toHaveBeenLastCalledWith('check_in_by_short_code', { p_event_id: 'evA', p_short_code: 'AB12CD34' }));
+  });
+
+  it('405 method_not_allowed has its own copy', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { code: 'PT405', message: 'method_not_allowed' } });
+    await renderScreen();
+    await screen.findByText('Robot Ligi Finali');
+    await typeAndSubmit('ABCDEF12');
+    expect(await screen.findByText('Bu istek bu şekilde yapılamıyor. Uygulamayı güncelleyip tekrar dener misin?')).toBeTruthy();
   });
 });
