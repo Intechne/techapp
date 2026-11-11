@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { TechIcon, colors, fonts, layout, type TechIconName } from '../design-system';
+import { TechIcon, colors, fonts, layout, space, type TechIconName } from '../design-system';
 import { AuthEmailScreen } from '../features/auth/AuthEmailScreen';
 import { AuthOtpScreen } from '../features/auth/AuthOtpScreen';
 import { ProfileBootstrapScreen } from '../features/auth/ProfileBootstrapScreen';
@@ -87,7 +87,9 @@ function MainTabs() {
         tabBarLabel: TABS[route.name].label, // always visible: icons never stand alone
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
-        tabBarLabelStyle: { fontFamily: fonts.bodySemibold, fontSize: 12 },
+        // 5 tabs at 320 dp leave 54 dp of label width after the item's 5 dp padding, but "Etkinlikler" needs 57 dp at the 12 pt minimum:
+        // let the label use the padding (negative margin) instead of shrinking the font or hiding the text.
+        tabBarLabelStyle: { fontFamily: fonts.bodySemibold, fontSize: 12, ...(sideNavigation ? null : { alignSelf: 'stretch' as const, maxWidth: 64, textAlign: 'center' as const, marginHorizontal: -space[1] }) },
         tabBarAllowFontScaling: false,
         tabBarStyle: sideNavigation
           ? { backgroundColor: colors.surface, borderRightColor: colors.border, borderRightWidth: 1, minWidth: 96, paddingTop: 24 }
