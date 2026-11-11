@@ -35,7 +35,12 @@ export function MyRegistrationsScreen({ navigation }: NativeStackScreenProps<Sha
   const offline = networkError && !q.data;
   let cur = mem;
   if (mem.user !== userId) cur = { user: userId, slow: false, wasOffline: false };
-  else if ((!waiting && mem.slow) || (offline && !mem.wasOffline) || (!!q.data && mem.wasOffline)) cur = { ...mem, slow: waiting ? mem.slow : false, wasOffline: offline || (mem.wasOffline && !q.data) };
+  else {
+    // wasOffline is cleared by data or by a non-network error (the real error must show, never a stale "Bağlantı yok").
+    const nextOffline = offline || (mem.wasOffline && !q.data && !q.isError);
+    const nextSlow = waiting ? mem.slow : false;
+    if (nextOffline !== mem.wasOffline || nextSlow !== mem.slow) cur = { ...mem, slow: nextSlow, wasOffline: nextOffline };
+  }
   if (cur !== mem) setMem(cur);
   useEffect(() => {
     if (!waiting) return;

@@ -189,4 +189,20 @@ describe('Katılımlarım · slow load shows saved cards without waiting for fai
     await tick(4000);
     expect(screen.getByText('Robotik Günü')).toBeTruthy();
   });
+  it.each([['contract_mismatch', 500, /Uygulama ile sunucu uyumsuz/], ['session_expired', 401, /Oturumunun süresi doldu/]] as const)(
+    'network failure, retry, then a %s error: no stale offline view, the real error shows', async (code, status, text) => {
+      await saveCard('u1', card);
+      jest.useFakeTimers();
+      mockFetchMine.mockRejectedValueOnce(makeError('network_unreachable', 0));
+      await renderScreen();
+      await tick(10);
+      expect(await screen.findByText('Çevrimdışı · kayıtlı kartların')).toBeTruthy();
+      mockFetchMine.mockRejectedValue(makeError(code, status));
+      await fireEvent.press(screen.getByText('Tekrar dene'));
+      await tick(10);
+      expect(screen.queryByText('Çevrimdışı · kayıtlı kartların')).toBeNull();
+      expect(screen.queryByText('Robotik Günü')).toBeNull();
+      expect(screen.queryByText(/Bağlantı yok/)).toBeNull();
+      expect(screen.getByText(text)).toBeTruthy();
+    });
 });
