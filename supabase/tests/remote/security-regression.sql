@@ -98,7 +98,7 @@ declare
   v_adult uuid; v_minor uuid; v_other uuid; v_token text; v_token2 text; v_org uuid; v_org_b uuid; v_event uuid; v_event_b uuid;
   v_reg uuid; v_reg2 uuid; v_req uuid; v_req2 uuid; j jsonb; v_text text; v_n int; i int; v_editor uuid; v_opp uuid;
   v_owner_a uuid; v_owner_b uuid; v_staff uuid; v_captain uuid; v_member uuid; v_team uuid; v_cap_m uuid; v_mem_m uuid;
-  v_appl uuid;
+  v_appl uuid; v_sc_event uuid; v_sc_user uuid; v_sc_reg uuid; v_sc_code text;
   v_out jsonb;
 begin
   -- ================================================================ CV
@@ -261,6 +261,32 @@ begin
   v_n := pg_temp.t_val('authenticated', v_member, format(
     $q$select count(*)::text from public.team_roster(%L) where user_id = %L$q$, v_team, v_appl))::int;
   perform pg_temp.t_rec('19d plain member''s roster hides the pending minor applicant', v_n = 0, 'rows=' || v_n);
+
+  -- 20261112000100/0200: short-code check-in is event-scoped, staff-only, and counts failed lookups
+  v_sc_event := pg_temp.t_event(v_org, null, null, true);
+  v_sc_user := pg_temp.t_user(27); v_sc_reg := pg_temp.t_register(v_sc_user, v_sc_event);
+  v_sc_code := upper(substr(split_part(app.ticket_token((select r from public.event_registrations r where r.id = v_sc_reg)), '.', 3), 1, 8));
+  v_text := pg_temp.t_val('authenticated', v_staff, format(
+    $q$select public.check_in_by_short_code(%L, %L) ->> 'result'$q$, v_sc_event, lower(v_sc_code)));
+  perform pg_temp.t_rec('20 staff short-code check-in → checked_in', v_text = 'checked_in', 'result=' || coalesce(v_text, 'null'));
+  v_text := pg_temp.t_val('authenticated', v_staff, format(
+    $q$select public.check_in_by_short_code(%L, %L) ->> 'result'$q$, v_sc_event, v_sc_code));
+  perform pg_temp.t_rec('20b same code again → already_checked_in', v_text = 'already_checked_in', 'result=' || coalesce(v_text, 'null'));
+  perform pg_temp.t_fail('20c malformed short code → 422', 'authenticated', v_staff,
+    format($q$select public.check_in_by_short_code(%L, 'ZZZZ0000')$q$, v_sc_event), '^PT422 short_code_malformed');
+  begin
+    v_text := pg_temp.t_val('authenticated', v_staff, format(
+      $q$select public.check_in_by_short_code(%L, '00000000') ->> 'message'$q$, v_sc_event));
+    v_n := (select count(*) from app.checkin_short_code_attempts where event_id = v_sc_event);
+    perform pg_temp.t_rec('20d unknown code → ticket_unknown and the failed attempt is recorded',
+                          v_text = 'ticket_unknown' and v_n >= 1, 'message=' || coalesce(v_text, 'null') || ' attempts=' || v_n);
+  exception when others then
+    perform pg_temp.t_rec('20d unknown code → ticket_unknown and the failed attempt is recorded', false, sqlstate || ' ' || sqlerrm);
+  end;
+  perform pg_temp.t_fail('20e non-staff short-code check-in → rejected', 'authenticated', v_other,
+    format($q$select public.check_in_by_short_code(%L, %L)$q$, v_sc_event, v_sc_code), '^PT403');
+  perform pg_temp.t_fail('20f anon cannot call short-code check-in', 'anon', null,
+    format($q$select public.check_in_by_short_code(%L, %L)$q$, v_sc_event, v_sc_code), '^42501');
 
   -- ================================================================ report (always rolls back)
   select jsonb_build_object('pass', count(*) filter (where pass), 'fail', count(*) filter (where not pass),
