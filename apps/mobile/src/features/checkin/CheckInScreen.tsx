@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, StyleSheet, TextInput, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useMutation } from '@tanstack/react-query';
@@ -22,6 +22,7 @@ export function CheckInScreen({ navigation }: NativeStackScreenProps<ProfileStac
   const [permission, requestPermission] = useCameraPermissions();
   const [manual, setManual] = useState('');
   const [scanning, setScanning] = useState(true);
+  const [resets, setResets] = useState(0);
   // Synchronous lock: the camera fires onBarcodeScanned many times per second, faster than state can flip `scanning`.
   // One scan = one mutation until "Sıradaki katılımcı" releases it.
   const locked = useRef(false);
@@ -29,18 +30,23 @@ export function CheckInScreen({ navigation }: NativeStackScreenProps<ProfileStac
   const mutation = useMutation({
     mutationFn: checkIn,
     // Feedback fires here (once per settled mutation), never from render or an effect that can re-run.
+    // Feedback is decoration: if it throws, the displayed outcome must not change.
     onSuccess: (r) => {
-      if (r.result === 'checked_in') {
-        haptics.success();
-        AccessibilityInfo.announceForAccessibility(`${checkInOutcomeView.checked_in.spoken}, ${r.holder_name ?? 'Katılımcı'}`);
-      } else {
-        haptics.warning();
-        AccessibilityInfo.announceForAccessibility(`${checkInOutcomeView.already_checked_in.spoken}, ilk giriş ${formatTime(r.checked_in_at)}`);
-      }
+      try {
+        if (r.result === 'checked_in') {
+          haptics.success();
+          AccessibilityInfo.announceForAccessibility(`${checkInOutcomeView.checked_in.spoken}, ${r.holder_name ?? 'Katılımcı'}`);
+        } else {
+          haptics.warning();
+          AccessibilityInfo.announceForAccessibility(`${checkInOutcomeView.already_checked_in.spoken}, ilk giriş ${formatTime(r.checked_in_at)}`);
+        }
+      } catch { /* ignore */ }
     },
     onError: (e) => {
-      haptics.error();
-      AccessibilityInfo.announceForAccessibility(`${checkInOutcomeView.failed.spoken}, ${toAppError(e).message}`);
+      try {
+        haptics.error();
+        AccessibilityInfo.announceForAccessibility(`${checkInOutcomeView.failed.spoken}, ${toAppError(e).message}`);
+      } catch { /* ignore */ }
     },
     onSettled: () => setScanning(false),
   });
@@ -52,8 +58,14 @@ export function CheckInScreen({ navigation }: NativeStackScreenProps<ProfileStac
   };
   const next = () => {
     mutation.reset(); locked.current = false; setManual(''); setScanning(true);
-    setTimeout(() => input.current?.focus(), 0);
+    setResets((n) => n + 1);
   };
+  // Focus the manual field only when there is no camera (a soft keyboard would cover the camera view).
+  useEffect(() => {
+    if (resets === 0 || permission?.granted) return;
+    const id = requestAnimationFrame(() => input.current?.focus());
+    return () => cancelAnimationFrame(id);
+  }, [resets, permission?.granted]);
 
   const outcome = mutation.data
     ? { ...checkInOutcomeView[mutation.data.result], detail: mutation.data.result === 'checked_in' ? 'Hoş geldin diyebilirsin.' : `İlk giriş saati: ${formatTime(mutation.data.checked_in_at)}. Aynı kodla ikinci giriş kaydedilmedi.`, name: mutation.data.holder_name ?? 'Katılımcı' }

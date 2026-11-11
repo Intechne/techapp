@@ -1,5 +1,5 @@
 import React from 'react';
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, TextInput } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -106,6 +106,35 @@ describe('check-in feedback', () => {
     await renderScreen();
     expect(screen.getByText('Kameraya izin ver')).toBeTruthy();
     expect(screen.getByPlaceholderText('TA1.…')).toBeTruthy();
+  });
+
+  it('feedback throwing never changes the displayed outcome', async () => {
+    mockHaptics.success.mockImplementationOnce(() => { throw new Error('haptic boom'); });
+    mockRpc.mockResolvedValue(ok('checked_in'));
+    await renderScreen();
+    await typeAndSubmit('TA1.abc');
+    expect(await screen.findByText('GİRİŞ ONAYLANDI')).toBeTruthy();
+    expect(screen.queryByText('GİRİŞ ONAYLANMADI')).toBeNull();
+    announce.mockImplementationOnce(() => { throw new Error('a11y boom'); });
+    mockHaptics.error.mockImplementationOnce(() => { throw new Error('haptic boom'); });
+    mockRpc.mockResolvedValue({ data: null, error: { code: 'PT403', message: 'outside_checkin_window' } });
+    await fireEvent.press(screen.getByText('Sıradaki katılımcı'));
+    await typeAndSubmit('bad');
+    expect(await screen.findByText('GİRİŞ ONAYLANMADI')).toBeTruthy();
+  });
+
+  it.each([[true, 0], [false, 1]])('after "Sıradaki katılımcı" (camera granted=%s) manual field focus calls: %s', async (granted, calls) => {
+    mockGranted = granted as boolean;
+    const focus = jest.spyOn(TextInput.prototype as unknown as { focus: () => void }, 'focus').mockImplementation(() => {});
+    const raf = jest.spyOn(global, 'requestAnimationFrame').mockImplementation((cb) => { cb(0); return 1; });
+    mockRpc.mockResolvedValue(ok('checked_in'));
+    await renderScreen();
+    await typeAndSubmit('TA1.abc');
+    await screen.findByText('GİRİŞ ONAYLANDI');
+    await fireEvent.press(screen.getByText('Sıradaki katılımcı'));
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+    expect(focus).toHaveBeenCalledTimes(calls as number);
+    focus.mockRestore(); raf.mockRestore();
   });
 
   it('maps network failures through the error contract (no success screen)', async () => {
