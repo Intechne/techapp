@@ -25,6 +25,21 @@ const byShortCode = async (userId: string, eventId: string, code: string | null,
   return j as { result: string; registration_id: string; event_id: string; holder_name: string | null };
 };
 
+/** One raw transaction as `userId`, optionally READ ONLY (what PostgREST does for GET /rpc/…). Always rolled back. */
+async function rawCall(userId: string, sql: string, params: unknown[], readOnly: boolean) {
+  const client = await pool.connect();
+  try {
+    await client.query(readOnly ? 'begin read only' : 'begin');
+    await client.query(`set local role authenticated`);
+    await client.query(`select set_config('request.jwt.claims', $1, true)`, [JSON.stringify({ sub: userId, role: 'authenticated' })]);
+    return await client.query(sql, params as never[]);
+  } finally {
+    await client.query('rollback').catch(() => {});
+    client.release();
+  }
+}
+const errorOf = (p: Promise<unknown>) => p.then(() => null, (e: { code?: string; message?: string }) => ({ code: e.code, message: e.message }));
+
 async function setup() {
   const staff = await createUser(); const editor = await createUser(); const otherStaff = await createUser();
   const org = await createOrg({ [staff]: 'checkin_staff', [editor]: 'editor' });
@@ -48,6 +63,8 @@ describe('check-in by short code', () => {
     const again = await byShortCode(staff, event, card.short_code);
     expect(again.result).toBe('already_checked_in');
     expect((await admin(`select count(*)::int n from public.event_check_ins where registration_id = $1`, [reg.id])).rows[0].n).toBe(1);
+    // a matched code is not a failed attempt: the row written before the lookup is removed again
+    expect(await failures(staff, event)).toBe(0);
     // the existing check-in audit is written by the delegated function; it carries no personal data
     const audit = await admin(`select metadata from public.audit_events where action = 'registration.checked_in' and target_id = $1`, [reg.id]);
     expect(audit.rows).toEqual([{ metadata: { event_id: event } }]);
@@ -161,6 +178,51 @@ describe('check-in by short code', () => {
     }
     expect((await admin(`select count(*)::int n from public.event_check_ins where registration_id in ($1, $2)`, [a.id, b.id])).rows[0].n).toBe(0);
     expect((await admin(`select app.ticket_token(r) t from public.event_registrations r where id = $1`, [a.id])).rows[0].t).not.toContain('deadbeef');
+  });
+
+  it('a read-only transaction (PostgREST GET) is refused up front, identically for matching and non-matching codes', async () => {
+    const { staff, editor, event, card, reg } = await setup();
+    const wrong = card.short_code === '00000000' ? '00000001' : '00000000';
+    const call = (user: string, code: string) =>
+      errorOf(rawCall(user, `select public.check_in_by_short_code($1, $2) j`, [event, code], true));
+    const right = await call(staff, card.short_code);
+    const miss = await call(staff, wrong);
+    expect(right).toEqual({ code: 'PT405', message: 'method_not_allowed' });
+    expect(miss).toEqual(right);
+    // before auth, format and HMAC: the same answer for a forbidden caller and for malformed input
+    expect(await call(editor, card.short_code)).toEqual(right);
+    expect(await call(staff, 'xyz')).toEqual(right);
+    // repeated read-only calls never reach the lookup and never write
+    for (let i = 0; i < 25; i += 1) expect(await call(staff, wrong)).toEqual(right);
+    expect(await failures(staff, event)).toBe(0);
+    expect((await admin(`select count(*)::int n from public.event_check_ins where registration_id = $1`, [reg.id])).rows[0].n).toBe(0);
+    // the same code over a writable transaction still works
+    expect((await byShortCode(staff, event, card.short_code)).result).toBe('checked_in');
+  });
+
+  it('on a collision the single confirmed registration wins; the attempt row is not kept', async () => {
+    const { staff, org } = await setup();
+    const event = await createEvent(org, openWindow());
+    const keep = await register(await createUser({ name: 'Ece Onaylı' }), event);
+    const gone = await createUser(); const goneReg = await register(gone, event);
+    await asUser(gone, (q) => q(`select public.cancel_event_registration($1)`, [goneReg.id]));
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      await client.query(`create or replace function app.ticket_token(p_registration public.event_registrations) returns text
+        language sql stable security definer set search_path = '' as $f$
+          select 'TA1.' || p_registration.id::text || '.deadbeef' || repeat('0', 24) $f$`);
+      await client.query(`set local role authenticated`);
+      await client.query(`select set_config('request.jwt.claims', $1, true)`, [JSON.stringify({ sub: staff, role: 'authenticated' })]);
+      const j = (await client.query(`select public.check_in_by_short_code($1, 'DEADBEEF') j`, [event])).rows[0].j;
+      expect(j).toMatchObject({ result: 'checked_in', registration_id: keep.id, holder_name: 'Ece Onaylı' });
+      await client.query('reset role');
+      const n = (await client.query(`select count(*)::int n from app.checkin_short_code_attempts where user_id = $1 and event_id = $2`, [staff, event])).rows[0].n;
+      expect(n).toBe(0);
+    } finally {
+      await client.query('rollback').catch(() => {});
+      client.release();
+    }
   });
 
   it('the attempts table is closed to API roles', async () => {

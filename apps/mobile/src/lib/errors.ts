@@ -57,6 +57,7 @@ const COPY: Record<string, string> = {
   short_code_rate_limited: "Çok fazla hatalı deneme. Birkaç dakika sonra tekrar dene ya da QR'ı okut.",
   short_code_ambiguous: "Bu kod birden fazla kayıtla eşleşti; QR'ı okut.",
   checkin_event_required: 'Önce etkinliği seç.',
+  method_not_allowed: 'Bu istek bu şekilde yapılamıyor. Uygulamayı güncelleyip tekrar dener misin?',
   outside_checkin_window: 'Giriş kontrolü etkinlikten 3 saat önce açılır.',
   volunteers_not_accepted: 'Bu etkinlik şu an gönüllü başvurusu almıyor.',
   volunteer_adults_only: 'Gönüllülük başvurusu şimdilik 18 yaş ve üzeri için açık.',
