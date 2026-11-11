@@ -44,6 +44,13 @@ export const volunteerStatusView = {
   withdrawn: { label: 'GÖNÜLLÜLÜKTEN ÇEKİLDİN', tone: 'neutral' },
 } as const satisfies Record<string, StatusView>;
 
+/** Staff check-in outcomes: title for the result block + spoken prefix for the screen-reader announcement. */
+export const checkInOutcomeView = {
+  checked_in: { title: 'GİRİŞ ONAYLANDI', tone: 'moss', icon: 'check', spoken: 'Giriş onaylandı' },
+  already_checked_in: { title: 'DAHA ÖNCE GİRİŞ YAPILMIŞ', tone: 'apricot', icon: 'clock', spoken: 'Daha önce giriş yapılmış' },
+  failed: { title: 'GİRİŞ ONAYLANMADI', tone: 'danger', icon: 'close', spoken: 'Giriş onaylanmadı' },
+} as const satisfies Record<string, { title: string; tone: Tone; icon: TechIconName; spoken: string }>;
+
 export function StatusBadge({ view }: { view: StatusView }) {
   return <Tag label={view.label} tone={view.tone} icon={view.icon} />;
 }
