@@ -234,3 +234,110 @@ describe('pilot privacy · a 16-year-old team member', () => {
     expect((await asUser(owner, (q) => q(`select 1 from public.profiles where id = $1`, [minor]))).rowCount).toBe(0);
   });
 });
+
+// 20261112000300: who founded a team / wrote a recruitment post is a user UUID — for a minor founder, a handle that can later
+// be joined to their profile. The API roles read every column of teams and recruitment_posts EXCEPT created_by.
+const TEAM_PUBLIC = 'id, organization_id, slug, name, kind, category, tagline, about, city, topic_interest_id, tone, accepts_join_requests, moderation_status, member_count, is_demo, created_at, updated_at';
+const POST_PUBLIC = 'id, team_id, title, role_label, description, skills, is_open, closes_at, created_at, updated_at';
+/** Columns the API roles must NOT read. Every other column must be granted (checked below), so a new column is a decision. */
+const CREATOR_DENIED: Record<string, string[]> = { teams: ['created_by'], recruitment_posts: ['created_by'] };
+
+/** A 16-year-old founds a team and has an open recruitment post signed with their user id. */
+async function teamFoundedByMinor() {
+  const founder = await createUser({ age: 16, name: MINOR_NAME });
+  const member = await createUser({ name: 'Üye Yetişkin' });
+  const outsider = await createUser({ name: 'Takım Dışı' });
+  const team = (await asUser(founder, (q) => q(`select * from public.create_team($1)`, [`Kurucu ${randomUUID().slice(0, 6)}`]))).rows[0];
+  const m = (await asUser(member, (q) => q(`select * from public.request_team_join($1)`, [team.id]))).rows[0];
+  await asUser(founder, (q) => q(`select public.decide_team_join($1, true)`, [m.id]));
+  const post = (await admin(`insert into public.recruitment_posts (team_id, title, created_by) values ($1, 'Yazılımcı arıyoruz', $2) returning id`,
+    [team.id, founder])).rows[0];
+  return { founder, member, outsider, teamId: team.id as string, postId: post.id as string };
+}
+
+describe('pilot privacy · who founded a team or wrote a recruitment post', () => {
+  it('anon and a non-member cannot select teams.created_by or recruitment_posts.created_by (permission denied)', async () => {
+    const { member, outsider, teamId, postId } = await teamFoundedByMinor();
+    const attempts = [
+      [`select created_by from public.teams where id = $1`, teamId],
+      [`select * from public.teams where id = $1`, teamId],
+      [`select id from public.teams where created_by is not null and id = $1`, teamId], // not even as a filter
+      [`select created_by from public.recruitment_posts where id = $1`, postId],
+      [`select * from public.recruitment_posts where id = $1`, postId],
+    ] as const;
+    for (const [sql, id] of attempts) {
+      await expect(asAnon((q) => q(sql, [id])), `anon: ${sql}`).rejects.toThrow(PERMISSION_DENIED);
+      // a signed-in outsider — and a member too: no client screen needs the founder's id
+      for (const viewer of [outsider, member]) {
+        await expect(asUser(viewer, (q) => q(sql, [id])), `user: ${sql}`).rejects.toThrow(PERMISSION_DENIED);
+      }
+    }
+  });
+
+  it('the public column list of teams still reads for anon', async () => {
+    const { outsider, teamId, postId } = await teamFoundedByMinor();
+    const team = (await asAnon((q) => q(`select ${TEAM_PUBLIC} from public.teams where id = $1`, [teamId]))).rows;
+    expect(team).toHaveLength(1);
+    expect(team[0]).toMatchObject({ id: teamId, member_count: 2, moderation_status: 'active' });
+    expect(team[0]).not.toHaveProperty('created_by');
+    const post = (await asAnon((q) => q(`select ${POST_PUBLIC} from public.recruitment_posts where id = $1`, [postId]))).rows;
+    expect(post).toHaveLength(1);
+    expect(post[0]).toMatchObject({ id: postId, team_id: teamId, is_open: true });
+    // the same lists for a signed-in user, and the embed the app uses for "Takımlarım"
+    expect((await asUser(outsider, (q) => q(`select ${TEAM_PUBLIC} from public.teams where id = $1`, [teamId]))).rowCount).toBe(1);
+    expect((await asUser(outsider, (q) => q(`select ${POST_PUBLIC} from public.recruitment_posts where id = $1`, [postId]))).rowCount).toBe(1);
+  });
+
+  it('create_team and recruitment RPCs still work (definer path unaffected)', async () => {
+    const captain = await createUser(); const applicant = await createUser();
+    const team = (await asUser(captain, (q) => q(`select * from public.create_team($1)`, [`Definer ${randomUUID().slice(0, 6)}`]))).rows[0];
+    expect(team.created_by).toBe(captain); // the caller's own id, returned to the caller by the definer function
+    const post = (await asUser(captain, (q) => q(`insert into public.recruitment_posts (team_id, title, created_by) values ($1, 'Mekanikçi arıyoruz', $2) returning id`,
+      [team.id, captain]))).rows[0];
+    const app = (await asUser(applicant, (q) => q(`select * from public.apply_to_recruitment($1, 'Ben varım')`, [post.id]))).rows[0];
+    expect(app.status).toBe('submitted');
+    const decided = (await asUser(captain, (q) => q(`select * from public.decide_recruitment_application($1, true)`, [app.id]))).rows[0];
+    expect(decided.status).toBe('accepted');
+    expect((await asUser(applicant, (q) => q(`select user_id from public.team_roster($1)`, [team.id]))).rows.map((r) => r.user_id)).toContain(applicant);
+    // the per-founder team limit (create_team reads created_by as owner) still counts
+    for (let i = 0; i < 4; i += 1) await asUser(captain, (q) => q(`select public.create_team($1)`, [`Sınır ${i} ${randomUUID().slice(0, 4)}`]));
+    await expectFail(asUser(captain, (q) => q(`select public.create_team('Altıncı takım')`)), 429, 'team_create_limit');
+  });
+
+  it('a team manager still updates and deletes their recruitment post and team through the table (RLS path unaffected)', async () => {
+    const { founder, member, teamId, postId } = await teamFoundedByMinor();
+    const updated = (await asUser(founder, (q) => q(`update public.recruitment_posts set title = 'Yazılımcı ve tasarımcı' where id = $1 returning id, title`, [postId]))).rows;
+    expect(updated).toEqual([{ id: postId, title: 'Yazılımcı ve tasarımcı' }]);
+    expect((await asUser(founder, (q) => q(`update public.teams set tagline = 'Robotik' where id = $1 returning id, tagline`, [teamId]))).rows)
+      .toEqual([{ id: teamId, tagline: 'Robotik' }]);
+    // a plain member is still not a manager
+    expect((await asUser(member, (q) => q(`update public.recruitment_posts set title = 'ele geçirildi' where id = $1`, [postId]))).rowCount).toBe(0);
+    expect((await asUser(member, (q) => q(`delete from public.recruitment_posts where id = $1`, [postId]))).rowCount).toBe(0);
+    // asking for the creator back is refused even to the manager
+    await expect(asUser(founder, (q) => q(`update public.recruitment_posts set title = 'x x x' where id = $1 returning created_by`, [postId])))
+      .rejects.toThrow(PERMISSION_DENIED);
+    expect((await asUser(founder, (q) => q(`delete from public.recruitment_posts where id = $1 returning id`, [postId]))).rows).toEqual([{ id: postId }]);
+    expect((await admin(`select created_by from public.teams where id = $1`, [teamId])).rows[0].created_by).toBe(founder); // data kept
+  });
+
+  it('every column of teams and recruitment_posts is either granted to the API roles or explicitly denied (new columns cannot slip through)', async () => {
+    for (const [table, denied] of Object.entries(CREATOR_DENIED)) {
+      // a table-level SELECT grant would cover every column, so it must be gone
+      const t = (await admin(`select has_table_privilege('anon', $1, 'select') anon, has_table_privilege('authenticated', $1, 'select') auth`, [`public.${table}`])).rows[0];
+      expect([table, t]).toEqual([table, { anon: false, auth: false }]);
+      const { rows } = await admin(`select column_name,
+          has_column_privilege('anon', $1, column_name, 'select') anon,
+          has_column_privilege('authenticated', $1, column_name, 'select') auth
+        from information_schema.columns where table_schema = 'public' and table_name = $2 order by ordinal_position`, [`public.${table}`, table]);
+      expect(rows.length).toBeGreaterThan(denied.length);
+      for (const r of rows) {
+        const want = !denied.includes(r.column_name);
+        // a failure here: a new column was added without a decision — grant it in a migration or add it to CREATOR_DENIED
+        expect([table, r.column_name, r.anon, r.auth]).toEqual([table, r.column_name, want, want]);
+      }
+    }
+    // the hard-coded public lists above are exactly the granted columns
+    expect(TEAM_PUBLIC.split(', ').sort()).toEqual((await admin(`select column_name from information_schema.columns where table_schema = 'public' and table_name = 'teams' and column_name <> 'created_by'`)).rows.map((r) => r.column_name).sort());
+    expect(POST_PUBLIC.split(', ').sort()).toEqual((await admin(`select column_name from information_schema.columns where table_schema = 'public' and table_name = 'recruitment_posts' and column_name <> 'created_by'`)).rows.map((r) => r.column_name).sort());
+  });
+});

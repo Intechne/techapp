@@ -1,15 +1,24 @@
 import { getSupabase } from '../../lib/supabase';
 import { toAppError } from '../../lib/errors';
-import type { Database } from '../../lib/database.types';
+import type { Database, RecruitmentPostRow, TeamRow } from '../../lib/database.types';
 import type { TaskPriority, TeamRole, TaskStatus } from './logic';
 
 type Public = Database['public'];
-export type Team = Public['Tables']['teams']['Row'];
+export type Team = TeamRow;
 export type Membership = Public['Tables']['team_memberships']['Row'];
 export type TeamTask = Public['Tables']['team_tasks']['Row'];
-export type RecruitmentPost = Public['Tables']['recruitment_posts']['Row'];
+export type RecruitmentPost = RecruitmentPostRow;
 export type RosterEntry = Public['Functions']['team_roster']['Returns'][number];
 export type MyTeam = Membership & { team: Team };
+
+/**
+ * The columns the API roles may read (migration 20261112000300). `created_by` (the founder's user id, possibly a minor) is
+ * not granted, so `select('*')`, `teams(*)` or `returning *` on these tables fails with "permission denied".
+ * A column added to either table must be granted in a new migration AND added here.
+ */
+export const TEAM_PUBLIC_COLUMNS = 'id, organization_id, slug, name, kind, category, tagline, about, city, topic_interest_id, tone, accepts_join_requests, moderation_status, member_count, is_demo, created_at, updated_at' as const;
+export const RECRUITMENT_POST_COLUMNS = 'id, team_id, title, role_label, description, skills, is_open, closes_at, created_at, updated_at' as const;
+const MY_TEAMS_SELECT = `*, team:teams(${TEAM_PUBLIC_COLUMNS})` as const;
 
 export const teamKeys = {
   list: (kind: 'team' | 'community') => ['teams', 'list', kind] as const,
@@ -23,7 +32,7 @@ export const teamKeys = {
 };
 
 export async function fetchTeams(kind: 'team' | 'community'): Promise<Team[]> {
-  const { data, error } = await getSupabase().from('teams').select('*').eq('kind', kind).order('member_count', { ascending: false }).limit(30);
+  const { data, error } = await getSupabase().from('teams').select(TEAM_PUBLIC_COLUMNS).eq('kind', kind).order('member_count', { ascending: false }).limit(30);
   if (error) throw toAppError(error);
   return data;
 }
@@ -34,20 +43,20 @@ export async function fetchTeams(kind: 'team' | 'community'): Promise<Team[]> {
  * The role shown anywhere in the app comes from here or from team_roster.
  */
 export async function fetchMyTeams(userId: string): Promise<MyTeam[]> {
-  const { data, error } = await getSupabase().from('team_memberships').select('*, team:teams(*)')
+  const { data, error } = await getSupabase().from('team_memberships').select(MY_TEAMS_SELECT)
     .eq('user_id', userId).in('status', ['active', 'pending']).order('created_at', { ascending: false }).overrideTypes<MyTeam[], { merge: false }>();
   if (error) throw toAppError(error);
   return data.filter((m) => !!m.team);
 }
 
 export async function fetchTeam(teamId: string): Promise<Team> {
-  const { data, error } = await getSupabase().from('teams').select('*').eq('id', teamId).single();
+  const { data, error } = await getSupabase().from('teams').select(TEAM_PUBLIC_COLUMNS).eq('id', teamId).single();
   if (error) throw toAppError(error);
   return data;
 }
 
 export async function fetchOpenPosts(teamId: string): Promise<RecruitmentPost[]> {
-  const { data, error } = await getSupabase().from('recruitment_posts').select('*').eq('team_id', teamId).eq('is_open', true).order('created_at', { ascending: false }).limit(10);
+  const { data, error } = await getSupabase().from('recruitment_posts').select(RECRUITMENT_POST_COLUMNS).eq('team_id', teamId).eq('is_open', true).order('created_at', { ascending: false }).limit(10);
   if (error) throw toAppError(error);
   return data;
 }

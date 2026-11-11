@@ -100,7 +100,7 @@ describe('teams', () => {
     const captain = await createUser(); const otherCaptain = await createUser(); const applicant = await createUser();
     const team = await createTeam(captain); await createTeam(otherCaptain, 'Rakip');
     const post = (await asUser(captain, (q) => q(
-      `insert into public.recruitment_posts (team_id, title) values ($1, 'Yazılımcı arıyoruz') returning *`, [team.id]))).rows[0];
+      `insert into public.recruitment_posts (team_id, title) values ($1, 'Yazılımcı arıyoruz') returning id`, [team.id]))).rows[0];
     expect((await asAnon((q) => q(`select id from public.recruitment_posts where id = $1`, [post.id]))).rowCount).toBe(1);
     const app = (await asUser(applicant, (q) => q(`select * from public.apply_to_recruitment($1, 'Ben varım')`, [post.id]))).rows[0];
     await expectFail(asUser(otherCaptain, (q) => q(`select public.decide_recruitment_application($1, true)`, [app.id])), 403, 'team_manage_forbidden');

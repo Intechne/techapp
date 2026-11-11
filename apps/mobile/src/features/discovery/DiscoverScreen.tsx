@@ -14,6 +14,7 @@ import { useMyProfile } from '../profile/api';
 import { fetchEventsPage } from '../events/api';
 import { toEventCardModel } from '../events/labels';
 import { usePrefs } from '../onboarding/PrefsProvider';
+import { TEAM_PUBLIC_COLUMNS } from '../teams/api';
 import { pickFeatured } from './featured';
 
 async function fetchInterests(): Promise<InterestRow[]> {
@@ -25,7 +26,7 @@ async function fetchPreview(): Promise<{ opportunities: OpportunityRow[]; teams:
   const supabase = getSupabase();
   const [o, t] = await Promise.all([
     supabase.from('opportunities').select('*').eq('status', 'published').gte('closes_at', new Date().toISOString()).order('closes_at').limit(3),
-    supabase.from('teams').select('*').order('member_count', { ascending: false }).limit(3),
+    supabase.from('teams').select(TEAM_PUBLIC_COLUMNS).order('member_count', { ascending: false }).limit(3),
   ]);
   if (o.error) throw toAppError(o.error);
   if (t.error) throw toAppError(t.error);

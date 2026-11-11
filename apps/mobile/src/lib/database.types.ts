@@ -24,7 +24,12 @@ export type InterestRow = Tables<'interests'>;
 export type EventSessionRow = Tables<'event_sessions'>;
 export type EventRegistrationRow = Tables<'event_registrations'>;
 export type OpportunityRow = Tables<'opportunities'>;
-export type TeamRow = Tables<'teams'>;
+/**
+ * `teams` / `recruitment_posts`: the API roles may SELECT every column except `created_by` (migration
+ * 20261112000300_hide_creator_columns). Read them with TEAM_PUBLIC_COLUMNS / RECRUITMENT_POST_COLUMNS (features/teams/api.ts).
+ */
+export type TeamRow = Omit<Tables<'teams'>, 'created_by'>;
+export type RecruitmentPostRow = Omit<Tables<'recruitment_posts'>, 'created_by'>;
 export type CourseRow = Tables<'courses'>;
 
 /** `events.tone` is a checked text column; narrow it for the design system. */

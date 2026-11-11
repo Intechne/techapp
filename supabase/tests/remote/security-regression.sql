@@ -98,7 +98,7 @@ declare
   v_adult uuid; v_minor uuid; v_other uuid; v_token text; v_token2 text; v_org uuid; v_org_b uuid; v_event uuid; v_event_b uuid;
   v_reg uuid; v_reg2 uuid; v_req uuid; v_req2 uuid; j jsonb; v_text text; v_n int; i int; v_editor uuid; v_opp uuid;
   v_owner_a uuid; v_owner_b uuid; v_staff uuid; v_captain uuid; v_member uuid; v_team uuid; v_cap_m uuid; v_mem_m uuid;
-  v_appl uuid; v_sc_event uuid; v_sc_user uuid; v_sc_reg uuid; v_sc_code text;
+  v_appl uuid; v_sc_event uuid; v_sc_user uuid; v_sc_reg uuid; v_sc_code text; v_post uuid;
   v_out jsonb;
 begin
   -- ================================================================ CV
@@ -287,6 +287,24 @@ begin
     format($q$select public.check_in_by_short_code(%L, %L)$q$, v_sc_event, v_sc_code), '^PT403');
   perform pg_temp.t_fail('20f anon cannot call short-code check-in', 'anon', null,
     format($q$select public.check_in_by_short_code(%L, %L)$q$, v_sc_event, v_sc_code), '^42501');
+
+  -- 20261112000300: the founder's user id (teams.created_by / recruitment_posts.created_by) is not readable by the API roles
+  insert into public.recruitment_posts (team_id, title, created_by) values (v_team, 'Remote test ilanı', v_captain) returning id into v_post;
+  perform pg_temp.t_fail('21 anon cannot select teams.created_by', 'anon', null,
+    format('select created_by::text from public.teams where id = %L', v_team), '^42501');
+  perform pg_temp.t_fail('21b anon cannot select recruitment_posts.created_by', 'anon', null,
+    format('select created_by::text from public.recruitment_posts where id = %L', v_post), '^42501');
+  begin
+    v_n := pg_temp.t_val('anon', null, format(
+      $q$select ((select count(*) from public.teams where id = %L and member_count >= 1 and moderation_status = 'active')
+              + (select count(*) from public.recruitment_posts where id = %L and team_id = %L and is_open))::text$q$,
+      v_team, v_post, v_team))::int;
+    perform pg_temp.t_rec('21c anon still reads the public columns of both tables (control)', v_n = 2, 'rows=' || v_n);
+  exception when others then
+    perform pg_temp.t_rec('21c anon still reads the public columns of both tables (control)', false, sqlstate || ' ' || sqlerrm);
+  end;
+  perform pg_temp.t_fail('21d signed-in non-member cannot select * from teams', 'authenticated', v_other,
+    format('select * from public.teams where id = %L', v_team), '^42501');
 
   -- ================================================================ report (always rolls back)
   select jsonb_build_object('pass', count(*) filter (where pass), 'fail', count(*) filter (where not pass),
