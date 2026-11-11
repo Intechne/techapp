@@ -41,8 +41,11 @@ export function metaJoin(parts: (string | null | undefined)[]): string {
   return parts.map((p) => (p ?? '').trim()).filter(Boolean).join('\u00A0· ');
 }
 
-/** Keeps a short value on one line ("Son gün bugün", a tag): every space becomes non-breaking. */
-export const keepTogether = (s: string) => s.replace(/ /g, '\u00A0');
+/** Longest tag label kept on one line; beyond it the tag may wrap at spaces (a nowrap label wider than the slot breaks mid-word). */
+export const KEEP_TOGETHER_MAX = 24;
+
+/** Keeps a short value on one line ("Son gün bugün", a tag): every space becomes non-breaking. A long label only keeps its numbers together. */
+export const keepTogether = (s: string) => (s.length > KEEP_TOGETHER_MAX ? keepNumbersTogether(s) : s.replace(/ /g, '\u00A0'));
 
 /**
  * A number never leaves its neighbours: the spaces on both sides of a digit run become non-breaking, so "8 gün kaldı",

@@ -63,6 +63,12 @@ describe('keepTogether', () => {
   it('replaces spaces with non-breaking spaces', () => {
     expect(keepTogether('20 Kasım 2026')).toBe('20\u00A0Kasım\u00A02026');
   });
+  it('lets a long label wrap at spaces (a nowrap label wider than its slot breaks mid-word) but keeps its numbers', () => {
+    const long = 'KONTENJAN DOLDU · BEKLEME LİSTESİ AÇIK 999 KİŞİ';
+    expect(keepTogether(long)).toBe(keepNumbersTogether(long));
+    expect(keepTogether(long)).toContain('KONTENJAN DOLDU');
+    expect(keepTogether(long)).toContain('999\u00A0KİŞİ');
+  });
 });
 
 describe('formatCount', () => {

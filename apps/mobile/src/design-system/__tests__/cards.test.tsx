@@ -7,6 +7,12 @@ import {
 } from '..';
 import { worstCase, worstCaseTitles } from '../../dev/fixtures/worstCase';
 
+let mockWidth = 390;
+jest.mock('../useLayout', () => {
+  const actual = jest.requireActual('../useLayout');
+  return { ...actual, useLayout: () => ({ ...actual.useLayout(), width: mockWidth }) };
+});
+
 const flat = (el: { props: { style?: unknown } }) => StyleSheet.flatten(el.props.style as never) as Record<string, unknown>;
 
 const poster = (over: Partial<PosterCardProps> = {}): PosterCardProps => ({
@@ -59,6 +65,25 @@ describe('PosterCard', () => {
     await render(<PosterCard {...poster({ isDemo: true })} />);
     expect(screen.getByText('ÖRNEK')).toBeTruthy();
     expect(screen.getByRole('button', { name: /Örnek içerik$/ })).toBeTruthy();
+  });
+});
+
+describe('RowCard status placement', () => {
+  const view = { label: 'BAŞVURUN İNCELENİYOR', tone: 'iris' as const };
+  const card = () => <RowCard leading={{ kind: 'icon', icon: 'opportunity' }} title="Başvurum" trailing={{ kind: 'status', view }} onPress={jest.fn()} />;
+
+  it('keeps a status in the trailing slot on regular phones', async () => {
+    mockWidth = 390;
+    await render(card());
+    expect(screen.getByTestId('row-body').children.length).toBe(3); // tile, text column, trailing status
+    expect(screen.getAllByText(/İNCELENİYOR/u)).toHaveLength(1);
+  });
+
+  it('moves it under the text on 320 dp phones instead of squeezing its words', async () => {
+    mockWidth = 320;
+    await render(card());
+    expect(screen.getByTestId('row-body').children.length).toBe(2); // no trailing status sibling
+    expect(screen.getAllByText(/İNCELENİYOR/u)).toHaveLength(1);
   });
 });
 

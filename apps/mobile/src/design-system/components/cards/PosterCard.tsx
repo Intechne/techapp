@@ -107,8 +107,8 @@ export const PosterCard = React.memo(function PosterCard(p: PosterCardProps) {
           {p.isDemo && <DemoTag />}
         </View>
         <Text variant="cardTitle" numberOfLines={3} style={styles.title}>{p.title}</Text>
-        <Text testID="poster-meta" variant="caption" style={styles.metaStrong}>{keepNumbersTogether(metaJoin([p.dateLabel, p.placeLabel]))}</Text>
-        {!!second && <Text testID="poster-meta" variant="caption" color={sem.text.secondary} style={styles.metaSecond}>{keepNumbersTogether(second)}</Text>}
+        <Text testID="poster-meta" variant="caption" numberOfLines={2} style={styles.metaStrong}>{keepNumbersTogether(metaJoin([p.dateLabel, p.placeLabel]))}</Text>
+        {!!second && <Text testID="poster-meta" variant="caption" color={sem.text.secondary} numberOfLines={2} style={styles.metaSecond}>{keepNumbersTogether(second)}</Text>}
       </View>
     </CardBase>
   );

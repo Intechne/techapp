@@ -8,10 +8,14 @@ import type { StatusView } from '../Status';
 import { CardBase, CardSkeletonFrame, SkeletonLine } from './CardBase';
 import { BookmarkButton } from './BookmarkButton';
 import { DEMO_SPOKEN, DemoTag } from './DemoTag';
+import { useLayout } from '../../useLayout';
 import { cardLabel, clipForSpeech, keepNumbersTogether, keepTogether, spoken } from './label';
 import { cardLayout, cardMetrics, rowCardHeight, type RowLines } from './metrics';
 
 const sem = semantic.light;
+
+/** Window width (dp) under which a trailing status moves below the text. */
+const STACK_STATUS_BELOW = 360;
 
 export type RowCardLeading =
   | { kind: 'icon'; icon: TechIconName }
@@ -49,7 +53,10 @@ function LeadingTile({ leading }: { leading: RowCardLeading }) {
  * has none, gets its own last line; it never sits beside wrapping text. Numbers never break away from their unit.
  */
 export const RowCard = React.memo(function RowCard({ leading, title, secondary, footnote, footnoteTag, trailing, isDemo, onPress }: RowCardProps) {
+  const { width } = useLayout();
   const status = trailing?.kind === 'status' ? trailing.view : undefined;
+  // 320 px phones: a status in the trailing slot leaves the text ~80 px and breaks its words, so it moves under the text.
+  const stacked = !!status && width < STACK_STATUS_BELOW;
   const label = cardLabel([title, clipForSpeech(secondary), spoken(footnoteTag?.label), footnote, spoken(status?.label), isDemo ? DEMO_SPOKEN : null]);
   const bookmark = trailing?.kind === 'bookmark'
     ? <View style={styles.bookmarkLayer}><BookmarkButton saved={trailing.saved} onToggle={trailing.onToggle} labels={trailing.labels} /></View>
@@ -69,13 +76,14 @@ export const RowCard = React.memo(function RowCard({ leading, title, secondary, 
                   {isDemo && <DemoTag />}
                 </View>
               )}
-              {!!footnote && <Text testID="row-footnote" variant="caption" color={sem.text.secondary} style={styles.footnote}>{keepNumbersTogether(footnote)}</Text>}
+              {!!footnote && <Text testID="row-footnote" variant="caption" color={sem.text.secondary} numberOfLines={2} style={styles.footnote}>{keepNumbersTogether(footnote)}</Text>}
             </View>
           )}
+          {stacked && status && <View style={styles.demoLine}><Tag label={keepNumbersTogether(status.label)} tone={status.tone} icon={status.icon} /></View>}
           {isDemo && !footnoteTag && <View style={styles.demoLine}><DemoTag /></View>}
         </View>
         {trailing?.kind === 'chevron' && <View style={styles.chevron}><TechIcon name="chevron" size={18} color={sem.text.secondary} /></View>}
-        {status && <View style={styles.status}><Tag label={keepNumbersTogether(status.label)} tone={status.tone} icon={status.icon} /></View>}
+        {status && !stacked && <View style={styles.status}><Tag label={keepNumbersTogether(status.label)} tone={status.tone} icon={status.icon} /></View>}
       </View>
     </CardBase>
   );

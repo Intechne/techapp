@@ -43,8 +43,8 @@ export function Tag({ label, tone = 'iris', icon }: { label: string; tone?: TagT
   const t = tagTones[tone];
   return (
     <View style={[styles.tag, { backgroundColor: t.bg }]}>
-      {icon && <TechIcon name={icon} size={14} color={t.fg} />}
-      <Text variant="caption" style={{ color: t.fg, fontFamily: fonts.bodyBold, letterSpacing: 0.4 }}>{label}</Text>
+      {icon && <View style={styles.tagIcon}><TechIcon name={icon} size={14} color={t.fg} /></View>}
+      <Text variant="caption" style={{ flexShrink: 1, minWidth: 0, color: t.fg, fontFamily: fonts.bodyBold, letterSpacing: 0.4 }}>{label}</Text>
     </View>
   );
 }
@@ -76,7 +76,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center', gap: space[1],
   },
   chipSelected: { backgroundColor: colors.ink, borderColor: colors.ink },
-  tag: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', borderRadius: radius.small, paddingHorizontal: space[2], paddingVertical: 5 },
+  tag: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', maxWidth: '100%', borderRadius: radius.small, paddingHorizontal: space[2], paddingVertical: 5 },
+  /** A wrapping label must never squeeze the glyph (a long status in a narrow slot). */
+  tagIcon: { flexShrink: 0 },
   segmented: { flexDirection: 'row', gap: 4, backgroundColor: colors.surfaceSunken, borderRadius: radius.control, padding: 4 },
   segment: { flex: 1, minHeight: 40, borderRadius: radius.small, alignItems: 'center', justifyContent: 'center' },
   segmentActive: { backgroundColor: colors.surface },

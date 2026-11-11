@@ -40,6 +40,10 @@ export function heroAccessibilityLabel(title: string, meta?: string): string {
   return [title, meta].map((t) => strip(t ?? '')).filter(Boolean).join('. ');
 }
 
+/** The hero is one campaign line, not an article: a longer title or meta is clipped (the spoken label keeps all of it). */
+export const HERO_TITLE_LINES = 4;
+export const HERO_META_LINES = 2;
+
 /** Above this system font scale the decorative orbit steps aside (CTA and meta grow into its corner). */
 export const HERO_ORBIT_MAX_FONT_SCALE = 1.3;
 
@@ -69,10 +73,10 @@ export function HeroCard({ eyebrow, title, accent, meta, cta, onPress }: HeroCar
       style={({ pressed }) => [styles.hero, pressed && { backgroundColor: sem.action.primaryPressed }]}>
       <HeroOrbit cardWidth={width} fontScale={fontScale} />
       <View style={styles.heroRule}><View style={styles.rule} /><Text variant="eyebrow" color="white">{eyebrow}</Text></View>
-      <Text variant="title" color="white" accessibilityRole="text" style={{ marginTop: space[6], maxWidth: '78%' }}>
+      <Text variant="title" color="white" numberOfLines={HERO_TITLE_LINES} accessibilityRole="text" style={{ marginTop: space[6], maxWidth: '78%' }}>
         {parts[0]}{accent && parts.length > 1 && <Text variant="title" color="lime" accessibilityRole="text">{accent}</Text>}{parts[1]}
       </Text>
-      {meta && <Text variant="caption" color="white" style={{ marginTop: space[3], opacity: 0.85 }}>{meta}</Text>}
+      {meta && <Text variant="caption" color="white" numberOfLines={HERO_META_LINES} style={{ marginTop: space[3], opacity: 0.85 }}>{meta}</Text>}
       {cta && (
         <View style={styles.heroCta}>
           <Text variant="label" color="ink">{cta}</Text><TechIcon name="arrow" size={18} />
