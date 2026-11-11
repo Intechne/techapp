@@ -21,6 +21,7 @@ const L = semantic.light;
 const PAIRS: [string, string, string, number][] = [
   ['text.primary', L.text.primary, 'bg.canvas', 4.5], ['text.primary', L.text.primary, 'bg.surface', 4.5], ['text.primary', L.text.primary, 'bg.sunken', 4.5],
   ['text.secondary', L.text.secondary, 'bg.canvas', 4.5], ['text.secondary', L.text.secondary, 'bg.surface', 4.5],
+  ['text.secondary', L.text.secondary, 'action.primarySoft', 4.5], ['text.secondary', L.text.secondary, 'status.successSoft', 4.5], ['text.secondary', L.text.secondary, 'status.dangerSoft', 4.5],
   ['text.inverse', L.text.inverse, 'bg.inverse', 4.5], ['text.onInverseAccent', L.text.onInverseAccent, 'bg.inverse', 4.5],
   ['text.onAction', L.text.onAction, 'action.primary', 4.5], ['text.onAction', L.text.onAction, 'action.primaryPressed', 4.5],
   ['text.onLime', L.text.onLime, 'action.lime', 4.5], ['text.onLime', L.text.onLime, 'action.limePressed', 4.5],

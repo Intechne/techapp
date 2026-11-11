@@ -38,8 +38,8 @@ describe('TechIcon svg markup', () => {
     await render(el);
     return captured[captured.length - 1];
   };
-  it('decorative icons carry aria-hidden in the markup', async () => {
-    expect(await xmlOf(<TechIcon name="event" />)).toContain('aria-hidden="true"');
+  it('decorative icons keep aria-hidden out of the markup (the wrapper hides them)', async () => {
+    expect(await xmlOf(<TechIcon name="event" />)).not.toContain('aria-hidden');
   });
   it('labelled icons do NOT carry aria-hidden in the markup', async () => {
     expect(await xmlOf(<TechIcon name="verified" accessibilityLabel="Doğrulanmış" />)).not.toContain('aria-hidden');
