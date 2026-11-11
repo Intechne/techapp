@@ -1,0 +1,45 @@
+#include "__WORK__/pf.jsxinc"
+app.userInteractionLevel = UserInteractionLevel.DONTDISPLAYALERTS;
+var LOG = File("__WORK__/log.txt"); function log(s){LOG.open("a"); LOG.lineFeed="Unix"; LOG.writeln(s); LOG.close();}
+LOG.open("w"); LOG.close();
+var NUL = {writeln:function(){}};
+try {
+  var order = ["navigation","system","status","entities"];
+  var all = Folder("__WORK__/svg").getFiles("*.svg");
+  var doc = app.documents.add(DocumentColorSpace.RGB, 24, 24);
+  var cats = {};
+  for (var k = order.length-1; k >= 0; k--) { var L = doc.layers.add(); L.name = order[k]; cats[order[k]] = L; }
+  var COLS = 12, STEP = 48, row = 0, abs = [];
+  for (var o = 0; o < order.length; o++) {
+    var sub = [];
+    for (var j = 0; j < all.length; j++) { var n = decodeURI(all[j].name); if (n.indexOf(order[o]+"__")==0 && n.indexOf(".fill.svg")<0) sub.push(n); }
+    sub.sort();
+    for (var j = 0; j < sub.length; j++) {
+      var icon = sub[j].replace(order[o]+"__","").replace(".svg","");
+      var col = j % COLS; if (j > 0 && col == 0) row += 2;
+      var x = col*STEP, y = -row*STEP;
+      var g = cats[order[o]].groupItems.createFromFile(File("__WORK__/svg/"+sub[j])); g.name = icon;
+      var bg = findN(g,"BG"); var b = bg.geometricBounds; g.translate(x - b[0], y - b[1]); bg.remove();
+      abs.push([[x, y, x+24, y-24], icon]);
+      var pf = File("__WORK__/parts/"+order[o]+"__"+icon+".fill.svg");
+      if (pf.exists) {
+        var h = cats[order[o]].groupItems.createFromFile(pf);
+        var bg2 = findN(h,"BG"); var b2 = bg2.geometricBounds; h.translate(x - b2[0], y - STEP - b2[1]); bg2.remove();
+        var r = buildFill(h, NUL); r.name = icon + " · fill";
+        abs.push([[x, y-STEP, x+24, y-STEP-24], icon + " · fill"]);
+      }
+    }
+    row += 3;
+  }
+  for (var r = 0; r < abs.length; r++) {
+    if (r == 0) { doc.artboards[0].artboardRect = abs[r][0]; doc.artboards[0].name = abs[r][1]; }
+    else { var a = doc.artboards.add(abs[r][0]); a.name = abs[r][1]; }
+  }
+  for (var i = doc.layers.length-1; i >= 0; i--) if (doc.layers[i].pageItems.length == 0) doc.layers[i].remove();
+  doc.selection = null;
+  log("artboards " + abs.length);
+  doc.saveAs(File("__REPO__/design-source/icon-master/TechApp-Icons-OpenCircuit-v2.ai"));
+  var o2 = new ExportOptionsPNG24(); o2.artBoardClipping=false; o2.horizontalScale=500; o2.verticalScale=500; o2.transparency=false;
+  doc.exportFile(File("__WORK__/preview.png"), ExportType.PNG24, o2);
+  log("saved");
+} catch (e) { log("ERR " + e + " line " + e.line); }

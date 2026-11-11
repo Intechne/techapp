@@ -1,0 +1,29 @@
+var PF_UID = 0;
+function findN(g, n){ for (var i=0;i<g.pageItems.length;i++){ var p=g.pageItems[i]; if (p.name==n) return p; if (p.typename=="GroupItem"){var q=findN(p,n); if(q) return q;} } return null; }
+function sel(items){ app.activeDocument.selection = null; for (var i=0;i<items.length;i++) items[i].selected = true; }
+function S(){ return app.activeDocument.selection; }
+function cmd(c){ app.redraw(); app.executeMenuCommand(c); }
+function flat(item){ // outline stroke → unite → single compound path (each step tolerant of no-op selections)
+  var cur = item; var steps = ['OffsetPath v22', 'Live Pathfinder Add', 'expandStyle', 'ungroup', 'ungroup', 'compoundPath'];
+  for (var k = 0; k < steps.length; k++) {
+    if (k == 1 && cur.typename != 'GroupItem') continue; // nothing to unite
+    sel([cur]); cmd(steps[k]); if (typeof DBG != 'undefined') DBG.writeln('  step '+steps[k]+' sel='+S().length+' '+(S().length?S()[0].typename:''));
+    if (S().length == 1) cur = S()[0];
+    else if (S().length > 1) { cmd('compoundPath'); cur = S()[0]; }
+  }
+  return cur;
+}
+function buildFill(g, L){
+  // lift the parts out of the import group one by one; moving a child invalidates sibling references, so re-find each time
+  var lay = g.layer, got = {}, names = ["BODY", "CUT", "TOP"];
+  for (var i = 0; i < names.length; i++) { var it = findN(g, names[i]); if (it) { var u = names[i] + "_" + (++PF_UID); it.name = u; it.move(lay, ElementPlacement.PLACEATBEGINNING); got[names[i]] = u; } }
+  try { g.remove(); } catch (e) {}
+  var byName = function (n) { return got[n] ? lay.groupItems.getByName(got[n]) : null; };
+  var body = byName("BODY");
+  var res = flat(body);
+  var cut = byName("CUT");
+  if (cut) { var c = flat(cut); var pg = res.parent.groupItems.add(); res.move(pg, ElementPlacement.PLACEATEND); c.move(pg, ElementPlacement.PLACEATBEGINNING); sel([pg]); cmd('Live Pathfinder Subtract'); cmd('expandStyle'); cmd('ungroup'); cmd('compoundPath'); res = S()[0]; L.writeln(' minus '+S().length+' '+(res&&res.typename)); }
+  var top = byName("TOP");
+  if (top) { var t = flat(top); var grp = res.parent.groupItems.add(); res.move(grp, ElementPlacement.PLACEATEND); t.move(grp, ElementPlacement.PLACEATBEGINNING); res = grp; }
+  return res;
+}
