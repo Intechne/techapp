@@ -14,3 +14,4 @@ export * from './components/Overlays';
 export * from './components/Screen';
 export * from './components/Content';
 export * from './components/Status';
+export * from './components/StatusTimeline';

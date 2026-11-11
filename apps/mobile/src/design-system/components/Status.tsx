@@ -50,3 +50,42 @@ export function StatusBadge({ view }: { view: StatusView }) {
 export const RegistrationStatus = ({ status }: { status: RegStatus }) => <StatusBadge view={registrationStatusView[status]} />;
 export const ApplicationStatus = ({ status }: { status: keyof typeof applicationStatusView }) => <StatusBadge view={applicationStatusView[status]} />;
 export const VolunteerStatus = ({ status }: { status: keyof typeof volunteerStatusView }) => <StatusBadge view={volunteerStatusView[status]} />;
+
+export type RegistrationStepKey = 'registered' | 'guardian' | 'confirmed' | 'card';
+export type StepState = 'done' | 'current' | 'todo' | 'blocked';
+export interface RegistrationStep { key: RegistrationStepKey; label: string; state: StepState }
+
+export const registrationStepLabels: Record<RegistrationStepKey, string> = {
+  registered: 'Başvurun alındı',
+  guardian: 'Veli onayı',
+  confirmed: 'Katılım onayı',
+  card: 'Katılım kartı',
+};
+/** Spoken/visible state text; also the non-colour cue next to each step. */
+export const stepStateText: Record<StepState, string> = {
+  done: 'tamamlandı',
+  current: 'şu an bu adımda',
+  todo: 'sırada',
+  blocked: 'beklemede',
+};
+
+/**
+ * Maps the server's registration status to a display timeline. It never decides anything: `status` is the authority,
+ * `needsGuardian` only says whether the guardian step belongs in the line (a minor's registration).
+ * Cancelled registrations have no timeline.
+ */
+export function registrationSteps(status: RegStatus, needsGuardian: boolean): RegistrationStep[] {
+  if (status === 'cancelled') return [];
+  const guardian = needsGuardian || status === 'pending_guardian';
+  const s: Record<RegistrationStepKey, StepState> = { registered: 'done', guardian: 'todo', confirmed: 'todo', card: 'todo' };
+  switch (status) {
+    case 'pending_guardian': s.guardian = 'current'; break;
+    case 'pending_review': s.confirmed = 'current'; break;
+    case 'confirmed': s.guardian = 'done'; s.confirmed = 'done'; s.card = 'current'; break;
+    case 'waitlisted': s.guardian = 'done'; s.confirmed = 'blocked'; break;
+    case 'rejected': s.confirmed = 'blocked'; break;
+    case 'expired': if (guardian) s.guardian = 'blocked'; else s.confirmed = 'blocked'; break;
+  }
+  const keys: RegistrationStepKey[] = guardian ? ['registered', 'guardian', 'confirmed', 'card'] : ['registered', 'confirmed', 'card'];
+  return keys.map((key) => ({ key, label: registrationStepLabels[key], state: s[key] }));
+}

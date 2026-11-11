@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Button, Card, ErrorState, LoadingSkeleton, MetadataRow, Modal, Notice, RegistrationStatus, Screen, StatusBadge, TechIcon, Text, colors, guardianStatusView, space, useToast, type TechIconName } from '../../design-system';
+import { AppHeader, Button, Card, ErrorState, LoadingSkeleton, MetadataRow, Modal, Notice, RegistrationStatus, Screen, StatusBadge, StatusTimeline, TechIcon, Text, colors, guardianStatusView, registrationSteps, space, useToast, type TechIconName } from '../../design-system';
 import { formatDate, formatDateRange } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
 import type { RegistrationStatus as Status } from '../../lib/database.types';
@@ -26,7 +26,8 @@ export function RegistrationStatusScreen({ navigation, route }: NativeStackScree
   const [confirmCancel, setConfirmCancel] = useState(false);
   const reg = useQuery({ queryKey: eventKeys.registration(registrationId), queryFn: () => fetchRegistration(registrationId) });
   const needsGuardian = reg.data?.status === 'pending_guardian';
-  const guardian = useQuery({ queryKey: eventKeys.guardian(registrationId), queryFn: () => fetchGuardianRequest(registrationId), enabled: needsGuardian });
+  // Also read for finished registrations: a guardian request on record is what puts the guardian step on the timeline.
+  const guardian = useQuery({ queryKey: eventKeys.guardian(registrationId), queryFn: () => fetchGuardianRequest(registrationId), enabled: !!reg.data });
 
   const cancel = useMutation({
     mutationFn: () => cancelRegistration(registrationId),
@@ -43,6 +44,7 @@ export function RegistrationStatusScreen({ navigation, route }: NativeStackScree
   const r = reg.data; const h = HEADLINE[r.status];
   const live = (['confirmed', 'waitlisted', 'pending_guardian', 'pending_review'] as Status[]).includes(r.status);
   const guardianView = guardianStatusView[guardian.data?.status ?? 'not_sent'];
+  const steps = registrationSteps(r.status, needsGuardian || !!guardian.data);
   const canSendGuardian = needsGuardian && (!guardian.data || guardian.data.status !== 'pending');
 
   return (
@@ -66,6 +68,13 @@ export function RegistrationStatusScreen({ navigation, route }: NativeStackScree
         <MetadataRow icon="event">{formatDateRange(r.event.starts_at, r.event.ends_at)}</MetadataRow>
         <MetadataRow icon="location">{placeLabel(r.event)}</MetadataRow>
       </Card>
+
+      {steps.length > 0 && (
+        <Card style={{ marginTop: space[3] }}>
+          <Text variant="eyebrow" color="textSecondary" style={{ marginBottom: space[3] }}>SÜREÇ</Text>
+          <StatusTimeline steps={steps} />
+        </Card>
+      )}
 
       {needsGuardian && (
         <Card style={{ marginTop: space[3], gap: space[2] }}>

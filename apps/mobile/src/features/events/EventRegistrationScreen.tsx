@@ -69,7 +69,7 @@ export function EventRegistrationScreen({ navigation, route }: NativeStackScreen
 
       <View style={{ gap: space[3], marginTop: space[5] }}>
         {waitlist && <Notice tone="warning" title="Kontenjan şu an dolu">Bekleme listesine ekleneceksin. Yer açılırsa sıradaki kişi otomatik olarak kayda geçer ve haber veririz.</Notice>}
-        {el.guardian_required && <Notice tone="info" title="Veli onayı gerekecek">Yerini ayıracağız; katılımın, velin e-postayla gelen bağlantıdan onay verdiğinde kesinleşecek. Bağlantı 72 saat geçerli.</Notice>}
+        {el.guardian_required && <Notice tone="info" title="Veli onayı gerekecek">Yerini ayıracağız; katılımın, velin e-postayla gelen bağlantıdan onay verdiğinde kesinleşecek. Bağlantı süreli; son geçerlilik tarihini kayıttan sonra göreceksin.</Notice>}
         {e.requires_review && <Notice tone="info">Bu etkinlikte başvurular düzenleyen ekip tarafından değerlendiriliyor.</Notice>}
         <Notice tone="success" title="Düzenleyenle paylaşılacaklar">Adın ve kayıt durumun. İletişim bilgilerin ve doğum tarihin paylaşılmaz.</Notice>
         <Checkbox checked={accepted} onChange={(v) => { setAccepted(v); setShowError(false); }}

@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Button, Checkbox, Input, Notice, Screen, StatusBadge, Text, guardianStatusView, space, useToast } from '../../design-system';
+import { AppHeader, Button, Card, Checkbox, Input, Notice, Screen, StatusBadge, Text, guardianStatusView, space, useToast } from '../../design-system';
+import { formatDate, formatTime } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
 import type { SharedEventParamList } from '../../navigation/types';
 import { isValidEmail } from '../auth/authService';
@@ -43,11 +44,20 @@ export function GuardianRequestScreen({ navigation, route }: NativeStackScreenPr
       <Text variant="eyebrow" color="textSecondary">BİR ADIM DAHA</Text>
       <Text variant="display" style={{ marginTop: space[2] }}>Velinden{'\n'}onay isteyelim.</Text>
       <Text variant="body" color="textSecondary" style={{ marginTop: space[3] }}>
-        Velin; etkinliği, tarihini ve düzenleyeni görecek ve tek dokunuşla onaylayıp reddedebilecek. Bağlantı 72 saat geçerli ve tek kullanımlık.
+        Velin; etkinliği, tarihini ve düzenleyeni görecek ve tek dokunuşla onaylayıp reddedebilecek. Bağlantı süreli ve tek kullanımlıktır; gönderdiğinde son geçerlilik tarihini burada göreceksin.
       </Text>
       <View style={{ gap: space[5], marginTop: space[6] }}>
         {current.data && <StatusBadge view={guardianStatusView[current.data.status]} />}
-        {current.data?.status === 'pending' && <Notice tone="info">Daha önce {current.data.guardian_email_masked} adresine gönderdik. Yeniden gönderirsen önceki bağlantı geçersiz olur.</Notice>}
+        {current.data?.status === 'pending' && (
+          <Card style={{ gap: space[2] }}>
+            <Text variant="cardTitle">Velinin cevabını bekliyoruz.</Text>
+            <Text variant="bodySmall" color="textSecondary">
+              {current.data.guardian_email_masked} adresine onay bağlantısı gitti ({formatDate(current.data.last_sent_at ?? current.data.requested_at)}, {formatTime(current.data.last_sent_at ?? current.data.requested_at)}).
+              Bağlantı {formatDate(current.data.expires_at)} tarihine kadar geçerli.
+            </Text>
+            <Text variant="bodySmall" color="textSecondary">Velin onaylayınca kaydın otomatik kesinleşir; bu ekranı açık tutman gerekmez. Mail ulaşmadıysa spam klasörüne bak ya da aşağıdan yeniden gönder: önceki bağlantı geçersiz olur.</Text>
+          </Card>
+        )}
         <Input label="Velinin adı soyadı" value={name} onChangeText={setName} autoComplete="off" error={errors.name} />
         <Input label="Velinin e-posta adresi" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="off" error={errors.email}
           help="Kendi adresinden farklı olmalı." />
