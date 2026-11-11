@@ -2117,6 +2117,14 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      check_in_by_short_code: {
+        Args: {
+          p_event_id: string
+          p_session_id?: string
+          p_short_code: string
+        }
+        Returns: Json
+      }
       check_in_participant: {
         Args: {
           p_expected_event_id?: string
