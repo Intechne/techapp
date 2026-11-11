@@ -26,9 +26,9 @@ Robotik güçlü bir alandır; ürün yalnız robotik yarışmacıları için ta
 |---|---|---|
 | **Keşfet** | İlgiye göre etkinlikler, öne çıkan, arama, fırsat ve takım önizlemeleri | Gerçek backend; arama yalnız etkinlik |
 | **Etkinlikler** | Liste, tür filtresi, çevrim içi filtresi, detay, uygunluk, kayıt, veli, bekleme listesi, kayıt durumu, katılım kartı, iptal, katılımlarım | Uçtan uca (bireysel kayıt); takım kaydı yok |
-| **Fırsatlar** | Staj, gönüllülük, girişimcilik, yetenek programı, proje çağrısı | Salt okunur liste; başvuru backend'i hazır |
-| **Topluluk** | Topluluklar / Takımlar | Salt okunur liste; üyelik/görev backend'i hazır |
-| **Profil** | Profil kartı, katılımlarım, giriş kontrolü (yetkiliyse), çıkış, hesap silme | Temel; deneyim/proje/doğrulama yok |
+| **Fırsatlar** | Staj, gönüllülük, girişimcilik, yetenek programı, proje çağrısı | Liste, detay, paylaşım önizlemeli başvuru, başvurularım, son tarihler (kodda var; cihazda denenmedi) |
+| **Topluluk** | Topluluklar / Takımlar | Takım listesi/detayı, katılma isteği, takım oluşturma, çalışma alanı (kanban) ve görev düzenleyici (kodda var; cihazda denenmedi); açık roller yok |
+| **Profil** | Profil kartı, katılımlarım, giriş kontrolü (yetkiliyse), çıkış, hesap silme | Profil kartı, profil düzenleme, deneyim düzenleyici/detay + doğrulama talebi, CV paylaşımı, gönüllü alanı; rıza merkezi / ayarlar / yardım yok |
 
 ## v4 → yeni yapı eşlemesi (33 ekran)
 
@@ -44,20 +44,20 @@ Durum: ✅ taşındı · 🟡 kısmen · ⚪ başlamadı · 🔒 feature flag ar
 | `EventsScreen` | Etkinlikler (`EventsListScreen`, cursor pagination) | 4 | ✅ |
 | `EventDetailScreen` | `EventDetailScreen` + `EventRegistration` + `RegistrationStatus` + `ParticipationCard` | 4 | ✅ bireysel · ⚪ takım kaydı |
 | `NotificationsScreen` | Keşfet > Bildirimler (`notifications` tablosu hazır) | 10 | ⚪ |
-| `TeamsScreen` | Topluluk > Takımlar | 7 | 🟡 salt okunur |
-| `TeamDetailScreen` | Takım profili + katılma isteği | 7 | ⚪ (RPC hazır) |
-| `MyTeamScreen` | Topluluk > Takımım — Yapılacak / Devam ediyor / Tamamlandı | 7 | ⚪ (RPC hazır) |
+| `TeamsScreen` | Topluluk > Takımlar | 7 | ✅ liste (`CommunityScreen`) |
+| `TeamDetailScreen` | Takım profili + katılma isteği | 7 | ✅ (`TeamDetailScreen`, `request_team_join`) |
+| `MyTeamScreen` | Topluluk > Takımım — Yapılacak / Devam ediyor / Tamamlandı | 7 | 🟡 `TeamWorkspaceScreen` + `TeamTaskEditorScreen` + `CreateTeamScreen` var |
 | `CreateRecruitScreen` | Takımım > açık rol oluştur | 7 | ⚪ (tablo hazır) |
 | `RecruitDetailScreen` | Takım profili > açık roller | 7 | ⚪ (RPC hazır) |
-| `ListingsScreen` | Fırsatlar | 6 | 🟡 salt okunur |
-| `ListingDetailScreen` | Fırsat detayı + paylaşım önizlemesi + başvuru + durum takibi | 6 | ⚪ (RPC hazır) |
+| `ListingsScreen` | Fırsatlar | 6 | ✅ (`OpportunitiesScreen`, `DeadlinesScreen`) |
+| `ListingDetailScreen` | Fırsat detayı + paylaşım önizlemesi + başvuru + durum takibi | 6 | ✅ (`OpportunityDetail` + `OpportunityApply` + `MyApplications`) |
 | `CompaniesScreen` | Ayrı sekme yok; Fırsatlar içinde kurum listesi | 6 | ⚪ |
 | `CompanyDetailScreen` | Kurum profili (`organizations`) | 6 | ⚪ |
 | `TrainingsScreen` | Keşfet > Gelişim | 9 | ⚪ (tablolar + seed hazır) |
 | `TrainingDetailScreen` | Eğitim detayı + "Bu etkinliğe hazırlan" (`event_courses`) | 9 | ⚪ |
 | `LessonScreen` | Ders + ilerleme (`complete_lesson`) | 9 | ⚪ |
-| `ProfileScreen` | Profil | 8 | 🟡 temel |
-| `VerifyScreen` | Deneyim doğrulama (`attestations`); istemcide `verified: true` kaldırıldı | 8 | ⚪ (RPC hazır) |
+| `ProfileScreen` | Profil | 8 | 🟡 düzenleme, deneyim, CV paylaşımı var; gizlilik ayarı yok |
+| `VerifyScreen` | Deneyim doğrulama (`attestations`); istemcide `verified: true` kaldırıldı | 8 | 🟡 `ExperienceDetailScreen` içinde talep (`request_attestation`) |
 | `SettingsScreen` | Profil > Hesap (çıkış, sunucu tarafı hesap silme; eski reset yarışı giderildi) | 2 / 8 | 🟡 |
 | `ConsentCenterScreen` | Profil > Gizlilik ve izinler (`consents`: sürümlü, geri çekilebilir) | 8 | ⚪ (tablo hazır) |
 | `ChangePasswordScreen` | **Kaldırıldı** — şifresiz e-posta OTP | — | — |
@@ -88,4 +88,4 @@ v4'te olmayan yeni ekranlar: `RegistrationStatus`, `ParticipationCard`, `MyRegis
 
 ## İlk kilometre taşı: Event Pilot
 
-**HESAP → ETKİNLİK → KATILIM.** Kabul kriterleri (A–R) ve güncel karşılanma durumu `IMPLEMENTATION-STATUS.md` içindedir. Özet: sunucu tarafı ve uygulama akışı yerel yığında uçtan uca doğrulandı; **native derleme, gerçek Supabase projesi, gerçek e-posta ve HMS cihaz testi tamamlanmadan pilot "tamamlandı" sayılmaz.**
+**HESAP → ETKİNLİK → KATILIM.** Kabul kriterleri (A–R) ve güncel karşılanma durumu `IMPLEMENTATION-STATUS.md` içindedir. Özet: sunucu tarafı ve uygulama akışı yerel yığında uçtan uca doğrulandı; **cihazda/emülatörde çalıştırma, production projesi, hukuk metinleri ve HMS cihaz testi tamamlanmadan pilot "tamamlandı" sayılmaz.** Güncel kapı tablosu: `IMPLEMENTATION-STATUS.md` > V5.

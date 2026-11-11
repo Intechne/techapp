@@ -5,15 +5,17 @@ Kural: kod yazmak tamamlanma değildir. Test edilmeyen bir şey için "çalış�
 ## Komutlar
 
 ```bash
-npm run db:test                        # veritabanı: 47 test
+npm run db:test                        # veritabanı + Edge: 95 test (54329 doluysa boş port seçer)
 npm --prefix apps/mobile run typecheck # tsc --noEmit (strict + noUncheckedIndexedAccess)
 npm --prefix apps/mobile run lint      # expo lint + mimari kuralları
-npm --prefix apps/mobile test          # jest: 30 test
-npm --prefix apps/mobile run verify    # typecheck + lint + test
-npm --prefix apps/mobile run doctor    # expo-doctor: 21/21
+npm --prefix apps/mobile test          # jest: 93 test (15 süit)
+npm --prefix apps/mobile run verify    # typecheck + lint + test (93/93)
+npm --prefix apps/mobile run doctor    # expo-doctor 1.20.5 (sabit): 21/21
 ```
 
-## Veritabanı testleri — 47 test (`supabase/tests/`)
+Sayılar 11 Kasım 2026'da ölçüldü. `db:test` için `54329` portu doluysa komut otomatik olarak boş bir port seçer; elle `PORT` vermek gerekmez. HIG Doctor: `npx hig-doctor apps/mobile` (bkz. `docs/audits/2026-11-11-hig-doctor.md`).
+
+## Veritabanı testleri — 95 test, Edge dahil (`supabase/tests/`; aşağıdaki dosya dökümü 2026-09 tarihli ve eksiktir)
 
 Altyapı: Vitest + `embedded-postgres` (gerçek PostgreSQL 18, çoklu bağlantı) + `supabase-shim.sql` (`anon` / `authenticated` / `service_role` rolleri, `auth.users`, `auth.uid()`, Supabase varsayılan yetkileri). `helpers.ts` içindeki `asUser` / `asAnon` / `asService`, her sorguyu API'den gelirmiş gibi ilgili rol ve JWT claim'leriyle çalıştırır; RLS ve `execute` yetkileri gerçekten uygulanır.
 
@@ -31,7 +33,7 @@ Altyapı: Vitest + `embedded-postgres` (gerçek PostgreSQL 18, çoklu bağlantı
 
 `ecosystem.test.ts` (18): yetkisiz takım rolü değişikliği, kendi kendini terfi, son kaptan koruması, katılma isteği akışı, başvurularda kiracı yalıtımı, snapshot'ın yalnız `shared_fields` içermesi ve değişmezliği, durum geçişi doğrulaması + geçmiş, mükerrer başvuru, kendi deneyimini doğrulayamama ve geri çekilen doğrulamanın gizlenmesi, yer imi yalıtımı, sunucuda hesaplanan kurs ilerlemesi, `seed.sql`'in iki kez yüklenip 12/8/6/3 sayılarını vermesi.
 
-## Mobil testler — 30 test (jest-expo + Testing Library)
+## Mobil testler — 93 test, 15 süit (jest-expo + Testing Library; aşağıdaki liste ilk 30 testin dökümüdür)
 
 - `lib/dates`: takvim dışı tarihler (31.02, 29.02.2007), artık yıl, gelecek tarih, biçim
 - `lib/errors`: `PTxxx` eşlemesi, 401/403/404/429/5xx ayrımı, ağ hatası = `retryable`, ham backend mesajının sızmaması (bir gerçek hata bu testle bulundu)
@@ -50,9 +52,8 @@ Bu sırada bulunan ve düzeltilen hata: `event_eligibility` içinde `text[] || '
 
 ## YAPILMAYANLAR
 
-- **iOS / Android development build çalıştırılmadı** (makinede ~4 GB boş alan vardı). Native SecureStore, kamera, klavye, safe area, geri jesti doğrulanmadı.
-- Gerçek Supabase projesi, gerçek Supabase Auth, gerçek e-posta teslimi.
-- Edge Functions (`guardian-dispatch`, `delete-account`) ve storage migration'ı hiç çalıştırılmadı.
+- **Hiçbir EAS build cihazda ya da emülatörde çalıştırılmadı** (Android preview `cbdda535` derlendi, APK süresi doldu). Native SecureStore, kamera, klavye, safe area, geri jesti doğrulanmadı.
+- Staging (gerçek Supabase, Auth, e-posta, Edge Functions) 7 Ekim'de doğrulandı (remote regresyon 28/28, adult + minor/veli E2E); 11 Kasım'da yeniden koşulmadı. Production projesi yok.
 - GMS'siz Huawei cihaz testi.
 - VoiceOver / TalkBack denetimi, Dynamic Type en büyük ölçek, 320 pt genişlik.
 - Otomatik E2E. Öneri: **Maestro** (Expo development build ile uyumlu, HMS cihazda da çalışır).

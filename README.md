@@ -37,7 +37,7 @@ supabase/
   seed.sql         Yalnız geliştirme için örnek veri (tümü is_demo = true)
   tests/           Veritabanı entegrasyon testleri (Vitest + gömülü PostgreSQL)
   dev/             Docker gerektirmeyen yerel backend
-design-source/     "Open Circuit" tasarım paketi: tokens.json, 30 SVG ikon, ürün/UX belgeleri
+design-source/     "Open Circuit" tasarım paketi: tokens.json, 50 SVG ikon + 32 dolu durum (Open Circuit v2), ürün/UX belgeleri
 docs/              Mimari, veritabanı, auth, veli onayı, yayın, test, bilinen sorunlar
 .github/           CI, PR ve issue şablonları
 ```

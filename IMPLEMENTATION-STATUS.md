@@ -1,3 +1,42 @@
+> **V5 — 11 Kasım 2026 (dal `feat/v5-pilot-platform`).** Güncel durum bu bölümdedir. 7 Ekim ve daha eski bölümler **tarihsel kayıttır**; çelişen yerde bu bölüm geçerlidir. ✅ yalnız bugün ölçülen ya da kanıtı yazılı olan şey içindir.
+
+## V5 — 11 Kasım 2026
+Dal `feat/v5-pilot-platform` (`feat/techapp-stabilization` @ `a0a97c5`'ten). Commit'ler: `97f9cea`, `b1f0cf3`, `fef8e5a` (Open Circuit v2 ikonları), `1815770` (test portu / expo-doctor / SDK 57 yamaları), `fe5a478` (HIG denetimi). Dal **GitHub'a itilmedi**: varsayılan GitHub hesabının yazma yetkisi yok, kullanıcı bekleniyor.
+Pilot adayı: Cezeri Robot Ligi, Ümraniye, 27–29 Kasım 2026 — yalnız görevliler, Intechne ekibi ve az sayıda gönüllü test kullanıcısıyla kontrollü pilot; resmî takım kaydı TechApp dışında kalır. Hedef dondurma 21 Kasım; go/no-go 24 Kasım, kararı kullanıcı verir.
+
+### Bugünkü ölçümler (2026-11-11)
+| Kalem | Durum | Kanıt |
+|---|---|---|
+| Veritabanı + Edge testleri | ✅ | `npm run db:test` **95/95** (düz komut; 54329 doluysa boş port seçer) |
+| Mobil | ✅ | `verify` **93/93** (15 süit) + typecheck + lint |
+| Admin / web | ✅ | typecheck temiz |
+| expo-doctor | ✅ | `npm --prefix apps/mobile run doctor` **21/21** (expo-doctor 1.20.5 sabit) |
+| HIG Doctor | 🟡 | `npx hig-doctor apps/mobile`: 2 olası bulgu (TechIcon SVG metin rengi; OTP alanı letterSpacing/fontSize), 124 olumlu kalıp — [rapor](docs/audits/2026-11-11-hig-doctor.md). Otomatik denetim HIG uyumunu kanıtlamaz |
+| EAS Android build | 🟡 | `cbdda535` (preview), commit `a0a97c5`, FINISHED 2026-10-07: native derleme o commit için kanıtlı. APK artefaktının süresi doldu; **hiçbir cihazda/emülatörde çalıştırılmadı**. Mevcut dal için yeni build yok |
+| EAS iOS build | 🟡 | production `8af1d94c` FINISHED 2026-09-19 (`34dbc05`); development/simulator `cb297b76` 2026-09-19. Cihazda/simülatörde çalıştırılmadı |
+| Staging Supabase `pacvhcnawtnkauvguoaw` | 🟡 | 7 Ekim'de doğrulandı (14/14 migration, remote regresyon 28/28, adult + minor/veli E2E). **Bugün yeniden çalıştırılmadı** |
+| Production Supabase | ⛔ | Ayrı proje yok; EAS `production` ortamı hâlâ staging'i gösteriyor, env guard bunu bilerek reddeder |
+| Crash reporting | ⛔ | Sentry onaylı (PII/18 yaş altı şartlarıyla), henüz kurulmadı |
+
+### Pilot kapısı (spec §7 — hepsi ✅ olmadan "pilota hazır" denmez)
+| # | Kapı | Durum | Neden · sorumlu |
+|---|---|---|---|
+| 1 | Staging adult + minor/veli E2E, son build üzerinde | 🟡 | 7 Ekim PASS (eski commit); bugünkü build ile yeniden koşulmadı · geliştirme |
+| 2 | Ayrı production Supabase (migration, OTP şablonu, SMTP, secret'lar) | ⛔ | Proje yok; açılması kullanıcı onayı gerektirir · kullanıcı + geliştirme |
+| 3 | Hukuk: aydınlatma + veli onayı + koşullar onaylı ve sürümlü | ⛔ | Metinler yok (`/gizlilik`, `/kosullar` "hazırlanıyor"); gerçek kullanıcıya açılma blokeri · kullanıcı / hukuk |
+| 4 | EAS Android + iOS, emülatörde 8 adımlık yolculuk, gerçek iPhone + Android, Huawei check-in | ⛔ | Hiçbir build cihazda/emülatörde çalıştırılmadı; iOS cihaz/dağıtım yetkisi yok · geliştirme + kullanıcı |
+| 5 | Remote güvenlik regresyonu, yeni tablo RLS, 18 yaş altı görünürlük denetimi | 🟡 | 28/28 PASS 7 Ekim'de; V5 tabloları ve bugünkü şema ile yeniden koşulmadı · geliştirme |
+| 6 | Erişilebilirlik turu + HIG Doctor'da serious yok | 🟡 | HIG Doctor'da 2 olası bulgu; TalkBack/büyük yazı/320 pt turu yapılmadı · geliştirme |
+| 7 | Crash reporting açık veya kapalı olduğu yazılı kabul | ⛔ | Sentry kurulmadı; yazılı kabul de yok · geliştirme + kullanıcı |
+| 8 | Etkinlik günü planı (görevli hesapları, cihaz başına check-in testi, admin web + kısa kod yedeği) | ⛔ | Plan yazılmadı · kullanıcı + geliştirme |
+
+### Ürün gerçeği (kod üzerinde kontrol edildi, cihazda değil)
+- **Var:** Fırsatlar (detay, başvuru, başvurularım, son tarihler) ve Topluluk (takım detayı, takım oluşturma, takım çalışma alanı kanban, görev düzenleyici) artık salt okunur değil; profilde deneyim düzenleyici/detay, CV paylaşımı ve gönüllü alanı var. `apps/admin` boş değil (etkinlik, fırsat, doğrulama, onay, check-in sayfaları).
+- **Yok:** öğrenme ekranları, Kaydedilenler ekranı (yer imi arayüzü yalnız fırsatlarda), bildirimler (uygulama içi + push), uygulama içi ayarlar/gizlilik/rıza merkezi/yardım/yasal ekranlar, takım etkinlik kaydı (DB `registration_mode='team'` kaydı reddeder), birleşik arama (yalnız etkinlik), etkinlik/fırsat/takım kapak görselleri (kolon yok), crash reporting, Reanimated / Gesture Handler / Haptics. Admin'de kapak yükleme, oturum programı düzenleyici, kurum/üye yönetimi, audit ekranı eksik.
+- Uygulama ikonu/splash Expo yer tutucusu **değil** ("Açık devre T" amblemi); ikon sistemi Open Circuit v2 (50 SVG + 32 dolu durum).
+
+> **Tarihsel bölümler:** aşağıdaki 7 Ekim ve daha eski bölümler geçmiş kaydıdır; güncel hâli için yukarıdaki V5 bölümüne bakın.
+
 > **7 Ekim 2026 — stabilization sprint (dal `feat/techapp-stabilization`).** Güncel durum bu bölümdedir; aşağıdaki
 > eski bölümler tarihsel kayıttır. Kaynak: 7 Ekim denetim raporu.
 
