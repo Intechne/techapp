@@ -42,7 +42,8 @@ const metrics = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top:
 const clients: QueryClient[] = [];
 afterEach(() => { clients.splice(0).forEach((c) => c.clear()); });
 const renderScreen = async () => {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  // gcTime Infinity: no 5-minute GC timers are scheduled when the screen unmounts, so the jest worker can exit.
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false, gcTime: Infinity } } });
   clients.push(client);
   const props = { navigation: { goBack: jest.fn() }, route: { params: undefined } } as unknown as React.ComponentProps<typeof CheckInScreen>;
   await render(<SafeAreaProvider initialMetrics={metrics}><QueryClientProvider client={client}><CheckInScreen {...props} /></QueryClientProvider></SafeAreaProvider>);

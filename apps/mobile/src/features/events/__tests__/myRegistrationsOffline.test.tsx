@@ -81,10 +81,12 @@ describe('Katılımlarım after an offline cold start', () => {
     await saveCard('u1', card);
     mockFetchMine.mockRejectedValue(makeError('network_unreachable', 0));
     const item = { id: REG, status: 'confirmed', event: { id: 'e1', title: 'Eski Liste Etkinliği', starts_at: '2099-12-01T07:00:00Z', ends_at: '2099-12-01T12:00:00Z', city: 'İstanbul', venue: 'Salon', format: 'in_person' } };
-    await renderScreen(() => [item], new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 60_000 } } }));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } }); // keeps the seeded list; no GC timer
+    await renderScreen(() => [item], client);
     expect(await screen.findByText(/Liste en son yüklendiği hâliyle duruyor/)).toBeTruthy();
     expect(screen.getByText('Eski Liste Etkinliği')).toBeTruthy();
     expect(screen.queryByText('Çevrimdışı · kayıtlı kartların')).toBeNull();
     expect(screen.queryByText('Robotik Günü')).toBeNull();
+    client.clear();
   });
 });

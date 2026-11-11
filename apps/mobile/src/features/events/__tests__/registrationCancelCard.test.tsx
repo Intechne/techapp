@@ -40,7 +40,7 @@ const card = (id: string): ParticipationCard => ({
 const row = (id: string, status: string) => ({ id, user_id: 'u1', event_id: 'e1', status, created_at: '2026-11-01T10:00:00Z', event });
 const metrics = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
 const wrap = (ui: React.ReactElement) => {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false } } });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false, gcTime: Infinity } } });
   clients.push(client);
   return <SafeAreaProvider initialMetrics={metrics}><QueryClientProvider client={client}>{ui}</QueryClientProvider></SafeAreaProvider>;
 };
