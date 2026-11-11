@@ -2,6 +2,7 @@ import React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
 import { colors, layout, radius, space } from '../tokens';
 import { Text } from '../Text';
+import { PressableScale } from './PressableScale';
 import { TechIcon, type TechIconName } from '../TechIcon';
 
 type Kind = 'primary' | 'secondary' | 'lime' | 'danger';
@@ -26,7 +27,7 @@ export function Button({ label, kind = 'primary', icon, iconRight, loading, disa
   const p = palette[kind];
   const inactive = disabled || loading;
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityState={{ disabled: !!inactive, busy: !!loading }}
       disabled={inactive}
@@ -48,7 +49,7 @@ export function Button({ label, kind = 'primary', icon, iconRight, loading, disa
           {iconRight && <TechIcon name={iconRight} size={20} color={p.fg} />}
         </View>
       )}
-    </Pressable>
+    </PressableScale>
   );
 }
 

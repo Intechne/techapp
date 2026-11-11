@@ -17,6 +17,10 @@ describe('local prefs', () => {
     expect({ ...defaultPrefs, onboarded: true, educationStage: 'high_school', interestSlugs: ['robotik'], ...PERSONAL_PREFS_RESET })
       .toEqual({ ...defaultPrefs, onboarded: true });
   });
+  it('keeps parsing prefs stored before haptics existed (defaults to on)', async () => {
+    await AsyncStorage.setItem('techapp:prefs', JSON.stringify({ version: 1, onboarded: true, educationStage: 'high_school', interestSlugs: ['robotik'] }));
+    expect(await loadPrefs()).toEqual({ ...defaultPrefs, onboarded: true, educationStage: 'high_school', interestSlugs: ['robotik'], haptics: true });
+  });
   it('round-trips valid prefs', async () => {
     await savePrefs({ ...defaultPrefs, onboarded: true, interestSlugs: ['robotik'] });
     expect(await loadPrefs()).toEqual({ ...defaultPrefs, onboarded: true, interestSlugs: ['robotik'] });

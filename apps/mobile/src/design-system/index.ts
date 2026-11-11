@@ -6,6 +6,7 @@ export * from './useReducedMotion';
 export * from './useLayout';
 export * from './components/Grid';
 export * from './components/Button';
+export * from './components/PressableScale';
 export * from './components/Surface';
 export * from './components/Chips';
 export * from './components/Form';

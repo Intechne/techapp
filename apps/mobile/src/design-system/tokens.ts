@@ -37,7 +37,16 @@ export const radius = { small: 8, control: 14, card: 22, hero: 26, pill: 999 } a
 export const layout = { gutter: 20, touchTarget: 44, bottomNavHeight: 76, baseWidth: 390, minWidth: 320 } as const;
 /** Status timeline geometry: step dot, glyph size, ring/connector stroke. */
 export const timeline = { dot: 32, icon: 16, stroke: 2 } as const;
-export const motion = { fast: 160, standard: 220 } as const;
+export const motion = {
+  fast: 160,
+  standard: 220,
+  exit: 140,
+  pressScale: 0.97,
+  spring: {
+    snappy: { damping: 22, stiffness: 320 },
+    gentle: { damping: 26, stiffness: 180 },
+  },
+} as const;
 
 export const fonts = {
   heading: 'Manrope_800ExtraBold',

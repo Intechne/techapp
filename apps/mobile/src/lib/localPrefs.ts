@@ -13,10 +13,12 @@ const schema = z.object({
   onboarded: z.boolean(),
   educationStage: z.enum(['middle_school', 'high_school', 'university', 'graduate', 'other']).nullable(),
   interestSlugs: z.array(z.string()).max(20),
+  // Added after v1 shipped: older stored prefs lack it and must keep parsing (default on).
+  haptics: z.boolean().default(true),
 });
 export type LocalPrefs = z.infer<typeof schema>;
 
-export const defaultPrefs: LocalPrefs = { version: VERSION, onboarded: false, educationStage: null, interestSlugs: [] };
+export const defaultPrefs: LocalPrefs = { version: VERSION, onboarded: false, educationStage: null, interestSlugs: [], haptics: true };
 
 export async function loadPrefs(): Promise<LocalPrefs> {
   try {
