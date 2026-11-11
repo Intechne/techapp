@@ -9,6 +9,7 @@ import { track } from '../../lib/analytics';
 import { RESTORE_TIMEOUT_MS, RETRY_RESTORE_TIMEOUT_MS, restoreSessionOnLaunch, type UnavailableReason } from '../../lib/sessionRestore';
 import { queryClient } from '../../lib/queryClient';
 import { otpFlow } from './otpFlow';
+import { clearCards } from '../events/offlineCard';
 
 /**
  * A signed-in identity ended (sign-out, expiry, or a different account signed in): everything rendered or cached for it
@@ -44,6 +45,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     if (identityEnded(previousUserId.current, userId)) {
       queryClient.clear();
       otpFlow.clear();
+      void clearCards().catch(() => {}); // offline participation cards belong to the identity that ended; never block sign-out
       setIdentityEpoch((n) => n + 1);
     }
     previousUserId.current = userId;

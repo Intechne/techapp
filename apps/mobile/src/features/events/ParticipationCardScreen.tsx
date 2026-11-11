@@ -7,22 +7,27 @@ import { AppHeader, Card, Divider, ErrorState, LoadingSkeleton, MetadataRow, Not
 import { formatDateRange, formatTime, formatTimeRange } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
 import type { SharedEventParamList } from '../../navigation/types';
-import { eventKeys, fetchParticipationCard } from './api';
+import { useSession } from '../auth/SessionProvider';
+import { eventKeys } from './api';
+import { fetchCardWithOfflineFallback } from './offlineCard';
 import { placeLabel } from './labels';
 
 /** The QR is an opaque server-signed token (registration id + HMAC). It carries no personal data and is verified on the server. */
 export function ParticipationCardScreen({ navigation, route }: NativeStackScreenProps<SharedEventParamList, 'ParticipationCard'>) {
   const { registrationId } = route.params;
-  const card = useQuery({ queryKey: eventKeys.card(registrationId), queryFn: () => fetchParticipationCard(registrationId), staleTime: 0 });
+  const { userId } = useSession();
+  const card = useQuery({ queryKey: eventKeys.card(registrationId), queryFn: () => fetchCardWithOfflineFallback(userId, registrationId), staleTime: 0 });
 
   if (card.isPending) return <Screen header={<AppHeader onBack={navigation.goBack} />}><LoadingSkeleton cards={1} /></Screen>;
   if (card.isError) return <Screen header={<AppHeader onBack={navigation.goBack} />}><ErrorState error={toAppError(card.error)} onRetry={() => void card.refetch()} /></Screen>;
-  const c = card.data;
+  const c = card.data.card;
+  const cachedAt = card.data.cachedAt;
 
   return (
     <Screen header={<AppHeader onBack={navigation.goBack} title="Katılım kartı" />} refreshing={card.isRefetching} onRefresh={() => void card.refetch()}>
       <Text variant="display">Görüşmek üzere.</Text>
       <Text variant="body" color="textSecondary" style={{ marginTop: space[2] }}>Girişte bu kodu görevliye göster.</Text>
+      {cachedAt ? <View style={{ marginTop: space[4], alignSelf: 'flex-start' }}><Tag tone="apricot" icon="clock" label={`Son güncelleme: ${formatTime(cachedAt)} · çevrimdışı`} /></View> : null}
       <Card style={{ marginTop: space[5], padding: space[5] }}>
         {c.checked_in_at ? <Tag tone="moss" icon="check" label={`GİRİŞ YAPILDI · ${formatTime(c.checked_in_at)}`} /> : <Tag label="KATILIM KARTI" icon="ticket" />}
         <Text variant="section" style={{ marginTop: space[4] }}>{c.event.title}</Text>
@@ -38,6 +43,7 @@ export function ParticipationCardScreen({ navigation, route }: NativeStackScreen
           <QRCode value={c.qr_payload} size={208} color={colors.ink} backgroundColor={colors.white} ecl="M" />
           <Text style={{ fontFamily: fonts.bodyBold, fontSize: 18, letterSpacing: 4, color: colors.ink }}>{c.short_code}</Text>
         </View>
+        <Text variant="caption" color="textSecondary" style={{ marginTop: space[3], textAlign: 'center' }}>Ekran parlaklığını artırırsan kod daha hızlı okunur.</Text>
       </Card>
       <View style={{ marginTop: space[3] }}>
         <Notice tone="info">Giriş kontrolü etkinlikten 3 saat önce açılır. Kod sana özeldir; kaydını iptal edersen geçersiz olur.</Notice>
