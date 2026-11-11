@@ -44,6 +44,7 @@ Son güncelleme: 2026-11-11 (V5). Güncel durumun tek kaynağı `IMPLEMENTATION-
 - HIG Doctor: 2 olası bulgu (TechIcon SVG metin rengi; OTP alanı letterSpacing/fontSize) — `docs/audits/2026-11-11-hig-doctor.md`.
 - Reanimated, Gesture Handler, Haptics henüz yok; pilot build'inde Reanimated + Haptics + Sentry planlı.
 - **Dal `feat/v5-pilot-platform`:** fe5a478'e kadar GitHub'a itildi (yedek push, kullanıcı izniyle, Intechne hesabı üzerinden); sonraki commit'ler her görev incelemesinden sonra itilir.
+- **Açık (pilot sonrası, takımlar pilot dışına açılmadan önce kapatılmalı):** `teams.created_by` ve `recruitment_posts.created_by` herkese açık okunur (anon dahil). Reşit olmayan bir takım kurucusunun kullanıcı UUID'si (adı değil) görünür; 18 yaşını doldurup `discoverable` olduğunda bu UUID profiline bağlanabilir. Şimdi düzeltilmedi: istemciler bu tabloları `select('*')` ile okuyor, sütun yetkisini daraltmak bu sözleşmeyi kırar (sorgular sütun listesine geçmeli). Kaynak: Task 9 gizlilik denetimi (`supabase/tests/pilot-privacy.test.ts`).
 - Yerel yığın 7 Ekim'den beri yeni migration'ları mevcut veritabanına uygular (`supabase_migrations.schema_migrations`).
 
 ## Eksik ürün kapsamı

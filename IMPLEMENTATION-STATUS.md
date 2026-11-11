@@ -7,8 +7,8 @@ Pilot adayı: Cezeri Robot Ligi, Ümraniye, 27–29 Kasım 2026 — yalnız gör
 ### Bugünkü ölçümler (2026-11-11)
 | Kalem | Durum | Kanıt |
 |---|---|---|
-| Veritabanı + Edge testleri | ✅ | `npm run db:test` **95/95** (düz komut; 54329 doluysa boş port seçer) |
-| Mobil | ✅ | `verify` **93/93** (15 süit) + typecheck + lint |
+| Veritabanı + Edge testleri | ✅ | `npm run db:test` **109/109** (düz komut; 54329 doluysa boş port seçer). Yerelde 15 migration; `20261111000100_team_membership_notes_privacy` staging'e henüz uygulanmadı |
+| Mobil | ✅ | `verify` **160/160** (24 süit) + typecheck + lint |
 | Admin / web | ✅ | typecheck temiz |
 | expo-doctor | ✅ | `npm --prefix apps/mobile run doctor` **21/21** (expo-doctor 1.20.5 sabit) |
 | HIG Doctor | 🟡 | `npx hig-doctor apps/mobile`: 2 olası bulgu (TechIcon SVG metin rengi; OTP alanı letterSpacing/fontSize), 124 olumlu kalıp — [rapor](docs/audits/2026-11-11-hig-doctor.md). Otomatik denetim HIG uyumunu kanıtlamaz |
