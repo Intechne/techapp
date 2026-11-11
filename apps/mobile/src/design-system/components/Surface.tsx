@@ -1,5 +1,5 @@
-import React from 'react';
-import { Pressable, StyleSheet, View, type StyleProp, type ViewProps, type ViewStyle } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, View, useWindowDimensions, type StyleProp, type ViewProps, type ViewStyle } from 'react-native';
 import { colors, radius, space } from '../tokens';
 import { Text } from '../Text';
 import { TechIcon, type TechIconName } from '../TechIcon';
@@ -32,13 +32,37 @@ interface HeroCardProps {
   onPress?: () => void;
 }
 
+/** Spoken label for the hero: sentences are joined with one full stop even when the poster line already ends in punctuation. */
+export function heroAccessibilityLabel(title: string, meta?: string): string {
+  const strip = (t: string) => t.trim().replace(/[\s.!?…]+$/u, '');
+  return [title, meta].map((t) => strip(t ?? '')).filter(Boolean).join('. ');
+}
+
+/** Decorative orbit sized from the card width and tucked into the bottom-right corner, beside the CTA (never under the meta line). */
+export function HeroOrbit({ cardWidth, fontScale }: { cardWidth: number; fontScale: number }) {
+  // Large text grows the CTA and meta into the corner: the ring is purely decorative, so it steps aside.
+  if (cardWidth <= 0 || fontScale > 1.3) return null;
+  const s = Math.round(Math.max(72, Math.min(cardWidth * 0.28, 112)));
+  const inner = Math.round(s * 0.58), orb = Math.round(s * 0.16);
+  return (
+    <View style={styles.orbitLayer} aria-hidden accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <View style={[styles.orbit, { right: -s * 0.24, bottom: -s * 0.16, width: s, height: s, borderRadius: s / 2, borderWidth: Math.max(8, Math.round(s * 0.07)) }]} />
+      <View style={[styles.orbitInner, { right: -s * 0.03, bottom: s * 0.04, width: inner, height: inner, borderRadius: inner / 2, borderWidth: Math.max(6, Math.round(s * 0.053)) }]} />
+      <View style={[styles.orb, { right: s * 0.18, bottom: s * 0.24, width: orb, height: orb, borderRadius: orb / 2 }]} />
+    </View>
+  );
+}
+
 /** Campaign hero: the one place where a full Iris colour block is allowed. */
 export function HeroCard({ eyebrow, title, accent, meta, cta, onPress }: HeroCardProps) {
+  const [width, setWidth] = useState(0);
+  const { fontScale } = useWindowDimensions();
   const parts = accent && title.includes(accent) ? title.split(accent) : [title];
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`${title}. ${meta ?? ''}`} onPress={onPress}
+    <Pressable accessibilityRole="button" accessibilityLabel={heroAccessibilityLabel(title, meta)} onPress={onPress}
+      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
       style={({ pressed }) => [styles.hero, pressed && { backgroundColor: colors.primaryPressed }]}>
-      <View style={styles.orbit} /><View style={styles.orbitInner} /><View style={styles.orb} />
+      <HeroOrbit cardWidth={width} fontScale={fontScale} />
       <View style={styles.heroRule}><View style={styles.rule} /><Text variant="eyebrow" color="white">{eyebrow}</Text></View>
       <Text variant="title" color="white" accessibilityRole="text" style={{ marginTop: space[6], maxWidth: '78%' }}>
         {parts[0]}{accent && parts.length > 1 && <Text variant="title" color="lime" accessibilityRole="text">{accent}</Text>}{parts[1]}
@@ -101,9 +125,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: space[2], alignSelf: 'flex-start', marginTop: space[5],
     backgroundColor: colors.lime, borderRadius: radius.pill, paddingHorizontal: space[4], minHeight: 44,
   },
-  orbit: { position: 'absolute', right: -46, bottom: -30, width: 190, height: 190, borderRadius: 95, borderWidth: 14, borderColor: colors.lime, opacity: 0.9, transform: [{ scaleY: 0.78 }, { rotate: '-18deg' }] },
-  orbitInner: { position: 'absolute', right: -6, bottom: 8, width: 110, height: 110, borderRadius: 55, borderWidth: 10, borderColor: '#7C78E8' },
-  orb: { position: 'absolute', right: 34, bottom: 46, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.apricot },
+  orbitLayer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none' },
+  orbit: { position: 'absolute', borderColor: colors.lime, opacity: 0.9, transform: [{ scaleY: 0.78 }, { rotate: '-18deg' }] },
+  orbitInner: { position: 'absolute', borderColor: '#7C78E8' },
+  orb: { position: 'absolute', backgroundColor: colors.apricot },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', marginTop: space[7], marginBottom: space[3], gap: space[2] },
   notice: { flexDirection: 'row', gap: space[3], borderRadius: radius.control, padding: space[4] },
 });
