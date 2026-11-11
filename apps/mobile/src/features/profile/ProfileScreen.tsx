@@ -69,7 +69,7 @@ export function ProfileScreen({ navigation }: NativeStackScreenProps<ProfileStac
   const incomplete = account.data && !account.data.profile_complete;
 
   return (
-    <Screen wide header={<AppHeader brand />} refreshing={cv.isRefetching} onRefresh={() => { void cv.refetch(); void account.refetch(); }}>
+    <Screen wide header={<AppHeader brand />} refreshing={cv.isRefetching} onRefresh={() => { void cv.refetch(); void account.refetch(); void regs.refetch(); }}>
       {cv.isPending ? <LoadingSkeleton cards={2} /> : cv.isError ? <ErrorState error={toAppError(cv.error)} onRetry={() => void cv.refetch()} /> : (() => {
         const { profile, experiences, participations, volunteering, teams, share_token: shareToken } = cv.data;
         const stats = profileStats(cv.data, regs.data ?? [], new Date());
@@ -98,7 +98,7 @@ export function ProfileScreen({ navigation }: NativeStackScreenProps<ProfileStac
             )}
 
             <View style={styles.stats} accessible accessibilityLabel={`${experiences.length} deneyim, ${verifiedCount} doğrulanmış, ${stats.attended} katıldığı etkinlik`}>
-              {([['Deneyim', experiences.length], ['Doğrulanmış', verifiedCount], ['Katıldığı', stats.attended]] as const).map(([label, n]) => (
+              {([['Deneyim', experiences.length], ['Doğrulanmış', verifiedCount], ['Katılım', stats.attended]] as const).map(([label, n]) => (
                 <View key={label} style={{ flex: 1, alignItems: 'center' }}><Text variant="section" color={label === 'Doğrulanmış' ? 'moss' : 'ink'}>{n}</Text><Text variant="caption" color="textSecondary">{label}</Text></View>
               ))}
             </View>

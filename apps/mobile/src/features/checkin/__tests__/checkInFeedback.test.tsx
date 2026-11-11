@@ -307,4 +307,13 @@ describe('manual check-in by short code (D1)', () => {
     await typeAndSubmit('ABCDEF12');
     expect(await screen.findByText('Bu istek bu şekilde yapılamıyor. Uygulamayı güncelleyip tekrar dener misin?')).toBeTruthy();
   });
+
+  it('manual field does not force upper case (full tokens are case-sensitive); a typed lowercase short code is normalised in code', async () => {
+    mockRpc.mockResolvedValue(ok('checked_in'));
+    await renderScreen();
+    await screen.findByText('Robot Ligi Finali');
+    expect(screen.getByPlaceholderText('ör. 0B8E1BD1').props.autoCapitalize).toBe('none');
+    await typeAndSubmit('ab12cd34');
+    await waitFor(() => expect(mockRpc).toHaveBeenLastCalledWith('check_in_by_short_code', { p_event_id: 'evA', p_short_code: 'AB12CD34' }));
+  });
 });

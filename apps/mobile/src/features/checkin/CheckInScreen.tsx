@@ -121,7 +121,7 @@ export function CheckInScreen({ navigation }: NativeStackScreenProps<ProfileStac
 
       {outcome ? <Button style={{ marginTop: space[4] }} label="Sıradaki katılımcı" onPress={next} /> : (
         <View style={{ marginTop: space[5], gap: space[3] }}>
-          <Input ref={input} label="Kodu elle gir" value={manual} onChangeText={setManual} autoCapitalize="characters" autoCorrect={false} autoComplete="off" placeholder="ör. 0B8E1BD1" help="Kartta QR'ın altında yazan 8 karakterlik kod." />
+          <Input ref={input} label="Kodu elle gir" value={manual} onChangeText={setManual} autoCapitalize="none" autoCorrect={false} autoComplete="off" placeholder="ör. 0B8E1BD1" help="Kartta QR'ın altında yazan 8 karakterlik kod." />
           <Button kind="secondary" label="Kodu doğrula" loading={mutation.isPending} disabled={!manual.trim() || needsEvent} onPress={() => submit(manual, 'manual')} />
           {needsEvent && !pickerLoading && <Text variant="caption" color="textSecondary">Önce etkinliği seç.</Text>}
         </View>

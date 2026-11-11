@@ -31,8 +31,8 @@ const card: ParticipationCard = {
 };
 const metrics = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
 const navigate = jest.fn();
-const renderScreen = async () => {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+const renderScreen = async (seed?: () => unknown[], client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })) => {
+  if (seed) client.setQueryData(['registrations', 'mine', 'u1'], seed());
   const props = { navigation: { navigate, goBack: jest.fn() }, route: { key: 'k', name: 'MyRegistrations' } } as unknown as React.ComponentProps<typeof MyRegistrationsScreen>;
   await render(<SafeAreaProvider initialMetrics={metrics}><QueryClientProvider client={client}><MyRegistrationsScreen {...props} /></QueryClientProvider></SafeAreaProvider>);
 };
@@ -68,6 +68,16 @@ describe('Katılımlarım after an offline cold start', () => {
     mockFetchMine.mockRejectedValue(makeError('contract_mismatch', 500));
     await renderScreen();
     expect(await screen.findByText(/Uygulama ile sunucu uyumsuz/)).toBeTruthy();
+    expect(screen.queryByText('Robotik Günü')).toBeNull();
+  });
+  it('with stale list data and no network: keeps the list and shows a small notice, not the saved-cards view', async () => {
+    await saveCard('u1', card);
+    mockFetchMine.mockRejectedValue(makeError('network_unreachable', 0));
+    const item = { id: REG, status: 'confirmed', event: { id: 'e1', title: 'Eski Liste Etkinliği', starts_at: '2099-12-01T07:00:00Z', ends_at: '2099-12-01T12:00:00Z', city: 'İstanbul', venue: 'Salon', format: 'in_person' } };
+    await renderScreen(() => [item], new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 60_000 } } }));
+    expect(await screen.findByText(/Liste en son yüklendiği hâliyle duruyor/)).toBeTruthy();
+    expect(screen.getByText('Eski Liste Etkinliği')).toBeTruthy();
+    expect(screen.queryByText('Çevrimdışı · kayıtlı kartların')).toBeNull();
     expect(screen.queryByText('Robotik Günü')).toBeNull();
   });
 });

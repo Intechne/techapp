@@ -17,7 +17,10 @@ export function MyRegistrationsScreen({ navigation }: NativeStackScreenProps<Sha
   const q = useQuery({ queryKey: eventKeys.myRegistrations(userId), queryFn: () => fetchMyRegistrations(userId!), enabled: !!userId });
 
   // Cold start without network: the list needs the server, but a card saved earlier on this device still opens (this user's only).
-  const offline = q.isError && isNetworkClassError(q.error);
+  // Only when there is nothing to show: with stale data the list stays and a small notice says it may be out of date.
+  const networkError = q.isError && isNetworkClassError(q.error);
+  const offline = networkError && !q.data;
+  const staleOffline = networkError && !!q.data;
   const saved = useQuery({ queryKey: ['cards', 'offline', userId], queryFn: () => listCards(userId!), enabled: !!userId && offline, staleTime: 0, gcTime: 0 });
   const savedCards = saved.data ?? [];
   const showSaved = offline && savedCards.length > 0;
@@ -30,7 +33,7 @@ export function MyRegistrationsScreen({ navigation }: NativeStackScreenProps<Sha
         keyExtractor={(r) => r.id}
         contentContainerStyle={{ paddingHorizontal: layout.gutter, paddingBottom: space[8], gap: space[3] }}
         refreshControl={<RefreshControl refreshing={q.isRefetching} onRefresh={() => void q.refetch()} tintColor={colors.primary} />}
-        ListHeaderComponent={<View style={{ marginBottom: space[2] }}><Text variant="display">Attığın adımlar.</Text></View>}
+        ListHeaderComponent={<View style={{ marginBottom: space[2], gap: space[3] }}><Text variant="display">Attığın adımlar.</Text>{staleOffline && <Notice tone="info">Bağlantı yok. Liste en son yüklendiği hâliyle duruyor.</Notice>}</View>}
         renderItem={({ item }) => (
           <Card onPress={() => navigation.navigate('RegistrationStatus', { registrationId: item.id })} style={{ gap: space[2] }}
             accessibilityLabel={`${item.event.title}, kayıt durumu`}>
