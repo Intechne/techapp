@@ -176,9 +176,72 @@ describe('scrubEvent', () => {
     expect(out.tags).toEqual({ t: expected });
   });
 
-  it('keeps longer digit runs and ids intact (only stand-alone 6-digit codes are codes)', () => {
-    const out = scrubEvent({ type: undefined, message: 'build 1234567 id 6f1c2d3e-0000-4000-8000-000000000001' } as ErrorEvent)!;
-    expect(out.message).toBe('build 1234567 id 6f1c2d3e-0000-4000-8000-000000000001');
+  it('keeps longer digit runs (only stand-alone 6-digit codes are codes) but filters UUIDs (user / registration ids)', () => {
+    const out = scrubEvent({ type: undefined, message: 'build 1234567 id 6F1C2D3E-0000-4000-8000-000000000001 /rest/v1/profiles/6f1c2d3e-0000-4000-8000-00000000000a' } as ErrorEvent)!;
+    expect(out.message).toBe(`build 1234567 id ${F} /rest/v1/profiles/${F}`);
+  });
+
+  it.each([
+    ['Turkish local part', 'veli ayşe.yılmaz@okul.k12.tr yazdı', `veli ${F} yazdı`],
+    ['Unicode domain', 'mail: öğrenci@örnek.com.tr', `mail: ${F}`],
+    ['plus address', 'a+b@x.co', F],
+  ])('filters a %s e-mail completely', (_label, input, expected) => {
+    expect(scrubEvent({ type: undefined, message: input } as ErrorEvent)!.message).toBe(expected);
+  });
+
+  it.each([
+    ['no domain', 'buluşma @ 17:00'],
+    ['handle', 'takip et @techapp'],
+    ['no dot in domain', 'user@localhost'],
+  ])('leaves text with an @ but no e-mail untouched (%s)', (_label, input) => {
+    expect(scrubEvent({ type: undefined, message: input } as ErrorEvent)!.message).toBe(input);
+  });
+
+  it('filters values by sensitive key name at any depth', () => {
+    const out = scrubEvent({
+      type: undefined,
+      extra: {
+        access_token: 'abc', refreshToken: 'def', password: 'p', client_secret: 's', Authorization: 'x', cookie: 'c',
+        session: { id: 1 }, otp: 482913, email: 'a', e_mail: 'b', phone: '+90 555', birth_date: '2010-01-01',
+        guardian: { name: 'Veli' }, nested: { list: [{ guardianEmail: 'v' }] }, screen: 'Home', count: 3,
+      },
+    } as unknown as ErrorEvent)!;
+    expect(out.extra).toEqual({
+      access_token: F, refreshToken: F, password: F, client_secret: F, Authorization: F, cookie: F,
+      session: F, otp: F, email: F, e_mail: F, phone: F, birth_date: F,
+      guardian: F, nested: { list: [{ guardianEmail: F }] }, screen: 'Home', count: 3,
+    });
+  });
+
+  it('keeps machine codes and HTTP status codes under a "code" key, filters anything else there', () => {
+    const out = scrubEvent({
+      type: undefined,
+      tags: { code: 'otp_expired', screen: 'AuthOtp' },
+      extra: { code: '482913', error_code: 'render_crash', verify_code: 123456, otp_code: 'otp_invalid' },
+      breadcrumbs: [{ type: 'http', data: { url: 'https://x.io/a', status_code: 500 } }],
+    } as unknown as ErrorEvent)!;
+    expect(out.tags).toEqual({ code: 'otp_expired', screen: 'AuthOtp' });
+    expect(out.extra).toEqual({ code: F, error_code: 'render_crash', verify_code: F, otp_code: F });
+    expect(out.breadcrumbs![0]!.data).toEqual({ url: 'https://x.io/a', status_code: 500 });
+  });
+
+  it('scrubs custom contexts but leaves the SDK technical contexts as they are', () => {
+    const update = { update_id: '6f1c2d3e-0000-4000-8000-000000000001', channel: 'preview', runtime_version: '5.0.0' };
+    const out = scrubEvent({
+      type: undefined,
+      contexts: {
+        os: { name: 'Android', version: '15', build: 'AP3A.241105.008' },
+        app: { app_build: '123456', app_version: '5.0.0' },
+        ota_updates: update,
+        profile: { email: 'a@b.co', note: 'veli ayşe@okul.k12.tr', school: 'X' },
+      },
+    } as unknown as ErrorEvent)!;
+    expect(out.contexts).toEqual({
+      os: { name: 'Android', version: '15', build: 'AP3A.241105.008' },
+      app: { app_build: '123456', app_version: '5.0.0' },
+      ota_updates: update,
+      profile: { email: F, note: `veli ${F}`, school: 'X' },
+    });
   });
 
   it('removes request body, headers, cookies and query string; strips the URL query', () => {

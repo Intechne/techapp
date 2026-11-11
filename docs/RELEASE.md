@@ -24,7 +24,8 @@ Kod hazır, **bağlantı açık madde**: hesap/DSN/token yok, bu yüzden kapalı
 süresi kararı ve bağlantı adımları: [`docs/CRASH-REPORTING.md`](CRASH-REPORTING.md).
 - Source map / debug symbol yükleme: `SENTRY_AUTH_TOKEN` **yalnız EAS secret** (`--visibility secret`) + `SENTRY_ORG` +
   `SENTRY_PROJECT`. Üçü yoksa Sentry config plugin'i ve Metro config'i eklenmez; build yükleme adımı olmadan geçer.
-- OTA (`eas update`) sonrası source map: `npx sentry-expo-upload-sourcemaps dist` (token yalnız o komutun ortamında).
+- OTA (`eas update`): debug ID için token + org + project bundle'ı derleyen ortamda olmalı (EAS Workflow/CI; secret yerel
+  komuta inmez), sonra `npx sentry-expo-upload-sourcemaps dist`. Yoksa güncelleme yine yayınlanır, yalnız sembolizasyon kaybolur.
 - Production build preview/development DSN'iyle derlenmez (`envValidation.js` → `NON_PRODUCTION_SENTRY_PROJECT_IDS`).
 
 ## Intechne'nin sağlaması gerekenler

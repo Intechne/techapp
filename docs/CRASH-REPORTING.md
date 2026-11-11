@@ -39,8 +39,15 @@ veri minimizasyonu; saklama süresi belgelenir; DSN yoksa kurulum hazır, bağla
   siler, `sendDefaultPii: false` (SDK Relay'e `infer_ip: never` bildirir; sunucu IP çıkarmaz). Cihaz adı ve `server_name`
   silinir.
 - OTP kodu (tek başına duran 6 haneli sayı), JWT (`eyJ…`; access/refresh/anon), Supabase anahtarları (`sb_…`),
-  `Bearer …` başlıkları, katılım kartı QR içeriği (`TA1.…`), e-posta adresleri: mesaj, exception, breadcrumb, `extra` ve
-  etiketlerde `[filtered]` olur.
+  `Bearer …` başlıkları, katılım kartı QR içeriği (`TA1.…`), UUID'ler (kullanıcı/kayıt/takım kimlikleri; gruplama stack'e
+  göre olduğu için kayıp yok), e-posta adresleri (Unicode dahil: `ayşe.yılmaz@okul.k12.tr`): mesaj, exception, breadcrumb,
+  `extra`, etiketler ve SDK dışı context'lerde `[filtered]` olur.
+- Anahtar adına göre: `token`, `password`/`passwd`, `secret`, `authorization`, `cookie`, `session`, `otp`, `email`/`e_mail`,
+  `phone`, `birth`, `guardian` geçen her anahtarın değeri (iç içe dahil) `[filtered]` olur. Adında `code` geçen
+  anahtarda yalnız makine kodu (`otp_expired`, `render_crash`; `^[a-z][a-z0-9_]{0,63}$`) ve sayısal `status_code` kalır;
+  kişinin yazdığı kod (OTP) kalmaz. `captureError`'ın `code` etiketi de aynı kurala uyar.
+- Context'ler: SDK'nın teknik context'leri (`app`, `device`, `os`, `culture`, `runtime`, `trace`, `ota_updates`,
+  `react_native_context`) olduğu gibi kalır (yalnız cihaz adı silinir); diğer her context `extra` gibi temizlenir.
 - HTTP isteği gövdesi, başlıkları, çerezleri, query string'i, ortam değişkenleri: silinir. Her URL'den `?…` ve `#…` atılır
   (veli onay bağlantısı token'ı dahil).
 - Konsol çıktısı, ağ (xhr/fetch) breadcrumb'ları, dokunma/navigasyon breadcrumb'ları: kayıt edilmez. `Sentry.wrap`
@@ -54,15 +61,23 @@ veri minimizasyonu; saklama süresi belgelenir; DSN yoksa kurulum hazır, bağla
   mesajı olarak gider (`fieldErrors` asla).
 
 Sunucu tarafı ikinci savunma hattı (bağlantıda açılacak, aşağıda): Sentry projesinde "Data Scrubber" + "Use Default
-Scrubbers" açık, "Prevent Storing of IP Addresses" açık. Native çökmeler JS filtresinden geçmediği için bu ayarlar
-zorunludur.
+Scrubbers" açık, "Prevent Storing of IP Addresses" açık. Bu ayarlar **zorunludur**, çünkü şu olaylar native SDK'da üretilir
+ve JS `beforeSend`/`scrubEvent`'ten **geçmez**:
+
+- native çökmeler (Android Java/Kotlin + NDK, iOS Mach/signal/ObjC),
+- Android ANR (uygulama yanıt vermiyor),
+- iOS app hang (`enableAppHangTracking`, varsayılan açık),
+- iOS watchdog terminations (bellek/izleyici sonlandırması, `enableWatchdogTerminationTracking`, varsayılan açık).
+
+Bu olaylarda JS tarafından eklenmiş breadcrumb ve etiketler zaten temizlenmiş olarak native scope'a eşitlenmiştir; risk
+native SDK'nın kendi eklediği veridir (bu yüzden iOS otomatik breadcrumb'ları kapalı, aşağıdaki doğrulama 3–4).
 
 ## 18 yaş altı kuralı
 
 Kullanıcılar arasında 13–17 yaş var. Kural: Sentry'ye kişiyi tanımlayan **hiçbir** alan gitmez — kullanıcı kimliği
 (Supabase `auth.uid` dahil), e-posta, ad, doğum tarihi/yaş, okul, veli bilgisi, IP. Kimlik gerekirse yalnız SDK'nın
 rastgele kurulum kimliği. Yeni bir `captureError` çağrısı ya da etiket eklemek kod incelemesinde bu kurala göre
-denetlenir; etiket değerleri `^[A-Za-z][A-Za-z0-9_.-]{0,63}$` dışındaysa düşürülür.
+denetlenir; `screen` etiketi `^[A-Za-z][A-Za-z0-9_.-]{0,63}$`, `code` etiketi `^[a-z][a-z0-9_]{0,63}$` dışındaysa düşürülür.
 
 ## Ortam ayrımı
 
@@ -85,6 +100,9 @@ denetlenir; etiket değerleri `^[A-Za-z][A-Za-z0-9_.-]{0,63}$` dışındaysa dü
   hiçbir dosyaya yazılmıyor), geçici kopyada `expo prebuild --platform android --no-install --clean` (token yokken
   `build.gradle`'da Sentry satırı ve `sentry.properties` yok), `expo export --platform android` (iki yol da başarılı).
   Gerçek Gradle/Xcode derlemesi bu makinede koşulmadı; ilk EAS build'inde görülecek.
+- **Android izni:** RNSentry'nin manifest'i `android.permission.ACCESS_NETWORK_STATE` (ve `INTERNET`) ekler; manifest
+  birleştirmesiyle DSN olmasa da APK/AAB'ye girer. Play Console veri güvenliği formu / izin incelemesinde beyan edilir
+  (yalnız ağ durumunu okur; kişisel veri değildir).
 
 ## AÇIK MADDE 1 — Saklama süresi (Intechne kararı)
 
@@ -124,8 +142,12 @@ Hiçbir anahtar repoya, sohbete ya da `.env.example`'a yazılmaz.
    ```
    Üçü birden varsa `app.config.ts` plugin'i ve `metro.config.js` Sentry Metro config'ini kendiliğinden açar. Token yerel
    makinede `.env*` dosyasına yazılmaz.
-6. OTA güncellemelerinin source map'leri: `eas update` sonrası `npx sentry-expo-upload-sourcemaps dist` (token yalnız o
-   komutun ortamında, örn. EAS workflow secret).
+6. OTA güncellemeleri: debug ID'ler bundle **oluşturulurken** eklenir; yani `eas update` bundle'ı derlediği ortamda
+   `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` üçü birden bulunmalı (yoksa `metro.config.js` Sentry config'ini
+   kullanmaz). `secret` görünürlüğündeki EAS değişkenleri yerel `eas update --environment …` komutuna inmez: güncellemeyi
+   token'ın erişilebildiği bir EAS Workflow / CI işinde yayınla ya da token'ı yalnız o komutun shell ortamına ver (dosyaya
+   yazma). Sonra aynı ortamda `npx sentry-expo-upload-sourcemaps dist`. Token yoksa güncelleme yine sorunsuz yayınlanır;
+   etkisi **yalnız sembolizasyon** (o güncellemenin stack trace'leri okunmaz hale gelir), gizlilik ya da çalışma etkisi yok.
 
 ## Bağladıktan sonra doğrulama
 
@@ -134,8 +156,13 @@ Hiçbir anahtar repoya, sohbete ya da `.env.example`'a yazılmaz.
 2. Olayı aç ve kontrol et: `user` yok, IP yok, cihaz adı yok, breadcrumb'larda URL query'si / e-posta / 6 haneli kod yok,
    `request` gövdesi/başlığı yok, etiketler yalnız `screen`/`code`.
 3. Native çökme (Android test butonu ya da `adb shell am crash` benzeri) → olayda yalnız rastgele kurulum kimliği.
-4. Stack trace sembolize mi (source map yüklendi mi) bak; değilse `SENTRY_AUTH_TOKEN`/`ORG`/`PROJECT` ve build loglarındaki
+   Android ANR'de de aynı kontrol.
+4. **iOS:** native çökme ve app hang olayı tetikle (test build'inde `SentrySDK.crash()` / ana thread'i birkaç saniye
+   blokla) → olayın breadcrumb'larında NSURLSession URL'si (`http` tipi, Supabase adresleri) ve UI/touch breadcrumb'ı
+   **olmamalı** (`enableAutoBreadcrumbTracking`/`enableNetworkBreadcrumbs` sentry-cocoa'ya ulaştı mı kanıtı). Varsa
+   bağlantıyı durdur, kapatma yolunu düzelt.
+5. Stack trace sembolize mi (source map yüklendi mi) bak; değilse `SENTRY_AUTH_TOKEN`/`ORG`/`PROJECT` ve build loglarındaki
    `sentry-cli` satırları.
-5. `preview` build → yine dev projesi, `environment: preview`. `production` build → `techapp-mobile`, `environment:
+6. `preview` build → yine dev projesi, `environment: preview`. `production` build → `techapp-mobile`, `environment:
    production`. Production build'i dev DSN'iyle derlemeyi dene → `app.config.ts` reddetmeli (madde 3 yapıldıysa).
-6. Sonucu bu belgeye ve `docs/RELEASE.md` kontrol listesine tarihle yaz. Test edilmeyen şeye "çalışıyor" denmez.
+7. Sonucu bu belgeye ve `docs/RELEASE.md` kontrol listesine tarihle yaz. Test edilmeyen şeye "çalışıyor" denmez.
