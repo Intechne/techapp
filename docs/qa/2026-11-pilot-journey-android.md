@@ -119,6 +119,7 @@ uyarıyla çalıştı). 106 dosya, 357 tespit: 131 iyi, **1 critical**, 1 modera
 - **Tekrar:** reşit olmayan kayıt → veli linkini başka cihazda onayla → uygulamayı arka plana al/öne getir.
 - **Kanıt:** önce/sonra dump'ları ve `05-confirmed.jpg` (yenileme sonrası).
 - **Fix yönü:** RN için `focusManager.setEventListener(AppState…)` + `onlineManager`; durum ekranında odakta yeniden çekme.
+- **Durum:** düzeltildi (commit 0cc12a4), emülatörde yeniden doğrulanacak. AppState↔focusManager (onlineManager bağlanmadı); kayıt durumu odakta her zaman yeniden çekilir. Emülatörde: veli onayı → arka plan/öne getirme.
 
 ### D5 — P2 · Klavye açıkken alt eylem düğmesi klavyenin altında kalıyor
 - **Gerçek:** Android 16 (edge-to-edge, targetSdk 36), yerleşik Gboard açıkken e-posta ekranının alt düğmesi "Kodu gönder"
@@ -126,29 +127,35 @@ uyarıyla çalıştı). 106 dosya, 357 tespit: 131 iyi, **1 critical**, 1 modera
   OTP "Doğrula" ve profil "Devam et" ekranlarında da var (floating klavyede sorun görünmüyor, yerleşik klavyede görülüyor).
 - **Kanıt:** `04-keyboard-covers-footer.jpg`.
 - **Fix yönü:** `Screen` footer'ını klavyeden kaçınan yapıya almak (KeyboardAvoidingView/keyboard controller) ve Android 16'da doğrulamak.
+- **Durum:** düzeltildi (commit 46cb3e2 + 96c9f7c), emülatörde yeniden doğrulanacak. Android'de Screen alt eylemi klavye yüksekliğine göre yukarı alınır (yalnız jest ile mock'lu klavye olayı kanıtlandı). **Görsel kanıt emülatörde gerekir (Gboard, Android 16)**: e-posta, OTP, profil ekranları.
 
 ### D6 — P2 · 320 dp genişlikte alt sekme etiketi kesiliyor
 - **Gerçek:** "Etkinlikler" → "Etkinlikl…". Proje kuralı: "Alt sekmede etiket her zaman görünür", minimum genişlik 320.
 - **Kanıt:** `320dp-kesfet.jpg` (`wm size 720x1600`, `wm density 360`).
 - **Fix yönü:** sekme etiket stili (font boyutu/letterSpacing/numberOfLines/adjustsFontSizeToFit) 320'de test edilerek.
+- **Durum:** düzeltildi (commit eb8df4c), emülatörde yeniden doğrulanacak. etiket 12 pt'te kaldı, öğe iç boşluğunu kullanır; web 320×640'ta tüm etiketler sığıyor. Emülatörde (320 dp, DM Sans metrikleri) yeniden bakılacak.
 
 ### D7 — P3 · Detayda kayıt modu ve yaş/veli şartı görünmüyor
 - **Gerçek:** misafir detayında "Üniversite + genç mezun · Ücretsiz" görünüyor; `audienceLabel()` `audience_note` doluysa
   `min_age` (16+) bilgisini düşürüyor; `registration_mode` (bireysel/takım) hiç gösterilmiyor; "18 yaş altına veli onayı"
   ancak giriş yapıp kayıt formuna gelince görülüyor. Spec §3 adım 3: "takım/bireysel modu açık".
 - **Kanıt:** `03-detail.jpg`.
+- **Durum:** düzeltildi (commit fd8c215), emülatörde yeniden doğrulanacak. 'Bireysel/Takım kaydı · N yaş ve üzeri · M yaş altına veli onayı' satırı.
 
 ### D8 — P3 · Hero kartında dekoratif halka meta metnine biniyor
 - **Gerçek:** 320 dp'de ve yazı ölçeği 2.0'da lime halka "Hibrit ·" kelimesinin üzerinden geçiyor. Varsayılan ölçekte çakışma yok.
 - **Kanıt:** `320dp-kesfet.jpg`, `font2-kesfet.jpg`.
+- **Durum:** düzeltildi (commit 1264465), emülatörde yeniden doğrulanacak. halka kart genişliğine göre küçüldü, sağ alt köşeye alındı, dokunuşa şeffaf ve erişilebilirlikten gizli; yazı ölçeği >1,3'te hiç çizilmez. Emülatörde 320 dp + font 2.0 ile bakılacak.
 
 ### D9 — P3 · Hero erişilebilirlik etiketinde çift nokta
 - **Gerçek:** content-desc "Üretenler anlatıyor.. 21 Kasım 2026 · İzmir · Hibrit · Ücretsiz" (afiş cümlesi zaten noktayla bitiyor,
   birleştirmede bir nokta daha ekleniyor). Ekran okuyucuda duraklama/okuma tuhaflığı.
+- **Durum:** düzeltildi (commit 1264465), emülatörde yeniden doğrulanacak. etiket, sondaki noktalama kırpılarak birleştirilir.
 
 ### D10 — P3 · HIG Doctor critical: `TechIcon` web hedefinde gizlenmiyor
 - **Gerçek:** `--fail-on serious` kapısı `TechIcon.tsx:21` yüzünden düşüyor. Native'de doğru gizli; web'de `aria-hidden` yok.
 - **Fix yönü:** web dalında `aria-hidden`/`role="presentation"` verip kapıyı yeşile döndürmek (baseline'a almak yerine).
+- **Durum:** düzeltildi (commit 0007c49), emülatörde yeniden doğrulanacak. dekoratif ikon web'de aria-hidden, native'de gizli; etiketli ikon role=image. `hig-doctor apps/mobile --fail-on serious` önce: 1 critical (kapı düştü) → sonra: 0 critical, 1 moderate (kapı geçer).
 
 ## Gözlemler (hata değil)
 - Görevli, etkinlik başlamadan (3 saatlik pencerede) check-in yapınca kayıt profilde hem "Katıldığı 1" sayılıyor hem de
