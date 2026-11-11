@@ -32,6 +32,8 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test -- --ci
+      - name: Release bundle has no dev-only design preview
+        run: npm run check:no-dev-preview
 
   admin:
     name: Admin · typecheck, build

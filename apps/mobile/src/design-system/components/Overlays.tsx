@@ -71,7 +71,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={api}>
       {children}
       {toast && (
-        <Animated.View pointerEvents="none" style={[styles.toast, { bottom: insets.bottom + layout.bottomNavHeight + space[3], backgroundColor: bg, opacity }]}>
+        <Animated.View style={[styles.toast, { pointerEvents: 'none', bottom: insets.bottom + layout.bottomNavHeight + space[3], backgroundColor: bg, opacity }]}>
           <Text variant="bodySmall" color="white">{toast.message}</Text>
         </Animated.View>
       )}
