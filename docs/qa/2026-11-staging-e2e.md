@@ -27,7 +27,7 @@ Kanıtlar: `2026-11-staging-e2e/*.jpg`.
 | 7b | Aynı kod tekrar | **PASS** | `14` — "DAHA ÖNCE GİRİŞ YAPILMIŞ", ilk giriş saati |
 | 7c | Yanlış kod | **PASS** | `15` — "Bu kodla eşleşen bir kayıt yok." |
 | — | Hesabımı sil (uygulamadan) | **PASS** | Kullanıcı, kayıt, görevli üyeliği silindi; `seats_taken` 2→1 (sayıyla) |
-| 8 | Profilde katıldığı etkinlik (check-in sonrası) | **Bu turda bakılmadı** | 14 yaş hesabına yeniden giriş ek OTP gerektirirdi; Task 13'te yerelde PASS |
+| 8 | Profilde katıldığı etkinlik (check-in sonrası) | **PASS (12 Kasım)** | OTA sonrası yeni yetişkin hesap: kayıt → kart → staging'de sentetik görevliyle kısa kod check-in → profil "Katılım 1" |
 
 **Temizlik (staging, sayılarla doğrulandı):** test etkinliği, kurum, kayıtlar, check-in, veli isteği/gönderim kaydı, rızalar,
 kısa kod denemeleri, yetişkin test hesabı → **0**. Eylül tarihli 14 yaş test hesabı silinmedi (bu testte oluşturulmadı).
@@ -41,3 +41,14 @@ Emülatörde eski TechApp 1.0 (aynı paket adı, 2025) kullanıcı onayıyla kal
   üretilemedi (adb dokunuş kuyruğu şüphesi). Cihazda gözlenecek.
 - Kamera ile QR okutma emülatörde denenmedi (kısa kod yolu doğrulandı). Gerçek Android/iPhone/Huawei cihaz turu ⛔.
 - TalkBack bu turda da sürülemedi.
+
+## 12 Kasım ek tur — OTA + M2 + adım 8
+- **OTA:** `eas update --channel preview --environment preview` (commit `dc29d5d`) → update grubu `9e0e992d` (android `01a1cc7e`, runtime 5.0.0).
+  Emülatörde 1. açılışta indirildi (`DownloadComplete`), 2. açılışta çalıştı (`No update available`). Pilotta acil düzeltme yolu doğrulandı.
+- **M2 (cihazda ölçüldü):** uçak modu + soğuk açılış → Katılımlarım'a dokunduktan **4,3 sn** sonra "Kayıtlı kartların" bölümü kartla görünür
+  (önce ~60 sn). → **PASS**.
+- **Adım 8:** PASS (yukarıda).
+- **Ek gözlemler (küçük):** (1) İlk profil formunda alan düzeltildikten sonra eski doğrulama hatası yeniden gönderene kadar kalıyor.
+  (2) Check-in yapılmış ama henüz başlamamış etkinlik profilde "Yaklaşan" satırında "KATILIMIN ONAYLANDI" olarak kalıyor ("Giriş yapıldı" daha doğru olur).
+  (3) Emülatör yeniden başlatılınca `default_boot` snapshot'ı eski TechApp 1.0'ı geri getirdi → yeniden kaldırıldı (test ortamı, ürün sorunu değil).
+- **Temizlik (12 Kasım):** test etkinliği/kurumu, kayıtlar, iki yetişkin test hesabı (uygulamadan silindi), sentetik görevli → **0**.
