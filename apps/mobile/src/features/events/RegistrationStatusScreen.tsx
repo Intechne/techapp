@@ -24,7 +24,7 @@ export function RegistrationStatusScreen({ navigation, route }: NativeStackScree
   const { registrationId } = route.params;
   const qc = useQueryClient(); const toast = useToast();
   const [confirmCancel, setConfirmCancel] = useState(false);
-  const reg = useQuery({ queryKey: eventKeys.registration(registrationId), queryFn: () => fetchRegistration(registrationId) });
+  const reg = useQuery({ queryKey: eventKeys.registration(registrationId), queryFn: () => fetchRegistration(registrationId), refetchOnWindowFocus: 'always' });
   const needsGuardian = reg.data?.status === 'pending_guardian';
   // Also read for finished registrations: a guardian request on record is what puts the guardian step on the timeline.
   const guardian = useQuery({ queryKey: eventKeys.guardian(registrationId), queryFn: () => fetchGuardianRequest(registrationId), enabled: !!reg.data });

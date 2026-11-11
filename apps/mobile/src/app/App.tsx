@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
@@ -13,6 +13,7 @@ import { PendingIntentProvider } from '../features/auth/pendingIntent';
 import { PrefsProvider, usePrefs } from '../features/onboarding/PrefsProvider';
 import { env } from '../lib/env';
 import { makeError } from '../lib/errors';
+import { setupAppFocus } from '../lib/appFocus';
 import { queryClient } from '../lib/queryClient';
 import { linking } from '../navigation/linking';
 import { RootNavigator } from '../navigation/RootNavigator';
@@ -38,6 +39,7 @@ function Gate() {
 }
 
 export default function App() {
+  useEffect(() => setupAppFocus(), []);
   return (
     <SafeAreaProvider>
       <AppErrorBoundary>
