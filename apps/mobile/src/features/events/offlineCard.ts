@@ -86,13 +86,13 @@ export async function loadCard(userId: string, registrationId: string, now: () =
  * Every saved card of this user that is still valid, for a cold start without network. Expired and unreadable entries are
  * deleted on the way; other users' entries are never read or returned. Soonest event first.
  */
-export function listCards(userId: string, now: Date = new Date()): Promise<Array<{ registrationId: string; card: ParticipationCard; savedAt: string }>> {
+export function listCards(userId: string, now: Date = new Date()): Promise<{ registrationId: string; card: ParticipationCard; savedAt: string }[]> {
   if (!enabled()) return Promise.resolve([]);
   return serialised(async () => {
     const prefix = `card.${safe(userId)}.`;
     const index = await readIndex();
     const kept: string[] = [];
-    const found: Array<{ registrationId: string; card: ParticipationCard; savedAt: string }> = [];
+    const found: { registrationId: string; card: ParticipationCard; savedAt: string }[] = [];
     for (const key of index) {
       if (!key.startsWith(prefix)) { kept.push(key); continue; }
       let raw: string | null = null;
