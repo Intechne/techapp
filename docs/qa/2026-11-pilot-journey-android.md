@@ -86,6 +86,7 @@ uyarıyla çalıştı). 106 dosya, 357 tespit: 131 iyi, **1 critical**, 1 modera
   staging'e migration henüz uygulanmadı (kullanıcı onayıyla).
 
 ### D2 — P1 · Düzenleyen/görevli hesabında "Katılımlarım" ve profil "Yaklaşan" başkalarının kayıtlarını gösteriyor
+- **Durum:** düzeltildi (commit 1a7a0a3), emülatörde yeniden doğrulanacak. Web önizlemede organizatör Profil ve Katılımlarım'da yalnız kendi tek kaydını görüyor.
 - **Gerçek:** `organizator@` profilinde "Yaklaşan" altında Genç Ürün Geliştiriciler Konferansı **iki kez** (kendi kaydı +
   Deniz Pilot'un kaydı) ve **Arduino ile İlk Devren — VELİ ONAYI BEKLENİYOR** (audit.minor'un kaydı; organizatörün bu
   etkinlikte kaydı yok) "yaklaşan kayıt. Durumu aç" olarak listelendi. DB'de organizatörün tek kaydı var.
@@ -99,6 +100,7 @@ uyarıyla çalıştı). 106 dosya, 357 tespit: 131 iyi, **1 critical**, 1 modera
 - **Fix yönü:** sorguya `user_id = auth.uid()` filtresi (ya da `my_registrations` görünümü/RPC'si) + rol sahibi kullanıcıyla test.
 
 ### D3 — P1 · Çevrimdışı soğuk açılışta katılım kartına ulaşılamıyor
+- **Durum:** düzeltildi (commit 4898898; Katılımlarım'da 'Çevrimdışı · kayıtlı kartların'), emülatörde yeniden doğrulanacak. Profil 'Yaklaşan' kapsam dışı.
 - **Beklenen (spec §3 adım 6):** son alınan imzalı kart önbellekten, "son güncelleme" etiketiyle görüntülenir.
 - **Gerçek:** önbellek (`offlineCard.ts`, SecureStore) var ve aynı oturumda karta dönünce çalışıyor. Ama uygulama çevrimdışıyken
   yeniden başlatılınca karta giden tüm yollar ağa bağlı: Etkinlikler → Katılımlarım ~30 sn iskelet sonrası "Bağlantı yok gibi
