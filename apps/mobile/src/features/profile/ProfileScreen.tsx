@@ -22,8 +22,8 @@ import { EDUCATION_LABEL, KIND_ICON, KIND_LABEL, TEAM_ROLE_LABEL } from './label
 import { formatRange } from './logic';
 import { CvShareCard } from './CvShareCard';
 import { ProvenanceBadge } from './ProvenanceBadge';
+import { CHECKIN_ROLES } from '../checkin/api';
 
-const CHECKIN_ROLES = ['owner', 'admin', 'checkin_staff'];
 const SEGMENTS = ['Deneyimler', 'Katılımlar', 'Takımlar'] as const;
 
 function ExperienceCard({ item, onPress }: { item: CvExperience; onPress: () => void }) {

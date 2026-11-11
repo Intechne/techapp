@@ -1,25 +1,30 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, StyleSheet, TextInput, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Button, Card, Input, Screen, TechIcon, Text, checkInOutcomeView, colors, radius, space } from '../../design-system';
-import { formatTime } from '../../lib/dates';
+import { AppHeader, Button, Card, Input, Notice, Screen, Select, Skeleton, TechIcon, Text, checkInOutcomeView, colors, radius, space } from '../../design-system';
+import { formatDateRange, formatTimeRange, formatTime } from '../../lib/dates';
 import { haptics } from '../../lib/haptics';
-import { parsePayload, toAppError } from '../../lib/errors';
-import { getSupabase } from '../../lib/supabase';
-import { checkInResultSchema, type CheckInResult } from '../../lib/database.types';
+import { toAppError } from '../../lib/errors';
 import type { ProfileStackParamList } from '../../navigation/types';
-
-async function checkIn(token: string): Promise<CheckInResult> {
-  const { data, error } = await getSupabase().rpc('check_in_participant', { p_token: token.trim() });
-  if (error) throw toAppError(error);
-  return parsePayload(checkInResultSchema, data);
-}
+import { useAccountState } from '../auth/SessionProvider';
+import { CHECKIN_ROLES, checkIn, fetchCheckInEvents, isFullToken } from './api';
 
 /** Organizer check-in. The scan only reads an opaque token; validity and the staff member's permission are decided by the server. */
 export function CheckInScreen({ navigation }: NativeStackScreenProps<ProfileStackParamList, 'CheckIn'>) {
   const [permission, requestPermission] = useCameraPermissions();
+  const account = useAccountState();
+  const orgIds = [...new Set((account.data?.organization_roles ?? []).filter((r) => CHECKIN_ROLES.includes(r.role)).map((r) => r.organization_id))].sort();
+  const events = useQuery({
+    queryKey: ['checkin-events', orgIds],
+    enabled: account.isSuccess,
+    queryFn: () => fetchCheckInEvents(orgIds),
+  });
+  // The staff member's choice lives in this screen only. A single qualifying event is preselected.
+  const [chosen, setChosen] = useState<string | null>(null);
+  const list = events.data ?? [];
+  const eventId = (chosen && list.some((e) => e.id === chosen) ? chosen : null) ?? (list.length === 1 ? list[0]!.id : null);
   const [manual, setManual] = useState('');
   const [scanning, setScanning] = useState(true);
   const [resets, setResets] = useState(0);
@@ -51,11 +56,12 @@ export function CheckInScreen({ navigation }: NativeStackScreenProps<ProfileStac
     onSettled: () => setScanning(false),
   });
 
-  const submit = (token: string) => {
-    if (locked.current || !token.trim()) return;
+  const submit = (value: string, source: 'camera' | 'manual') => {
+    if (locked.current || !value.trim()) return;
     locked.current = true;
-    mutation.mutate(token);
+    mutation.mutate({ value, eventId, source });
   };
+  const needsEvent = !eventId && !isFullToken(manual);
   const next = () => {
     mutation.reset(); locked.current = false; setManual(''); setScanning(true);
     setResets((n) => n + 1);
@@ -79,7 +85,14 @@ export function CheckInScreen({ navigation }: NativeStackScreenProps<ProfileStac
       {!outcome && (
         <>
           <Text variant="display">Kodu okut.</Text>
-          <Text variant="body" color="textSecondary" style={{ marginTop: space[2], marginBottom: space[4] }}>Katılımcının katılım kartındaki QR kodunu kameraya göster.</Text>
+          <Text variant="body" color="textSecondary" style={{ marginTop: space[2], marginBottom: space[4] }}>Katılımcının katılım kartındaki QR kodunu kameraya göster ya da kartın altındaki 8 karakterlik kodu yaz.</Text>
+          <View style={{ marginBottom: space[4] }}>
+            {account.isPending || events.isPending ? <Skeleton height={64} rounded={radius.card} />
+              : events.isError ? <Notice tone="danger" title="Etkinlikler yüklenemedi">{toAppError(events.error).message}</Notice>
+              : list.length === 0 ? <Notice title="Bugün giriş kontrolü açılan bir etkinlik yok">Kısa kodla giriş için etkinlik gerekiyor. QR okutabilir ya da karttaki tam kodu yapıştırabilirsin.</Notice>
+              : <Select label="Etkinlik" value={eventId} onChange={setChosen}
+                  options={list.map((e) => ({ value: e.id, label: e.title, description: `${formatDateRange(e.starts_at, e.ends_at)} · ${formatTimeRange(e.starts_at, e.ends_at)}` }))} />}
+          </View>
         </>
       )}
 
@@ -98,14 +111,15 @@ export function CheckInScreen({ navigation }: NativeStackScreenProps<ProfileStac
       ) : (
         <View style={styles.camera}>
           <CameraView style={StyleSheet.absoluteFill} facing="back" barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-            onBarcodeScanned={scanning ? ({ data }) => submit(data) : undefined} />
+            onBarcodeScanned={scanning ? ({ data }) => submit(data, 'camera') : undefined} />
         </View>
       )}
 
       {outcome ? <Button style={{ marginTop: space[4] }} label="Sıradaki katılımcı" onPress={next} /> : (
         <View style={{ marginTop: space[5], gap: space[3] }}>
-          <Input ref={input} label="Kodu elle gir" value={manual} onChangeText={setManual} autoCapitalize="none" autoCorrect={false} placeholder="TA1.…" help="Kamera okuyamazsa karttaki tam kodu yapıştırabilirsin." />
-          <Button kind="secondary" label="Kodu doğrula" loading={mutation.isPending} disabled={!manual.trim()} onPress={() => submit(manual)} />
+          <Input ref={input} label="Kodu elle gir" value={manual} onChangeText={setManual} autoCapitalize="characters" autoCorrect={false} autoComplete="off" placeholder="ör. 0B8E1BD1" help="Kartta QR'ın altında yazan 8 karakterlik kod." />
+          <Button kind="secondary" label="Kodu doğrula" loading={mutation.isPending} disabled={!manual.trim() || needsEvent} onPress={() => submit(manual, 'manual')} />
+          {needsEvent && <Text variant="caption" color="textSecondary">Önce etkinliği seç.</Text>}
         </View>
       )}
     </Screen>

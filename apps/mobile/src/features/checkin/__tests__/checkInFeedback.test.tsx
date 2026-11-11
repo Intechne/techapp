@@ -7,7 +7,23 @@ import { CheckInScreen } from '../CheckInScreen';
 import { makeError } from '../../../lib/errors';
 
 const mockRpc = jest.fn();
-jest.mock('../../../lib/supabase', () => ({ getSupabase: () => ({ rpc: (...a: unknown[]) => mockRpc(...a) }) }));
+let mockEvents: { id: string; title: string; starts_at: string; ends_at: string }[] = [];
+const mockFrom = jest.fn();
+jest.mock('../../../lib/supabase', () => {
+  // Chainable stand-in for from('events').select().in().eq().gte().lte().order().limit()
+  const builder = (): Record<string, unknown> => {
+    const b: Record<string, unknown> = {};
+    for (const m of ['select', 'in', 'eq', 'gte', 'lte', 'order']) b[m] = (...a: unknown[]) => { mockFrom(m, ...a); return b; };
+    b.limit = async () => ({ data: mockEvents, error: null });
+    return b;
+  };
+  return { getSupabase: () => ({ rpc: (...a: unknown[]) => mockRpc(...a), from: (t: string) => { mockFrom('from', t); return builder(); } }) };
+});
+jest.mock('../../auth/SessionProvider', () => ({
+  useAccountState: () => ({ isPending: false, isSuccess: true, data: { organization_roles: [{ organization_id: 'org1', role: 'checkin_staff' }, { organization_id: 'org2', role: 'editor' }] } }),
+}));
+const EVENT_A = { id: 'evA', title: 'Robot Ligi Finali', starts_at: '2026-12-01T07:00:00Z', ends_at: '2026-12-01T15:00:00Z' };
+const EVENT_B = { id: 'evB', title: 'Atölye Günü', starts_at: '2026-12-01T09:00:00Z', ends_at: '2026-12-01T12:00:00Z' };
 jest.mock('../../../lib/haptics', () => ({ haptics: { success: jest.fn(), warning: jest.fn(), error: jest.fn(), selection: jest.fn() } }));
 const mockHaptics = jest.requireMock('../../../lib/haptics').haptics as Record<'success' | 'warning' | 'error' | 'selection', jest.Mock>;
 let mockGranted = true;
@@ -21,20 +37,26 @@ jest.mock('expo-camera', () => {
 });
 
 const metrics = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
+const clients: QueryClient[] = [];
+afterEach(() => { clients.splice(0).forEach((c) => c.clear()); });
 const renderScreen = async () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  clients.push(client);
   const props = { navigation: { goBack: jest.fn() }, route: { params: undefined } } as unknown as React.ComponentProps<typeof CheckInScreen>;
   await render(<SafeAreaProvider initialMetrics={metrics}><QueryClientProvider client={client}><CheckInScreen {...props} /></QueryClientProvider></SafeAreaProvider>);
+  // let the event-picker query settle so later updates happen inside act()
+  await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
 };
 const ok = (result: 'checked_in' | 'already_checked_in') => ({ data: { result, registration_id: 'r1', checked_in_at: '2026-12-01T07:30:00Z', holder_name: 'Ada Yılmaz' }, error: null });
 
 let announce: jest.SpyInstance;
 beforeEach(() => {
-  jest.clearAllMocks(); mockGranted = true; mockScan = undefined;
+  jest.clearAllMocks(); mockGranted = true; mockScan = undefined; mockEvents = [EVENT_A];
   announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => {});
 });
+const PLACEHOLDER = 'ör. 0B8E1BD1';
 const typeAndSubmit = async (code: string) => {
-  await fireEvent.changeText(screen.getByPlaceholderText('TA1.…'), code);
+  await fireEvent.changeText(screen.getByPlaceholderText('ör. 0B8E1BD1'), code);
   await fireEvent.press(screen.getByText('Kodu doğrula'));
 };
 
@@ -105,7 +127,7 @@ describe('check-in feedback', () => {
     mockGranted = false;
     await renderScreen();
     expect(screen.getByText('Kameraya izin ver')).toBeTruthy();
-    expect(screen.getByPlaceholderText('TA1.…')).toBeTruthy();
+    expect(screen.getByPlaceholderText('ör. 0B8E1BD1')).toBeTruthy();
   });
 
   it('feedback throwing never changes the displayed outcome', async () => {
@@ -143,5 +165,94 @@ describe('check-in feedback', () => {
     await typeAndSubmit('TA1.abc');
     expect(await screen.findByText('GİRİŞ ONAYLANMADI')).toBeTruthy();
     expect(screen.queryByText('GİRİŞ ONAYLANDI')).toBeNull();
+  });
+});
+
+describe('manual check-in by short code (D1)', () => {
+  const verify = () => screen.getByRole('button', { name: 'Kodu doğrula' });
+
+  it('preselects the only qualifying event and sends the normalised short code to check_in_by_short_code', async () => {
+    mockRpc.mockResolvedValue(ok('checked_in'));
+    await renderScreen();
+    expect(await screen.findByText('Robot Ligi Finali')).toBeTruthy();
+    expect(screen.getByRole('radio', { name: /Robot Ligi Finali/ }).props.accessibilityState).toMatchObject({ checked: true });
+    // only organisations with a check-in role are queried
+    expect(mockFrom).toHaveBeenCalledWith('in', 'organization_id', ['org1']);
+    expect(mockFrom).toHaveBeenCalledWith('eq', 'status', 'published');
+    await typeAndSubmit(' 0b8e-1bd1 ');
+    expect(await screen.findByText('GİRİŞ ONAYLANDI')).toBeTruthy();
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(mockRpc).toHaveBeenCalledWith('check_in_by_short_code', { p_event_id: 'evA', p_short_code: '0B8E1BD1' });
+  });
+
+  it('a full TA1 token still uses check_in_participant, bound to the selected event', async () => {
+    mockRpc.mockResolvedValue(ok('checked_in'));
+    await renderScreen();
+    await screen.findByText('Robot Ligi Finali');
+    await typeAndSubmit('TA1.11111111-2222-3333-4444-555555555555.abcdef');
+    await screen.findByText('GİRİŞ ONAYLANDI');
+    expect(mockRpc).toHaveBeenCalledWith('check_in_participant', { p_token: 'TA1.11111111-2222-3333-4444-555555555555.abcdef', p_expected_event_id: 'evA' });
+  });
+
+  it('a camera scan passes the selected event so a QR from another event is flagged', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { code: 'PT409', message: 'ticket_wrong_event' } });
+    await renderScreen();
+    await screen.findByText('Robot Ligi Finali');
+    await act(async () => { mockScan!({ data: 'TA1.x.y' }); });
+    expect(await screen.findByText('Bu kart başka bir etkinliğe ait.')).toBeTruthy();
+    expect(mockRpc).toHaveBeenCalledWith('check_in_participant', { p_token: 'TA1.x.y', p_expected_event_id: 'evA' });
+  });
+
+  it('with several events nothing is preselected: a short code waits for a choice, a full token does not', async () => {
+    mockEvents = [EVENT_A, EVENT_B];
+    mockRpc.mockResolvedValue(ok('checked_in'));
+    await renderScreen();
+    await screen.findByText('Atölye Günü');
+    await fireEvent.changeText(screen.getByPlaceholderText(PLACEHOLDER), '0B8E1BD1');
+    expect(verify().props.accessibilityState).toMatchObject({ disabled: true });
+    expect(screen.getByText('Önce etkinliği seç.')).toBeTruthy();
+    await fireEvent.press(verify());
+    expect(mockRpc).not.toHaveBeenCalled();
+
+    await fireEvent.changeText(screen.getByPlaceholderText(PLACEHOLDER), 'TA1.abc');
+    expect(verify().props.accessibilityState).toMatchObject({ disabled: false });
+    expect(screen.queryByText('Önce etkinliği seç.')).toBeNull();
+
+    await fireEvent.changeText(screen.getByPlaceholderText(PLACEHOLDER), '0B8E1BD1');
+    await fireEvent.press(screen.getByRole('radio', { name: /Atölye Günü/ }));
+    expect(verify().props.accessibilityState).toMatchObject({ disabled: false });
+    await fireEvent.press(verify());
+    await screen.findByText('GİRİŞ ONAYLANDI');
+    expect(mockRpc).toHaveBeenCalledWith('check_in_by_short_code', { p_event_id: 'evB', p_short_code: '0B8E1BD1' });
+    // the choice survives "Sıradaki katılımcı"
+    await fireEvent.press(screen.getByText('Sıradaki katılımcı'));
+    expect(screen.getByRole('radio', { name: /Atölye Günü/ }).props.accessibilityState).toMatchObject({ checked: true });
+  });
+
+  it('no qualifying event: explains it and keeps the short-code button disabled', async () => {
+    mockEvents = [];
+    await renderScreen();
+    expect(await screen.findByText('Bugün giriş kontrolü açılan bir etkinlik yok')).toBeTruthy();
+    await fireEvent.changeText(screen.getByPlaceholderText(PLACEHOLDER), '0B8E1BD1');
+    expect(verify().props.accessibilityState).toMatchObject({ disabled: true });
+  });
+
+  it('429 after too many wrong codes: the throttle copy and one error haptic', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { code: 'PT429', message: 'short_code_rate_limited' } });
+    await renderScreen();
+    await screen.findByText('Robot Ligi Finali');
+    await typeAndSubmit('00000000');
+    expect(await screen.findByText("Çok fazla hatalı deneme. Birkaç dakika sonra tekrar dene ya da QR'ı okut.")).toBeTruthy();
+    expect(screen.getByText('GİRİŞ ONAYLANMADI')).toBeTruthy();
+    expect(mockHaptics.error).toHaveBeenCalledTimes(1);
+    expect(mockHaptics.success).not.toHaveBeenCalled();
+  });
+
+  it('404 from the short-code lookup (custom status body) maps to ticket_unknown copy', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { code: 'PT404', message: 'ticket_unknown', details: '', hint: null } });
+    await renderScreen();
+    await screen.findByText('Robot Ligi Finali');
+    await typeAndSubmit('ABCDEF12');
+    expect(await screen.findByText('Bu kodla eşleşen bir kayıt yok.')).toBeTruthy();
   });
 });
