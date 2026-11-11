@@ -35,6 +35,8 @@ export type Tone = keyof typeof tones;
 export const space = { 1: 4, 2: 8, 3: 12, 4: 16, 5: 20, 6: 24, 7: 32, 8: 40, 9: 48 } as const;
 export const radius = { small: 8, control: 14, card: 22, hero: 26, pill: 999 } as const;
 export const layout = { gutter: 20, touchTarget: 44, bottomNavHeight: 76, baseWidth: 390, minWidth: 320 } as const;
+/** Status timeline geometry: step dot, glyph size, ring/connector stroke. */
+export const timeline = { dot: 32, icon: 16, stroke: 2 } as const;
 export const motion = { fast: 160, standard: 220 } as const;
 
 export const fonts = {

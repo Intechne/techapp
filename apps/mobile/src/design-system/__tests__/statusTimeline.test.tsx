@@ -28,11 +28,14 @@ describe('registrationSteps', () => {
   it('pending_review: confirmation is current', () => {
     expect(states('pending_review', false)).toEqual({ registered: 'done', confirmed: 'current', card: 'todo' });
   });
-  it('rejected: confirmation is blocked', () => {
-    expect(states('rejected', false)).toEqual({ registered: 'done', confirmed: 'blocked', card: 'todo' });
+  it('rejected: confirmation failed, card will not happen (final, not pending)', () => {
+    expect(states('rejected', false)).toEqual({ registered: 'done', confirmed: 'failed', card: 'skipped' });
   });
-  it('expired: guardian step is blocked', () => {
-    expect(states('expired', true)).toEqual({ registered: 'done', guardian: 'blocked', confirmed: 'todo', card: 'todo' });
+  it('expired with guardian: guardian step failed, rest will not happen', () => {
+    expect(states('expired', true)).toEqual({ registered: 'done', guardian: 'failed', confirmed: 'skipped', card: 'skipped' });
+  });
+  it('expired without guardian: confirmation failed', () => {
+    expect(states('expired', false)).toEqual({ registered: 'done', confirmed: 'failed', card: 'skipped' });
   });
 });
 
@@ -47,6 +50,17 @@ describe('StatusTimeline', () => {
   it('announces a blocked step', async () => {
     await render(<StatusTimeline steps={registrationSteps('waitlisted', false)} />);
     expect(screen.getByLabelText('Katılım onayı, beklemede')).toBeTruthy();
+  });
+  it('rejected reads as final, never as waiting', async () => {
+    await render(<StatusTimeline steps={registrationSteps('rejected', false)} />);
+    expect(screen.getByLabelText('Katılım onayı, gerçekleşmedi')).toBeTruthy();
+    expect(screen.getByLabelText('Katılım kartı, gerçekleşmeyecek')).toBeTruthy();
+    expect(screen.queryByLabelText(/beklemede/)).toBeNull();
+  });
+  it('expired reads as final, never as waiting', async () => {
+    await render(<StatusTimeline steps={registrationSteps('expired', true)} />);
+    expect(screen.getByLabelText('Veli onayı, gerçekleşmedi')).toBeTruthy();
+    expect(screen.queryByLabelText(/beklemede/)).toBeNull();
   });
   it('renders nothing for an empty timeline', async () => {
     await render(<StatusTimeline steps={[]} />);

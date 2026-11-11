@@ -33,3 +33,7 @@ export function formatDateRange(startIso: string, endIso: string): string {
   return dayKey.format(s) === dayKey.format(e) ? full.format(s) : `${dayMonth.format(s)} – ${full.format(e)}`;
 }
 export const formatTimeRange = (startIso: string, endIso: string) => `${formatTime(startIso)}–${formatTime(endIso)}`;
+
+export const formatDateTime = (iso: string) => `${formatDate(iso)}, ${formatTime(iso)}`;
+/** Display-only: the server stays the authority on whether a link is still valid. */
+export const isPast = (iso: string, now: Date = new Date()) => new Date(iso).getTime() <= now.getTime();

@@ -52,7 +52,8 @@ export const ApplicationStatus = ({ status }: { status: keyof typeof application
 export const VolunteerStatus = ({ status }: { status: keyof typeof volunteerStatusView }) => <StatusBadge view={volunteerStatusView[status]} />;
 
 export type RegistrationStepKey = 'registered' | 'guardian' | 'confirmed' | 'card';
-export type StepState = 'done' | 'current' | 'todo' | 'blocked';
+/** blocked = waiting on something outside the user's control (waitlist); failed/skipped = final, will not happen. */
+export type StepState = 'done' | 'current' | 'todo' | 'blocked' | 'failed' | 'skipped';
 export interface RegistrationStep { key: RegistrationStepKey; label: string; state: StepState }
 
 export const registrationStepLabels: Record<RegistrationStepKey, string> = {
@@ -67,6 +68,8 @@ export const stepStateText: Record<StepState, string> = {
   current: 'şu an bu adımda',
   todo: 'sırada',
   blocked: 'beklemede',
+  failed: 'gerçekleşmedi',
+  skipped: 'gerçekleşmeyecek',
 };
 
 /**
@@ -83,8 +86,10 @@ export function registrationSteps(status: RegStatus, needsGuardian: boolean): Re
     case 'pending_review': s.confirmed = 'current'; break;
     case 'confirmed': s.guardian = 'done'; s.confirmed = 'done'; s.card = 'current'; break;
     case 'waitlisted': s.guardian = 'done'; s.confirmed = 'blocked'; break;
-    case 'rejected': s.confirmed = 'blocked'; break;
-    case 'expired': if (guardian) s.guardian = 'blocked'; else s.confirmed = 'blocked'; break;
+    case 'rejected': s.confirmed = 'failed'; s.card = 'skipped'; break;
+    case 'expired':
+      if (guardian) { s.guardian = 'failed'; s.confirmed = 'skipped'; } else s.confirmed = 'failed';
+      s.card = 'skipped'; break;
   }
   const keys: RegistrationStepKey[] = guardian ? ['registered', 'guardian', 'confirmed', 'card'] : ['registered', 'confirmed', 'card'];
   return keys.map((key) => ({ key, label: registrationStepLabels[key], state: s[key] }));

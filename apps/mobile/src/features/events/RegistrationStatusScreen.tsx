@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppHeader, Button, Card, ErrorState, LoadingSkeleton, MetadataRow, Modal, Notice, RegistrationStatus, Screen, StatusBadge, StatusTimeline, TechIcon, Text, colors, guardianStatusView, registrationSteps, space, useToast, type TechIconName } from '../../design-system';
-import { formatDate, formatDateRange } from '../../lib/dates';
+import { formatDateRange, formatDateTime, isPast } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
 import type { RegistrationStatus as Status } from '../../lib/database.types';
 import type { SharedEventParamList } from '../../navigation/types';
@@ -80,7 +80,8 @@ export function RegistrationStatusScreen({ navigation, route }: NativeStackScree
         <Card style={{ marginTop: space[3], gap: space[2] }}>
           <StatusBadge view={guardianView} />
           {guardian.data?.status === 'pending'
-            ? <Text variant="bodySmall" color="textSecondary">{guardian.data.guardian_email_masked} adresine bir onay bağlantısı gönderdik. Bağlantı {formatDate(guardian.data.expires_at)} tarihine kadar geçerli.</Text>
+            ? <Text variant="bodySmall" color="textSecondary">{guardian.data.guardian_email_masked} adresine bir onay bağlantısı gönderdik. {isPast(guardian.data.expires_at)
+              ? 'Bağlantının süresi doldu. Yeniden gönderebilirsin.' : `Son geçerlilik: ${formatDateTime(guardian.data.expires_at)}.`}</Text>
             : <Text variant="bodySmall" color="textSecondary">Velinin e-posta adresini yaz; ona süreli ve tek kullanımlık bir onay bağlantısı gönderelim.</Text>}
         </Card>
       )}
