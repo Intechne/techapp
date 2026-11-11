@@ -14,6 +14,7 @@ import { useMyProfile } from '../profile/api';
 import { fetchEventsPage } from '../events/api';
 import { toEventCardModel } from '../events/labels';
 import { usePrefs } from '../onboarding/PrefsProvider';
+import { pickFeatured } from './featured';
 
 async function fetchInterests(): Promise<InterestRow[]> {
   const { data, error } = await getSupabase().from('interests').select('*').order('sort_order');
@@ -49,7 +50,9 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
   const events = useQuery({ queryKey: ['discover', 'events', filters], queryFn: () => fetchEventsPage(filters, null), enabled: topic === 'all' || interests.isSuccess });
   const preview = useQuery({ queryKey: ['discover', 'preview'], queryFn: fetchPreview });
 
-  const [featured, ...rest] = events.data?.items ?? [];
+  const items = events.data?.items ?? [];
+  const featured = submitted ? null : pickFeatured(items, new Date());
+  const listed = (submitted ? items : items.filter((e) => e.id !== featured?.id)).slice(0, 4);
   const openEvent = (id: string) => { track('discovery_item_opened', { kind: 'event', id }); navigation.navigate('EventDetail', { eventId: id }); };
   const tabs = navigation.getParent<BottomTabNavigationProp<MainTabParamList>>();
   // Straight to the detail inside the right tab; initial: false keeps that tab's list underneath, so Back returns to it.
@@ -82,18 +85,18 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
 
       {events.isPending ? <LoadingSkeleton />
         : events.isError && !events.data ? <ErrorState error={toAppError(events.error)} onRetry={() => void events.refetch()} />
-          : !featured ? (
+          : items.length === 0 ? (
             <EmptyState icon="discover" title={submitted ? `“${submitted}” için sonuç yok` : 'Bu alanda şu an etkinlik yok'}
               body="Başka bir konuya bakabilir ya da tüm etkinlikleri görebilirsin." actionLabel="Tümünü göster"
               onAction={() => { setTopic('all'); setSearch(''); setSubmitted(''); }} />
           ) : (
             <>
-              {!submitted && (() => { const m = toEventCardModel(featured); return (
+              {featured && (() => { const m = toEventCardModel(featured); return (
                 <HeroCard eyebrow={m.typeLabel} title={m.posterLine} accent={m.posterLine.split(' ').slice(-1)[0]} meta={`${m.dateLabel} · ${m.placeLabel} · ${m.feeLabel}`} cta="Detayları gör" onPress={() => openEvent(featured.id)} />
               ); })()}
               <SectionHeader title={submitted ? 'Sonuçlar' : 'Yaklaşan etkinlikler'} actionLabel="Tümünü gör" onAction={() => navigation.getParent()?.navigate('EventsTab')} />
               <View style={{ gap: space[3] }}>
-                {(submitted ? [featured, ...rest] : rest).slice(0, 4).map((e) => <EventCard key={e.id} model={toEventCardModel(e)} onPress={() => openEvent(e.id)} />)}
+                {listed.map((e) => <EventCard key={e.id} model={toEventCardModel(e)} onPress={() => openEvent(e.id)} />)}
               </View>
             </>
           )}
