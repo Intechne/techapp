@@ -1,4 +1,4 @@
-import { clearCards, dropCard, fetchCardWithOfflineFallback, loadCard, saveCard } from '../offlineCard';
+import { clearCards, dropCard, fetchCardWithOfflineFallback, listCards, loadCard, saveCard } from '../offlineCard';
 import { makeError } from '../../../lib/errors';
 import type { ParticipationCard } from '../../../lib/database.types';
 
@@ -121,5 +121,31 @@ describe('fetchCardWithOfflineFallback', () => {
     await saveCard('u1', card);
     mockFetch.mockRejectedValue(makeError('auth_required', 401));
     await expect(fetchCardWithOfflineFallback('u1', REG)).rejects.toBeTruthy();
+  });
+});
+
+describe('listCards (cold start offline)', () => {
+  const NOW = new Date('2026-12-01T08:00:00Z');
+  const other = (id: string, title: string, validUntil = '2026-12-01T12:00:00Z'): ParticipationCard => ({ ...card, registration_id: id, event: { ...card.event, title }, valid_until: validUntil });
+  it('lists only the given user’s cards with registration id and savedAt', async () => {
+    await saveCard('u1', card, () => NOW.getTime());
+    await saveCard('u2', other('r2', 'Başkasının'), () => NOW.getTime());
+    const list = await listCards('u1', NOW);
+    expect(list.map((c) => c.registrationId)).toEqual([REG]);
+    expect(list[0]!.card).toEqual(card);
+    expect(list[0]!.savedAt).toBe(NOW.toISOString());
+    expect(await listCards('nobody', NOW)).toEqual([]);
+  });
+  it('skips and prunes expired and corrupt entries, keeps the rest', async () => {
+    await saveCard('u1', card, () => NOW.getTime());
+    await saveCard('u1', other('r-old', 'Eski', '2026-11-01T12:00:00Z'), () => new Date('2026-10-31T00:00:00Z').getTime());
+    await saveCard('u1', other('r-bad', 'Bozuk'), () => NOW.getTime());
+    const badKey = [...mockStore.keys()].find((k) => k.endsWith('.r-bad'))!;
+    mockStore.set(badKey, '{not json');
+    const list = await listCards('u1', NOW);
+    expect(list.map((c) => c.registrationId)).toEqual([REG]);
+    expect(mockStore.has(badKey)).toBe(false);
+    expect([...mockStore.keys()].some((k) => k.endsWith('.r-old'))).toBe(false);
+    expect(JSON.parse(mockStore.get('card.index')!)).toEqual([`card.u1.${REG}`]);
   });
 });

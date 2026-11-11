@@ -82,6 +82,32 @@ export async function loadCard(userId: string, registrationId: string, now: () =
   return null;
 }
 
+/**
+ * Every saved card of this user that is still valid, for a cold start without network. Expired and unreadable entries are
+ * deleted on the way; other users' entries are never read or returned. Soonest event first.
+ */
+export function listCards(userId: string, now: Date = new Date()): Promise<Array<{ registrationId: string; card: ParticipationCard; savedAt: string }>> {
+  if (!enabled()) return Promise.resolve([]);
+  return serialised(async () => {
+    const prefix = `card.${safe(userId)}.`;
+    const index = await readIndex();
+    const kept: string[] = [];
+    const found: Array<{ registrationId: string; card: ParticipationCard; savedAt: string }> = [];
+    for (const key of index) {
+      if (!key.startsWith(prefix)) { kept.push(key); continue; }
+      let raw: string | null = null;
+      try { raw = await SecureStore.getItemAsync(key, options); } catch { kept.push(key); continue; } // unreadable now: keep, skip
+      const entry = parseEntry(raw);
+      if (entry && key === keyOf(userId, entry.card.registration_id) && !isExpired(entry.card, now.getTime())) {
+        kept.push(key);
+        found.push({ registrationId: entry.card.registration_id, card: entry.card, savedAt: entry.savedAt });
+      } else await SecureStore.deleteItemAsync(key, options).catch(() => {});
+    }
+    if (kept.length !== index.length) await writeIndex(kept).catch(() => {});
+    return found.sort((a, b) => a.card.event.starts_at.localeCompare(b.card.event.starts_at));
+  });
+}
+
 export function dropCard(userId: string, registrationId: string): Promise<void> {
   if (!enabled()) return Promise.resolve();
   return serialised(async () => {
@@ -103,6 +129,12 @@ export function clearCards(): Promise<void> {
 
 export interface CardResult { card: ParticipationCard; /** ISO time of the cached copy; null when the card is fresh from the server. */ cachedAt: string | null }
 
+/** Same rule everywhere an offline copy may stand in: unreachable server / timeout / 429 / 5xx, never a contract mismatch. */
+export function isNetworkClassError(e: unknown): boolean {
+  const error = toAppError(e);
+  return (error.code === 'network_unreachable' || error.status === 429 || error.status >= 500) && error.code !== 'contract_mismatch';
+}
+
 /**
  * Fresh card when the server answers (and saved for offline use). Only an unreachable server / timeout / 429 / 5xx falls back to
  * the saved copy. A server verdict (not found, not confirmed, signed out) never shows a cached card; 404/409 also drop it.
@@ -118,7 +150,7 @@ export async function fetchCardWithOfflineFallback(userId: string | null, regist
       await dropCard(userId, registrationId).catch(() => {});
       throw e;
     }
-    if (userId && (error.code === 'network_unreachable' || error.status === 429 || error.status >= 500) && error.code !== 'contract_mismatch') {
+    if (userId && isNetworkClassError(error)) {
       const cached = await loadCard(userId, registrationId);
       if (cached) return { card: cached.card, cachedAt: cached.savedAt };
     }
