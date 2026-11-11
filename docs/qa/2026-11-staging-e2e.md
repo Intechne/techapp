@@ -17,7 +17,7 @@ Kanıtlar: `2026-11-staging-e2e/*.jpg`.
 | 5b | Veli e-postası (gerçek) → web'de onay | **PASS** | `05` maskeli adres + son geçerlilik tarih/saat; veli onayladı |
 | 5c | Uygulama öne gelince durum yenilendi | **PASS** | `06` — "KATILIMIN ONAYLANDI" kendiliğinden (D4) |
 | 6a | Katılım kartı + QR + kısa kod | **PASS** | `07` |
-| 6b | Uçak modu + soğuk açılış → Katılımlarım'da kayıtlı kart | **PASS (yavaş)** | `08` — liste ~60 sn'de göründü (M2, açık) |
+| 6b | Uçak modu + soğuk açılış → Katılımlarım'da kayıtlı kart | **PASS (yavaş)** | `08` — liste ~60 sn'de göründü (M2: düzeltildi (commit COMMIT), cihazda yeniden ölçülecek) |
 | 6c | **Token süresi dolmuş** (cihaz saati +2 sa) + uçak modu + soğuk açılış | **PASS** | `09`, `10` — açılış ekranında kayıtlı kartlar, "Son güncelleme: 11 Kasım, 22:43 · çevrimdışı" (C1, I2) |
 | 6d | Bağlantı dönünce oturum yenilendi | **PASS** | Ana ekran isimle açıldı |
 | — | Çıkış → başka hesapla giriş | **PASS** | Yeni hesapta önceki hesabın kayıt/kartı görünmedi |
@@ -34,7 +34,7 @@ kısa kod denemeleri, yetişkin test hesabı → **0**. Eylül tarihli 14 yaş t
 Emülatörde eski TechApp 1.0 (aynı paket adı, 2025) kullanıcı onayıyla kaldırıldı.
 
 ## Açık bulgular
-- **M2 (pilot öncesi):** çevrimdışı açılışta Katılımlarım'daki kayıtlı kart listesi ~60 sn sonra görünüyor (15 sn zaman aşımı × yeniden denemeler).
+- **M2 (düzeltildi (commit COMMIT), cihazda yeniden ölçülecek):** çevrimdışı açılışta Katılımlarım'daki kayıtlı kart listesi ~60 sn sonra görünüyor (15 sn zaman aşımı × yeniden denemeler).
   Görevlinin önünde bekleyen bir katılımcı için uzun. Öneri: ağ hatası sınıfında yeniden denemeyi kısalt veya kayıtlı kartları
   sorgu beklerken de göster.
 - **Gözlem:** bir seferde uçak modunda Katılımlarım'dan karta, dokunulmadan geçildiği görüldü; kodda otomatik geçiş yok. Tekrar

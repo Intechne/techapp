@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FlatList, RefreshControl, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
@@ -12,6 +12,8 @@ import { eventKeys, fetchMyRegistrations } from './api';
 import { dropCards, isNetworkClassError, listCards } from './offlineCard';
 import { placeLabel } from './labels';
 
+const SLOW_LOAD_MS = 3000;
+
 export function MyRegistrationsScreen({ navigation }: NativeStackScreenProps<SharedEventParamList, 'MyRegistrations'>) {
   const { userId } = useSession();
   const q = useQuery({ queryKey: eventKeys.myRegistrations(userId), queryFn: () => fetchMyRegistrations(userId!), enabled: !!userId });
@@ -21,14 +23,23 @@ export function MyRegistrationsScreen({ navigation }: NativeStackScreenProps<Sha
     if (userId && notConfirmed) void dropCards(userId, notConfirmed.split(',')).catch(() => {});
   }, [userId, notConfirmed]);
 
-  // Cold start without network: the list needs the server, but a card saved earlier on this device still opens (this user's only).
-  // Only when there is nothing to show: with stale data the list stays and a small notice says it may be out of date.
+  // Saved cards must not wait for the query to fail: on a weak network each attempt burns the fetch timeout (x retries).
+  // With nothing to show, they appear once loading passes SLOW_LOAD_MS or as soon as a network-class error arrives (this user's only).
+  // With stale data the list stays and a small notice says it may be out of date. When the live list arrives it replaces them.
   const networkError = q.isError && isNetworkClassError(q.error);
-  const offline = networkError && !q.data;
   const staleOffline = networkError && !!q.data;
-  const saved = useQuery({ queryKey: ['cards', 'offline', userId], queryFn: () => listCards(userId!), enabled: !!userId && offline, staleTime: 0, gcTime: 0 });
+  const waiting = !!userId && q.isPending;
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!waiting) return;
+    const t = setTimeout(() => setSlow(true), SLOW_LOAD_MS);
+    return () => clearTimeout(t);
+  }, [waiting]);
+  const offline = networkError && !q.data;
+  const wantSaved = offline || (waiting && slow);
+  const saved = useQuery({ queryKey: ['cards', 'offline', userId], queryFn: () => listCards(userId!), enabled: !!userId && wantSaved, staleTime: 0, gcTime: 0 });
   const savedCards = saved.data ?? [];
-  const showSaved = offline && savedCards.length > 0;
+  const showSaved = wantSaved && savedCards.length > 0;
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={{ flex: 1, backgroundColor: colors.canvas }}>
@@ -50,8 +61,8 @@ export function MyRegistrationsScreen({ navigation }: NativeStackScreenProps<Sha
         ListEmptyComponent={
           showSaved ? (
             <View style={{ gap: space[3] }}>
-              <Text variant="section">Çevrimdışı · kayıtlı kartların</Text>
-              <Notice tone="info">Bağlantı yok. Daha önce açtığın katılım kartları bu cihazda duruyor.</Notice>
+              <Text variant="section">{offline ? 'Çevrimdışı · kayıtlı kartların' : 'Kayıtlı kartların'}</Text>
+              <Notice tone="info">{offline ? 'Bağlantı yok. Daha önce açtığın katılım kartları bu cihazda duruyor.' : 'Liste yükleniyor. Daha önce açtığın katılım kartları bu cihazda duruyor.'}</Notice>
               {savedCards.map(({ registrationId, card, savedAt }) => (
                 <Card key={registrationId} onPress={() => navigation.navigate('ParticipationCard', { registrationId })} style={{ gap: space[2] }}
                   accessibilityLabel={`${card.event.title}, kayıtlı katılım kartı`}>
@@ -60,7 +71,7 @@ export function MyRegistrationsScreen({ navigation }: NativeStackScreenProps<Sha
                   <MetadataRow icon="event">{formatDateRange(card.event.starts_at, card.event.ends_at)} · {placeLabel(card.event)}</MetadataRow>
                 </Card>
               ))}
-              <Button kind="secondary" label="Tekrar dene" onPress={() => void q.refetch()} />
+              {offline ? <Button kind="secondary" label="Tekrar dene" onPress={() => void q.refetch()} /> : <LoadingSkeleton />}
             </View>
           ) : !userId ? <EmptyState icon="ticket" title="Katılımların burada görünecek" body="Bir etkinliğe katıldığında kayıt durumunu ve katılım kartını burada bulursun." />
             : q.isPending ? <LoadingSkeleton />

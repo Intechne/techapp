@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { MyRegistrationsScreen } from '../MyRegistrationsScreen';
@@ -88,5 +88,60 @@ describe('Katılımlarım after an offline cold start', () => {
     expect(screen.queryByText('Çevrimdışı · kayıtlı kartların')).toBeNull();
     expect(screen.queryByText('Robotik Günü')).toBeNull();
     client.clear();
+  });
+});
+
+describe('Katılımlarım · slow load shows saved cards without waiting for failure (M2)', () => {
+  afterEach(() => { jest.useRealTimers(); });
+  const item = { id: REG, status: 'confirmed', event: { id: 'e1', title: 'Canlı Liste Etkinliği', starts_at: '2099-12-01T07:00:00Z', ends_at: '2099-12-01T12:00:00Z', city: 'İstanbul', venue: 'Salon', format: 'in_person' } };
+  const tick = (ms: number) => act(async () => { await jest.advanceTimersByTimeAsync(ms); });
+
+  it('after ~3 s of loading, shows saved cards above the still-pending skeleton', async () => {
+    await saveCard('u1', card);
+    jest.useFakeTimers();
+    mockFetchMine.mockReturnValue(new Promise(() => {}));
+    await renderScreen();
+    await tick(1000);
+    expect(screen.queryByText('Kayıtlı kartların')).toBeNull();
+    await tick(2500);
+    expect(await screen.findByText('Kayıtlı kartların')).toBeTruthy();
+    fireEvent.press(screen.getByText('Robotik Günü'));
+    expect(navigate).toHaveBeenCalledWith('ParticipationCard', { registrationId: REG });
+  });
+  it('does not flash the saved section when the list arrives in under 3 s', async () => {
+    await saveCard('u1', card);
+    jest.useFakeTimers();
+    let resolve!: (v: unknown[]) => void;
+    mockFetchMine.mockReturnValue(new Promise((r) => { resolve = r; }));
+    await renderScreen();
+    await tick(1500);
+    await act(async () => { resolve([item]); });
+    await tick(3500);
+    expect(screen.getByText('Canlı Liste Etkinliği')).toBeTruthy();
+    expect(screen.queryByText('Kayıtlı kartların')).toBeNull();
+    expect(screen.queryByText('Robotik Günü')).toBeNull();
+  });
+  it('replaces the saved section with the live list once it arrives', async () => {
+    await saveCard('u1', card);
+    jest.useFakeTimers();
+    let resolve!: (v: unknown[]) => void;
+    mockFetchMine.mockReturnValue(new Promise((r) => { resolve = r; }));
+    await renderScreen();
+    await tick(3500);
+    expect(await screen.findByText('Kayıtlı kartların')).toBeTruthy();
+    await act(async () => { resolve([item]); });
+    await tick(10);
+    expect(screen.getByText('Canlı Liste Etkinliği')).toBeTruthy();
+    expect(screen.queryByText('Kayıtlı kartların')).toBeNull();
+    expect(screen.queryByText('Robotik Günü')).toBeNull();
+  });
+  it('never shows another user’s cards while loading slowly', async () => {
+    await saveCard('u2', card);
+    jest.useFakeTimers();
+    mockFetchMine.mockReturnValue(new Promise(() => {}));
+    await renderScreen();
+    await tick(3500);
+    expect(screen.queryByText('Robotik Günü')).toBeNull();
+    expect(screen.queryByText('Kayıtlı kartların')).toBeNull();
   });
 });
