@@ -47,7 +47,7 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Main: NavigatorScreenParams<MainTabParamList> | undefined;
   AuthEmail: undefined;
-  AuthOtp: { email: string };
+  AuthOtp: undefined;
   ProfileBootstrap: undefined;
 };
 

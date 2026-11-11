@@ -1,3 +1,4 @@
+import { otpFlow } from './otpFlow';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useQuery } from '@tanstack/react-query';
@@ -42,6 +43,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (identityEnded(previousUserId.current, userId)) {
       queryClient.clear();
+      otpFlow.clear();
       setIdentityEpoch((n) => n + 1);
     }
     previousUserId.current = userId;

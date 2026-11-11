@@ -6,13 +6,14 @@ import { AppHeader, Button, Input, Notice, Screen, Text, space } from '../../des
 import { toAppError } from '../../lib/errors';
 import type { RootStackParamList } from '../../navigation/types';
 import { isValidEmail, signInWithEmailOtp } from './authService';
+import { otpFlow } from './otpFlow';
 import { usePendingIntent } from './pendingIntent';
 
 export function AuthEmailScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'AuthEmail'>) {
   const [email, setEmail] = useState('');
   const [touched, setTouched] = useState(false);
   const intent = usePendingIntent();
-  const send = useMutation({ mutationFn: signInWithEmailOtp, onSuccess: () => navigation.navigate('AuthOtp', { email }) });
+  const send = useMutation({ mutationFn: signInWithEmailOtp, onSuccess: () => { otpFlow.begin(email); navigation.navigate('AuthOtp'); } });
   const invalid = touched && !isValidEmail(email);
   const error = send.error ? toAppError(send.error) : null;
 

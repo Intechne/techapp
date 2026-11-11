@@ -14,6 +14,7 @@ const COPY: Record<string, string> = {
   auth_required: 'Devam etmek için giriş yapman gerekiyor.',
   session_expired: 'Oturumunun süresi doldu. Tekrar giriş yapar mısın?',
   otp_invalid: 'Kod hatalı ya da süresi dolmuş. Yeni bir kod isteyebilirsin.',
+  otp_expired: 'Kodun süresi doldu. Yeni kod iste.',
   email_invalid: 'Geçerli bir e-posta adresi yaz.',
   rate_limited: 'Çok sık denedin. Biraz bekleyip tekrar dene.',
   forbidden: 'Bu işlem için yetkin yok.',
@@ -103,7 +104,8 @@ export function toAppError(input: unknown): AppError {
   if (code === '23505') return makeError('conflict', 409);
 
   // supabase auth errors
-  if (code === 'otp_expired' || /token has expired or is invalid/i.test(message)) return makeError('otp_invalid', 422);
+  if (code === 'otp_expired') return makeError('otp_expired', 422);
+  if (/token has expired or is invalid/i.test(message)) return makeError('otp_invalid', 422);
   if (code === 'over_email_send_rate_limit' || code === 'over_request_rate_limit') return makeError('rate_limited', 429);
   if (code === 'validation_failed' || code === 'email_address_invalid') return makeError('email_invalid', 422);
 

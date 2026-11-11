@@ -26,5 +26,6 @@ describe('toAppError', () => {
     const e = toAppError({ code: 'PT409', message: 'some_new_internal_code: SELECT * FROM secrets' });
     expect(e.message).not.toMatch(/SELECT/);
   });
-  it('maps expired OTP', () => expect(toAppError({ code: 'otp_expired', message: 'Token has expired or is invalid' }).code).toBe('otp_invalid'));
+  it('maps expired OTP', () => expect(toAppError({ code: 'otp_expired', message: 'Token has expired or is invalid' }).code).toBe('otp_expired'));
+  it('maps an invalid OTP without a code', () => expect(toAppError({ message: 'Token has expired or is invalid' }).code).toBe('otp_invalid'));
 });
