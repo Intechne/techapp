@@ -12,16 +12,24 @@ interface Props {
   color?: string;
   /** Active/selected state (focused tab, saved bookmark). Falls back to the outline when an icon has no fill state. */
   filled?: boolean;
+  /** When set the icon carries meaning on its own (role image); otherwise it is decorative and hidden from assistive tech. */
+  accessibilityLabel?: string;
 }
 
 /** The single icon API. Open Circuit v2: 24×24 grid, 1.75 stroke, round caps/joins. Decorative by default. */
-export function TechIcon({ name, size = 24, color = colors.ink, filled = false }: Props) {
+export function TechIcon({ name, size = 24, color = colors.ink, filled = false, accessibilityLabel }: Props) {
+  // The markup itself is aria-hidden (web renders this SVG as DOM); labelled icons are exposed through the wrapper props below.
   const xml = useMemo(
     () =>
-      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${((filled && iconFillPaths[name]) || iconPaths[name]).replaceAll('currentColor', color)}</svg>`,
+      `<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${((filled && iconFillPaths[name]) || iconPaths[name]).replaceAll('currentColor', color)}</svg>`,
     [name, color, filled],
   );
-  // Decorative: hidden from screen readers (native props are not valid DOM attributes on the dev web target).
-  const hidden = Platform.OS === 'web' ? {} : ({ accessibilityElementsHidden: true, importantForAccessibility: 'no' } as const);
-  return <SvgXml xml={xml} width={size} height={size} {...hidden} />;
+  // Labelled icons stay exposed as images. Decorative ones are hidden from screen readers on every target:
+  // native props are not valid DOM attributes on web, where react-native-web maps `aria-hidden` instead.
+  const a11y = accessibilityLabel
+    ? ({ accessible: true, accessibilityRole: 'image', accessibilityLabel } as const)
+    : Platform.OS === 'web'
+      ? ({ 'aria-hidden': true } as const)
+      : ({ accessibilityElementsHidden: true, importantForAccessibility: 'no-hide-descendants' } as const);
+  return <SvgXml xml={xml} width={size} height={size} {...a11y} />;
 }
