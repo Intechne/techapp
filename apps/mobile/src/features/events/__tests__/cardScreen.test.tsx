@@ -47,7 +47,7 @@ describe('ParticipationCardScreen offline behaviour', () => {
     mockFetch.mockRejectedValue(makeError('network_unreachable', 0));
     await renderScreen();
     expect(await screen.findByText('Robotik Günü')).toBeTruthy();
-    expect(screen.getByText(/^Son güncelleme: \d{2}:\d{2} · çevrimdışı$/)).toBeTruthy();
+    expect(screen.getByText(/^Son güncelleme: bugün \d{2}:\d{2} · çevrimdışı$/)).toBeTruthy();
   });
   it('drops the saved card and shows none when the server says it is no longer valid', async () => {
     await saveCard('u1', card);

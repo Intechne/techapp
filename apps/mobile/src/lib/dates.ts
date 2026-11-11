@@ -35,5 +35,16 @@ export function formatDateRange(startIso: string, endIso: string): string {
 export const formatTimeRange = (startIso: string, endIso: string) => `${formatTime(startIso)}–${formatTime(endIso)}`;
 
 export const formatDateTime = (iso: string) => `${formatDate(iso)}, ${formatTime(iso)}`;
+
+/**
+ * Freshness label for a saved copy ("Son güncelleme: …"): "bugün 14:02" for today, "12 Kasım, 21:40" for another day
+ * (with the year when it is not this year). Calendar days are Istanbul days, so a copy from last night never reads as today.
+ */
+export function formatLastUpdated(iso: string, now: Date = new Date()): string {
+  const d = new Date(iso);
+  const [key, today] = [dayKey.format(d), dayKey.format(now)];
+  if (key === today) return `bugün ${time.format(d)}`;
+  return `${key.slice(0, 4) === today.slice(0, 4) ? dayMonth.format(d) : full.format(d)}, ${time.format(d)}`;
+}
 /** Display-only: the server stays the authority on whether a link is still valid. */
 export const isPast = (iso: string, now: Date = new Date()) => new Date(iso).getTime() <= now.getTime();

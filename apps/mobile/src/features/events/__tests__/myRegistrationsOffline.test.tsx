@@ -46,9 +46,16 @@ describe('Katılımlarım after an offline cold start', () => {
     await renderScreen();
     expect(await screen.findByText('Çevrimdışı · kayıtlı kartların')).toBeTruthy();
     expect(screen.getByText('Robotik Günü')).toBeTruthy();
-    expect(screen.getByText(/^Son güncelleme: \d{2}:\d{2}$/)).toBeTruthy();
+    expect(screen.getByText(/^Son güncelleme: bugün \d{2}:\d{2}$/)).toBeTruthy();
     fireEvent.press(screen.getByText('Robotik Günü'));
     expect(navigate).toHaveBeenCalledWith('ParticipationCard', { registrationId: REG });
+  });
+  it('dates a card saved on an earlier day instead of showing only the time', async () => {
+    await saveCard('u1', card, () => Date.now() - 3 * 24 * 60 * 60 * 1000);
+    mockFetchMine.mockRejectedValue(makeError('network_unreachable', 0));
+    await renderScreen();
+    expect(await screen.findByText(/^Son güncelleme: \d{1,2} \p{L}+( \d{4})?, \d{2}:\d{2}$/u)).toBeTruthy();
+    expect(screen.queryByText(/bugün/)).toBeNull();
   });
   it('shows the honest error state when there are no saved cards', async () => {
     mockFetchMine.mockRejectedValue(makeError('network_unreachable', 0));

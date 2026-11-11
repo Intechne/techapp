@@ -4,7 +4,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppHeader, Card, Divider, ErrorState, LoadingSkeleton, MetadataRow, Notice, Screen, Tag, Text, colors, fonts, radius, space } from '../../design-system';
-import { formatDateRange, formatTime, formatTimeRange } from '../../lib/dates';
+import { formatDateRange, formatLastUpdated, formatTime, formatTimeRange } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
 import type { SharedEventParamList } from '../../navigation/types';
 import { useSession } from '../auth/SessionProvider';
@@ -27,7 +27,7 @@ export function ParticipationCardScreen({ navigation, route }: NativeStackScreen
     <Screen header={<AppHeader onBack={navigation.goBack} title="Katılım kartı" />} refreshing={card.isRefetching} onRefresh={() => void card.refetch()}>
       <Text variant="display">Görüşmek üzere.</Text>
       <Text variant="body" color="textSecondary" style={{ marginTop: space[2] }}>Girişte bu kodu görevliye göster.</Text>
-      {cachedAt ? <View style={{ marginTop: space[4], alignSelf: 'flex-start' }}><Tag tone="apricot" icon="clock" label={`Son güncelleme: ${formatTime(cachedAt)} · çevrimdışı`} /></View> : null}
+      {cachedAt ? <View style={{ marginTop: space[4], alignSelf: 'flex-start' }}><Tag tone="apricot" icon="clock" label={`Son güncelleme: ${formatLastUpdated(cachedAt)} · çevrimdışı`} /></View> : null}
       <Card style={{ marginTop: space[5], padding: space[5] }}>
         {c.checked_in_at ? <Tag tone="moss" icon="check" label={`GİRİŞ YAPILDI · ${formatTime(c.checked_in_at)}`} /> : <Tag label="KATILIM KARTI" icon="ticket" />}
         <Text variant="section" style={{ marginTop: space[4] }}>{c.event.title}</Text>

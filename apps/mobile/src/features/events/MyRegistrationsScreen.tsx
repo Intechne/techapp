@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppHeader, Button, Card, EmptyState, ErrorState, LoadingSkeleton, MetadataRow, Notice, RegistrationStatus, Tag, Text, colors, layout, space } from '../../design-system';
-import { formatDateRange, formatTime } from '../../lib/dates';
+import { formatDateRange, formatLastUpdated } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
 import type { SharedEventParamList } from '../../navigation/types';
 import { useSession } from '../auth/SessionProvider';
@@ -50,7 +50,7 @@ export function MyRegistrationsScreen({ navigation }: NativeStackScreenProps<Sha
               {savedCards.map(({ registrationId, card, savedAt }) => (
                 <Card key={registrationId} onPress={() => navigation.navigate('ParticipationCard', { registrationId })} style={{ gap: space[2] }}
                   accessibilityLabel={`${card.event.title}, kayıtlı katılım kartı`}>
-                  <Tag tone="apricot" icon="clock" label={`Son güncelleme: ${formatTime(savedAt)}`} />
+                  <Tag tone="apricot" icon="clock" label={`Son güncelleme: ${formatLastUpdated(savedAt)}`} />
                   <Text variant="cardTitle">{card.event.title}</Text>
                   <MetadataRow icon="event">{formatDateRange(card.event.starts_at, card.event.ends_at)} · {placeLabel(card.event)}</MetadataRow>
                 </Card>
