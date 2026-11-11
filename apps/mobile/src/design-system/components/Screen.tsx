@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, View, type ScrollViewProps } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, layout, space } from '../tokens';
@@ -6,6 +6,7 @@ import { Text } from '../Text';
 import { IconButton } from './Button';
 import { BrandMark } from '../BrandMark';
 import { useLayout } from '../useLayout';
+import { useKeyboardOverlap } from '../useKeyboardOverlap';
 
 interface ScreenProps extends ScrollViewProps {
   header?: React.ReactNode;
@@ -22,11 +23,15 @@ interface ScreenProps extends ScrollViewProps {
 /** Page scaffold: safe areas, gutter, keyboard avoidance, optional pull-to-refresh and sticky footer. */
 export function Screen({ header, footer, scroll = true, wide, refreshing, onRefresh, children, contentContainerStyle, ...rest }: ScreenProps) {
   const insets = useSafeAreaInsets();
+  // Android: edge-to-edge ignores adjustResize, so lift the footer by however much the keyboard covers it (iOS uses padding behavior).
+  const bodyRef = useRef<View>(null);
+  const kbOverlap = useKeyboardOverlap(bodyRef, Platform.OS === 'android');
   const { gutter, contentMaxWidth, readingMaxWidth } = useLayout();
   const bounded = { width: '100%' as const, maxWidth: wide ? contentMaxWidth : readingMaxWidth, alignSelf: 'center' as const };
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.root}>
       {header}
+      <View ref={bodyRef} collapsable={false} style={{ flex: 1 }}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {scroll ? (
           <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
@@ -37,8 +42,9 @@ export function Screen({ header, footer, scroll = true, wide, refreshing, onRefr
         ) : (
           <View style={{ flex: 1 }}>{children}</View>
         )}
-        {footer && <View style={[styles.footer, { paddingHorizontal: gutter, paddingBottom: Math.max(insets.bottom, space[4]) }]}><View style={[bounded, { maxWidth: readingMaxWidth, gap: space[2] }]}>{footer}</View></View>}
+        {footer && <View style={[styles.footer, { paddingHorizontal: gutter, paddingBottom: kbOverlap > 0 ? space[4] : Math.max(insets.bottom, space[4]), marginBottom: kbOverlap }]}><View style={[bounded, { maxWidth: readingMaxWidth, gap: space[2] }]}>{footer}</View></View>}
       </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }
