@@ -53,7 +53,7 @@ Bu sırada bulunan ve düzeltilen hata: `event_eligibility` içinde `text[] || '
 ## YAPILMAYANLAR
 
 - **Hiçbir EAS build cihazda ya da emülatörde çalıştırılmadı** (Android preview `cbdda535` derlendi, APK süresi doldu). Native SecureStore, kamera, klavye, safe area, geri jesti doğrulanmadı.
-- Staging (gerçek Supabase, Auth, e-posta, Edge Functions) 7 Ekim'de doğrulandı (remote regresyon 28/28, adult + minor/veli E2E); 11 Kasım'da yeniden koşulmadı. Production projesi yok.
+- Staging (gerçek Supabase, Auth, e-posta, Edge Functions): remote regresyon **32/32** (11 Kasım; 19–19d takım üyeliği gizliliği eklendi); uygulama üzerinden gerçek e-postalı E2E en son 7 Ekim. Production projesi yok.
 - GMS'siz Huawei cihaz testi.
 - VoiceOver / TalkBack denetimi, Dynamic Type en büyük ölçek, 320 pt genişlik.
 - Otomatik E2E. Öneri: **Maestro** (Expo development build ile uyumlu, HMS cihazda da çalışır).

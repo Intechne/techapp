@@ -98,6 +98,7 @@ declare
   v_adult uuid; v_minor uuid; v_other uuid; v_token text; v_token2 text; v_org uuid; v_org_b uuid; v_event uuid; v_event_b uuid;
   v_reg uuid; v_reg2 uuid; v_req uuid; v_req2 uuid; j jsonb; v_text text; v_n int; i int; v_editor uuid; v_opp uuid;
   v_owner_a uuid; v_owner_b uuid; v_staff uuid; v_captain uuid; v_member uuid; v_team uuid; v_cap_m uuid; v_mem_m uuid;
+  v_appl uuid;
   v_out jsonb;
 begin
   -- ================================================================ CV
@@ -239,6 +240,27 @@ begin
     format($q$select public.set_team_member_role(%L, 'member')$q$, v_cap_m), '^PT403 team_manage_forbidden');
   perform pg_temp.t_fail('18b member cannot promote self', 'authenticated', v_member,
     format($q$select public.set_team_member_role(%L, 'captain')$q$, v_mem_m), '^PT403 team_manage_forbidden');
+
+  -- 20261111000100: a (minor) applicant's join note is visible to the team's managers only, never to other members or anon
+  v_appl := pg_temp.t_user(16);
+  insert into public.team_memberships (team_id, user_id, role, status, message)
+  values (v_team, v_appl, 'member', 'pending', 'remote-test join note');
+  v_n := pg_temp.t_val('authenticated', v_member, format(
+    $q$select count(*)::text from public.team_memberships where team_id = %L and user_id = %L$q$, v_team, v_appl))::int;
+  perform pg_temp.t_rec('19 member cannot read a teammate''s membership row (minor join note)', v_n = 0, 'rows=' || v_n);
+  v_text := pg_temp.t_val('authenticated', v_captain, format(
+    $q$select message from public.team_memberships where team_id = %L and user_id = %L$q$, v_team, v_appl));
+  perform pg_temp.t_rec('19b captain reads the applicant''s join note (control)', v_text = 'remote-test join note',
+                        'message=' || coalesce(v_text, 'null'));
+  begin
+    v_n := pg_temp.t_val('anon', null, format('select count(*)::text from public.team_memberships where team_id = %L', v_team))::int;
+    perform pg_temp.t_rec('19c anon reads 0 membership rows', v_n = 0, 'rows=' || v_n);
+  exception when others then
+    perform pg_temp.t_rec('19c anon reads 0 membership rows', sqlstate = '42501', sqlstate || ' ' || sqlerrm);
+  end;
+  v_n := pg_temp.t_val('authenticated', v_member, format(
+    $q$select count(*)::text from public.team_roster(%L) where user_id = %L$q$, v_team, v_appl))::int;
+  perform pg_temp.t_rec('19d plain member''s roster hides the pending minor applicant', v_n = 0, 'rows=' || v_n);
 
   -- ================================================================ report (always rolls back)
   select jsonb_build_object('pass', count(*) filter (where pass), 'fail', count(*) filter (where not pass),

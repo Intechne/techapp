@@ -7,14 +7,14 @@ Pilot adayı: Cezeri Robot Ligi, Ümraniye, 27–29 Kasım 2026 — yalnız gör
 ### Bugünkü ölçümler (2026-11-11)
 | Kalem | Durum | Kanıt |
 |---|---|---|
-| Veritabanı + Edge testleri | ✅ | `npm run db:test` **109/109** (düz komut; 54329 doluysa boş port seçer). Yerelde 15 migration; `20261111000100_team_membership_notes_privacy` staging'e henüz uygulanmadı |
+| Veritabanı + Edge testleri | ✅ | `npm run db:test` **109/109** (düz komut; 54329 doluysa boş port seçer). 15 migration; `20261111000100_team_membership_notes_privacy` 11 Kasım'da staging'e uygulandı (dry-run'da yalnız bu dosya, kullanıcı onaylı) |
 | Mobil | ✅ | `verify` **160/160** (24 süit) + typecheck + lint |
 | Admin / web | ✅ | typecheck temiz |
 | expo-doctor | ✅ | `npm --prefix apps/mobile run doctor` **21/21** (expo-doctor 1.20.5 sabit) |
 | HIG Doctor | 🟡 | `npx hig-doctor apps/mobile`: 2 olası bulgu (TechIcon SVG metin rengi; OTP alanı letterSpacing/fontSize), 124 olumlu kalıp — [rapor](docs/audits/2026-11-11-hig-doctor.md). Otomatik denetim HIG uyumunu kanıtlamaz |
 | EAS Android build | 🟡 | `cbdda535` (preview), commit `a0a97c5`, FINISHED 2026-10-07: native derleme o commit için kanıtlı. APK artefaktının süresi doldu; **hiçbir cihazda/emülatörde çalıştırılmadı**. Mevcut dal için yeni build yok |
 | EAS iOS build | 🟡 | production `8af1d94c` FINISHED 2026-09-19 (`34dbc05`); development/simulator `cb297b76` 2026-09-19. Cihazda/simülatörde çalıştırılmadı |
-| Staging Supabase `pacvhcnawtnkauvguoaw` | 🟡 | 7 Ekim'de doğrulandı (14/14 migration, remote regresyon 28/28, adult + minor/veli E2E). **Bugün yeniden çalıştırılmadı** |
+| Staging Supabase `pacvhcnawtnkauvguoaw` | 🟡 | 11 Kasım: migration geçmişi **15/15** senkron; remote güvenlik regresyonu **32/32 PASS** (yeni 19–19d: takım katılım notu/kadro gizliliği), rollback sonrası kalıntı 0 (sayılarla). Gerçek e-postalı uygulama E2E'si (adult + minor/veli) bugün henüz koşulmadı — Task 14 |
 | Production Supabase | ⛔ | Ayrı proje yok; EAS `production` ortamı hâlâ staging'i gösteriyor, env guard bunu bilerek reddeder |
 | Crash reporting | ⛔ | Sentry onaylı (PII/18 yaş altı şartlarıyla), henüz kurulmadı |
 
@@ -25,7 +25,7 @@ Pilot adayı: Cezeri Robot Ligi, Ümraniye, 27–29 Kasım 2026 — yalnız gör
 | 2 | Ayrı production Supabase (migration, OTP şablonu, SMTP, secret'lar) | ⛔ | Proje yok; açılması kullanıcı onayı gerektirir · kullanıcı + geliştirme |
 | 3 | Hukuk: aydınlatma + veli onayı + koşullar onaylı ve sürümlü | ⛔ | Metinler yok (`/gizlilik`, `/kosullar` "hazırlanıyor"); gerçek kullanıcıya açılma blokeri · kullanıcı / hukuk |
 | 4 | EAS Android + iOS, emülatörde 8 adımlık yolculuk, gerçek iPhone + Android, Huawei check-in | ⛔ | Hiçbir build cihazda/emülatörde çalıştırılmadı; iOS cihaz/dağıtım yetkisi yok · geliştirme + kullanıcı |
-| 5 | Remote güvenlik regresyonu, yeni tablo RLS, 18 yaş altı görünürlük denetimi | 🟡 | 28/28 PASS 7 Ekim'de; V5 tabloları ve bugünkü şema ile yeniden koşulmadı · geliştirme |
+| 5 | Remote güvenlik regresyonu, yeni tablo RLS, 18 yaş altı görünürlük denetimi | 🟡 | Staging remote regresyon 32/32 PASS (11 Kasım); yerel `pilot-privacy` 14 test; açık: `teams.created_by` anon okunabilir (KNOWN-ISSUES) · geliştirme |
 | 6 | Erişilebilirlik turu + HIG Doctor'da serious yok | 🟡 | HIG Doctor'da 2 olası bulgu; TalkBack/büyük yazı/320 pt turu yapılmadı · geliştirme |
 | 7 | Crash reporting açık veya kapalı olduğu yazılı kabul | ⛔ | Sentry kurulmadı; yazılı kabul de yok · geliştirme + kullanıcı |
 | 8 | Etkinlik günü planı (görevli hesapları, cihaz başına check-in testi, admin web + kısa kod yedeği) | ⛔ | Plan yazılmadı · kullanıcı + geliştirme |
