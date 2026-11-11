@@ -28,10 +28,14 @@ export async function fetchTeams(kind: 'team' | 'community'): Promise<Team[]> {
   return data;
 }
 
-/** My live memberships (RLS: own rows only). The role shown anywhere in the app comes from here or from team_roster. */
-export async function fetchMyTeams(): Promise<MyTeam[]> {
+/**
+ * My live memberships. Filtered by user id on purpose: RLS also lets a captain/mentor read their team's rows, so without
+ * the filter a manager would fetch teammates' memberships (and their join notes) and see one card per member.
+ * The role shown anywhere in the app comes from here or from team_roster.
+ */
+export async function fetchMyTeams(userId: string): Promise<MyTeam[]> {
   const { data, error } = await getSupabase().from('team_memberships').select('*, team:teams(*)')
-    .in('status', ['active', 'pending']).order('created_at', { ascending: false }).overrideTypes<MyTeam[], { merge: false }>();
+    .eq('user_id', userId).in('status', ['active', 'pending']).order('created_at', { ascending: false }).overrideTypes<MyTeam[], { merge: false }>();
   if (error) throw toAppError(error);
   return data.filter((m) => !!m.team);
 }

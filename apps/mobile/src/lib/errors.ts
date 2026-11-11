@@ -64,9 +64,10 @@ const COPY: Record<string, string> = {
   membership_not_active: 'Bu kişi artık takımın aktif üyesi değil.',
   title_too_long: 'Unvan en fazla 60 karakter olabilir.',
   // teams
-  team_members_only: 'Bu takımın üyelerini yalnız takım üyeleri görebilir.',
+  team_members_only: 'Bu takımın üyelerini yalnızca takım üyeleri görebilir.',
   team_not_found: 'Bu takım bulunamadı ya da artık aktif değil.',
   team_name_invalid: 'Takım adı en az 2 karakter olmalı.',
+  // 5 = the only limit, the literal in public.create_team (supabase/migrations/20260919000400_ecosystem.sql); the error carries no number.
   team_create_limit: 'En fazla 5 takım kurabilirsin.',
   team_closed_to_requests: 'Bu takım şu an katılım isteği almıyor.',
   already_team_member: 'Zaten bu takımın üyesisin.',

@@ -8,7 +8,9 @@
 --
 -- Fix (tightening only): other people's membership rows are readable through the table by the team's managers only,
 -- which matches what team_roster() already gives them. Members keep seeing the roster through team_roster() and their own
--- rows through team_memberships_select_own; no client reads other members' rows from the table.
+-- rows through team_memberships_select_own. The one client list that relied on RLS for "own rows" (mobile fetchMyTeams,
+-- "Takımlarım") now filters by user_id: under the old policy it pulled teammates' rows, notes included, into every
+-- member's cache; under this policy it would still give a captain/mentor one card per member and applicant.
 -- Regression test: supabase/tests/pilot-privacy.test.ts ("the join note the minor wrote to the captain …").
 
 drop policy if exists team_memberships_select_team on public.team_memberships;

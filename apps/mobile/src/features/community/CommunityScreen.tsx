@@ -16,7 +16,7 @@ export function CommunityScreen({ navigation }: NativeStackScreenProps<Community
   const [segment, setSegment] = useState<(typeof SEGMENTS)[number]>('Takımlar');
   const kind = segment === 'Takımlar' ? 'team' : 'community';
   const list = useQuery({ queryKey: teamKeys.list(kind), queryFn: () => fetchTeams(kind) });
-  const mine = useQuery({ queryKey: teamKeys.mine(userId), queryFn: fetchMyTeams, enabled: !!userId });
+  const mine = useQuery({ queryKey: teamKeys.mine(userId), queryFn: () => fetchMyTeams(userId!), enabled: !!userId });
 
   const createTeam = () => {
     if (!userId) { navigation.getParent()?.getParent()?.navigate('AuthEmail'); return; }
