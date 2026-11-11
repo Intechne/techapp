@@ -1,11 +1,22 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Button, Checkbox, Chip, EmptyState, ErrorState, EventCard, Notice, RegistrationStatus, VerificationBadge } from '..';
-import { iconPaths } from '../icons.generated';
+import { iconFillPaths, iconPaths } from '../icons.generated';
 import { makeError } from '../../lib/errors';
 
 describe('design system', () => {
-  it('ships the full 30-icon Open Circuit pack', () => expect(Object.keys(iconPaths)).toHaveLength(30));
+  it('ships the 50-icon Open Circuit v2 pack', () => expect(Object.keys(iconPaths)).toHaveLength(50));
+
+  it('icons stay theme-safe: only currentColor, fill states have unique mask ids', () => {
+    for (const svg of [...Object.values(iconPaths), ...Object.values(iconFillPaths)]) {
+      // Mask luminance (#fff/#000) is the only literal colour allowed; everything visible follows `color`.
+      expect(svg.replace(/<mask[\s\S]*?<\/mask>/g, '')).not.toMatch(/var\(|#[0-9a-f]{3,6}\b/i);
+    }
+    for (const [name, svg] of Object.entries(iconFillPaths)) {
+      if (svg.includes('<mask')) expect(svg).toContain(`id="tf-${name}"`);
+    }
+    for (const tab of ['discover', 'event', 'opportunity', 'community', 'profile'] as const) expect(iconFillPaths[tab]).toBeDefined();
+  });
 
   it('Button: fires onPress, and is inert + announced busy while loading', async () => {
     const onPress = jest.fn();

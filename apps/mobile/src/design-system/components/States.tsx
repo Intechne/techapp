@@ -25,7 +25,7 @@ export function ErrorState({ error, onRetry }: { error: AppError; onRetry?: () =
   const offline = error.code === 'network_unreachable';
   return (
     <View style={styles.center} accessibilityRole="alert">
-      <View style={[styles.badge, { backgroundColor: colors.dangerSoft }]}><TechIcon name={offline ? 'link' : 'shield'} size={26} color={colors.danger} /></View>
+      <View style={[styles.badge, { backgroundColor: colors.dangerSoft }]}><TechIcon name={offline ? 'offline' : 'warning'} size={26} color={colors.danger} /></View>
       <Text variant="cardTitle" center>{offline ? 'Bağlantı yok gibi görünüyor' : 'Bir şey ters gitti'}</Text>
       <Text variant="bodySmall" color="textSecondary" center>{error.message}</Text>
       {error.retryable && onRetry && <Button kind="secondary" label="Tekrar dene" onPress={onRetry} style={{ marginTop: space[2], alignSelf: 'stretch' }} />}
@@ -67,7 +67,7 @@ export function LoadingSkeleton({ cards = 2 }: { cards?: number }) {
 export function OfflineBanner() {
   return (
     <View style={styles.offline} accessibilityRole="alert">
-      <TechIcon name="link" size={16} color={colors.white} />
+      <TechIcon name="offline" size={16} color={colors.white} />
       <Text variant="caption" color="white">Çevrim dışısın. Gördüklerin güncel olmayabilir.</Text>
     </View>
   );

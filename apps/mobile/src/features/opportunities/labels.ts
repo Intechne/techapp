@@ -5,7 +5,7 @@ import { EDUCATION_LABEL } from '../profile/labels';
 export const OPPORTUNITY_TYPE: Record<OpportunityType, { label: string; icon: TechIconName }> = {
   internship: { label: 'Staj', icon: 'opportunity' }, volunteering: { label: 'Gönüllülük', icon: 'leaf' }, entrepreneurship: { label: 'Girişimcilik', icon: 'rocket' },
   talent_program: { label: 'Yetenek programı', icon: 'spark' }, project_call: { label: 'Proje çağrısı', icon: 'code' }, competition: { label: 'Yarışma', icon: 'robot' },
-  grant: { label: 'Hibe', icon: 'rocket' }, award: { label: 'Ödül', icon: 'verified' }, scholarship: { label: 'Burs', icon: 'learn' },
+  grant: { label: 'Hibe', icon: 'rocket' }, award: { label: 'Ödül', icon: 'badge' }, scholarship: { label: 'Burs', icon: 'learn' },
 };
 export const TYPE_FILTERS: readonly (OpportunityType | 'all')[] = ['all', 'competition', 'grant', 'award', 'scholarship', 'internship', 'volunteering', 'entrepreneurship', 'talent_program', 'project_call'];
 

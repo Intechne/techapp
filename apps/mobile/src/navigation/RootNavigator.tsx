@@ -92,7 +92,7 @@ function MainTabs() {
         tabBarStyle: sideNavigation
           ? { backgroundColor: colors.surface, borderRightColor: colors.border, borderRightWidth: 1, minWidth: 96, paddingTop: 24 }
           : { backgroundColor: colors.surface, borderTopColor: colors.border, minHeight: layout.bottomNavHeight, paddingTop: 6 },
-        tabBarIcon: ({ color }) => <TechIcon name={TABS[route.name].icon} color={color} size={22} />,
+        tabBarIcon: ({ color, focused }) => <TechIcon name={TABS[route.name].icon} color={color} size={22} filled={focused} />,
       })}
     >
       <Tab.Screen name="DiscoverTab" component={DiscoverStack} />

@@ -147,7 +147,7 @@ export function ProfileScreen({ navigation }: NativeStackScreenProps<ProfileStac
               ? <EmptyState icon="community" title="Henüz bir takımda değilsin" body="Topluluk sekmesinden bir takıma katılma isteği gönderebilir ya da kendi takımını kurabilirsin." actionLabel="Takımlara göz at" onAction={() => navigation.getParent()?.navigate('CommunityTab')} />
               : <ResponsiveGrid>{teams.map((t) => (
                 <Card key={t.team_id} style={styles.teamRow}>
-                  <View style={styles.teamIcon}><TechIcon name={t.kind === 'team' ? 'robot' : 'community'} color={colors.primary} /></View>
+                  <View style={styles.teamIcon}><TechIcon name={t.kind === 'team' ? 'team' : 'community'} color={colors.primary} /></View>
                   <View style={{ flex: 1 }}><Text variant="cardTitle">{t.name}</Text><Text variant="caption" color="textSecondary">{[t.title, TEAM_ROLE_LABEL[t.role], t.since ? `${formatDate(t.since)} tarihinden beri` : null].filter(Boolean).join(' · ')}</Text></View>
                 </Card>))}</ResponsiveGrid>)}
 
