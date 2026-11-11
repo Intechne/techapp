@@ -34,7 +34,7 @@ Token kaynağı `design-source/tokens.json` → `src/design-system/tokens.ts`. E
 Iris `#4B46D6` · Pressed `#3832AF` · Soft `#EEEDFF` · Lime `#D9F36E` · Ink `#20241F` · Secondary `#666D66` · Canvas `#F6F7F2` · Surface `#FFF` ·
 Border `#E3E6DD` · Moss `#157461`/`#E5F3EB` · Apricot `#FFD1BD` · Danger `#B8323D`/`#FFF0F1`.
 Manrope (başlık) + DM Sans (gövde), yerel paketli. Spacing 4–48, radius 14/22/26/999, dokunma hedefi ≥44, gutter 20, 390 referans / 320 minimum, min yazı 12.
-İkon: yalnızca `<TechIcon name=… />` (30 SVG, `npm run icons` ile üretilir). `@expo/vector-icons` lint ile yasak. Alt sekmede etiket her zaman görünür.
+İkon: yalnızca `<TechIcon name=… filled? />` (Open Circuit v2: 50 SVG + 32 dolu durum, `design-source/ICON-SYSTEM.md`; `npm run icons` ile üretilir). `@expo/vector-icons` lint ile yasak. Alt sekmede etiket her zaman görünür.
 Görsel yön: temiz, karakterli, genç. Gamer/cyberpunk/neon, her karta gradient, glassmorphism, banka uygulaması havası yok. Youthall/Yirmi Üç kopyalanmaz.
 UI dili Türkçe; ton genç, açık, abartısız: "Başvurun alındı." ✔ · "İşleminiz sisteme başarılı şekilde aktarılmıştır." ✘
 

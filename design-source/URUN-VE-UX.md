@@ -123,7 +123,7 @@ Mobil hedef: 16/24 gövde, 14/20 etiket, 12/16 yardımcı yazı; 24–32 başlı
 
 Aralık dizisi: 4, 8, 12, 16, 20, 24, 32, 40, 48. Kontrol köşesi 14, kart 22, kahraman 26. Dokunma hedefi en az 44 × 44; kaydırmalı kategori pill’leri native sürümde hitSlop ile bu sınıra tamamlanır. Safe area, klavye, geri jesti, Android back ve ekran okuyucu etiketleri native bileşenlerde ele alınır.
 
-30 özgün SVG: logo işareti, keşfet, etkinlik, fırsat, topluluk, profil, arama, bildirim, yönler, kayıt, kıvılcım, robot, yaprak, roket, kod, doğrulama, bilet, konum, saat, öğrenme, oynat, ayarlar, onay, kapat, ekle, bağlantı, güvenlik, filtre. 24 × 24 ızgara; 1.75 çizgi. Navigasyonda daima görünür metin etiketi. `icons/` içindeki dosyalar doğrudan kullanılabilir; uygulama markası için final görsel kimlik kontrolü gerekir.
+Open Circuit v2 — 50 SVG (navigation / system / status / entities) + 32 dolu (aktif) durum; kurallar ve audit `ICON-SYSTEM.md`'de. 24 × 24 ızgara, 1.75 çizgi, round cap/join, imza öğesi düğüm (node). Navigasyonda daima görünür metin etiketi; aktif sekme dolu ikon.
 
 Hareket: 160–220 ms, tek bir işlevi açıklayan geçişler; azaltılmış hareket tercihi. Otomatik oynayan carousel veya sürekli parlayan arka plan yok.
 
