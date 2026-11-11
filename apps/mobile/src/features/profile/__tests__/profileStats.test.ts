@@ -43,4 +43,13 @@ describe('profileStats', () => {
     const s = profileStats(cv, (['cancelled', 'rejected', 'expired'] as const).map((st) => reg(st, st, '2027-01-01T10:00:00Z')), now);
     expect(s.upcoming).toEqual([]);
   });
+
+  it('marks an upcoming confirmed registration as checked in when the CV holds a check-in for its event', () => {
+    const s = profileStats(cv, [
+      { ...reg('in', 'confirmed', '2026-12-01T10:00:00Z'), event_id: 'e1' },
+      { ...reg('out', 'confirmed', '2026-12-02T10:00:00Z'), event_id: 'e9' },
+      { ...reg('wait', 'waitlisted', '2026-12-03T10:00:00Z'), event_id: 'e1' },
+    ], now);
+    expect(s.upcoming.map((r) => [r.id, r.checkedIn])).toEqual([['in', true], ['out', false], ['wait', false]]);
+  });
 });

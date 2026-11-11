@@ -113,7 +113,7 @@ export function ProfileScreen({ navigation }: NativeStackScreenProps<ProfileStac
                   return (
                     <Card key={r.id} onPress={() => navigation.navigate('RegistrationStatus', { registrationId: r.id })} style={{ gap: space[2] }}
                       accessibilityLabel={`${r.event.title}, yaklaşan kayıt. Durumu aç`}>
-                      <RegistrationStatus status={r.status} />
+                      <RegistrationStatus status={r.status} checkedIn={r.checkedIn} />
                       <Text variant="cardTitle">{r.event.title}</Text>
                       <MetadataRow icon="event">{formatDateTime(r.event.starts_at)}</MetadataRow>
                     </Card>

@@ -35,6 +35,10 @@ export function ProfileBootstrapScreen({ navigation }: NativeStackScreenProps<Ro
     },
   });
 
+  type Field = 'name' | 'birth' | 'stage';
+  /** A field's error goes away as soon as its value changes; the other fields' errors stay until re-submit. */
+  const clear = (f: Field) => setErrors((e) => (e[f] ? { ...e, [f]: undefined } : e));
+
   const submit = () => {
     const parsed = parseBirthDate(birth);
     const next = {
@@ -52,10 +56,10 @@ export function ProfileBootstrapScreen({ navigation }: NativeStackScreenProps<Ro
       <Text variant="eyebrow" color="textSecondary">SENİ TANIYALIM</Text>
       <Text variant="display" style={{ marginTop: space[2] }}>Birkaç bilgi,{'\n'}o kadar.</Text>
       <View style={{ marginTop: space[6], gap: space[5] }}>
-        <Input label="Ad soyad" value={name} onChangeText={setName} autoComplete="name" textContentType="name" error={errors.name} />
-        <DateField label="Doğum tarihi" value={birth} onChangeText={setBirth} error={errors.birth}
+        <Input label="Ad soyad" value={name} onChangeText={(v) => { setName(v); clear('name'); }} autoComplete="name" textContentType="name" error={errors.name} />
+        <DateField label="Doğum tarihi" value={birth} onChangeText={(v) => { setBirth(v); clear('birth'); }} error={errors.birth}
           help="Yaşına uygun içerikleri ve gerekiyorsa veli onayını belirlemek için kullanılır. Profilinde görünmez, sonradan değiştirilemez." />
-        <Select label="Eğitim aşaman" options={EDUCATION_STAGES} value={stage} onChange={setStage} />
+        <Select label="Eğitim aşaman" options={EDUCATION_STAGES} value={stage} onChange={(v) => { setStage(v); clear('stage'); }} />
         {errors.stage && <Text variant="caption" color="danger">{errors.stage}</Text>}
         {save.error && <Notice tone="danger">{toAppError(save.error).message}</Notice>}
       </View>
