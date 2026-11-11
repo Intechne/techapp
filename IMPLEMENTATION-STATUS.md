@@ -1,7 +1,7 @@
 > **V5 — 11 Kasım 2026 (dal `feat/v5-pilot-platform`).** Güncel durum bu bölümdedir. 7 Ekim ve daha eski bölümler **tarihsel kayıttır**; çelişen yerde bu bölüm geçerlidir. ✅ yalnız bugün ölçülen ya da kanıtı yazılı olan şey içindir.
 
 ## V5 — 11 Kasım 2026
-Dal `feat/v5-pilot-platform` (`feat/techapp-stabilization` @ `a0a97c5`'ten). Commit'ler: `97f9cea`, `b1f0cf3`, `fef8e5a` (Open Circuit v2 ikonları), `1815770` (test portu / expo-doctor / SDK 57 yamaları), `fe5a478` (HIG denetimi). Dal **GitHub'a itilmedi**: varsayılan GitHub hesabının yazma yetkisi yok, kullanıcı bekleniyor.
+Dal `feat/v5-pilot-platform` (`feat/techapp-stabilization` @ `a0a97c5`'ten). Commit'ler: `97f9cea`, `b1f0cf3`, `fef8e5a` (Open Circuit v2 ikonları), `1815770` (test portu / expo-doctor / SDK 57 yamaları), `fe5a478` (HIG denetimi). Dal `feat/v5-pilot-platform` fe5a478'e kadar GitHub'a itildi (yedek push, kullanıcı izniyle, Intechne hesabı üzerinden); sonraki commit'ler her görev incelemesinden sonra itilir.
 Pilot adayı: Cezeri Robot Ligi, Ümraniye, 27–29 Kasım 2026 — yalnız görevliler, Intechne ekibi ve az sayıda gönüllü test kullanıcısıyla kontrollü pilot; resmî takım kaydı TechApp dışında kalır. Hedef dondurma 21 Kasım; go/no-go 24 Kasım, kararı kullanıcı verir.
 
 ### Bugünkü ölçümler (2026-11-11)
@@ -21,7 +21,7 @@ Pilot adayı: Cezeri Robot Ligi, Ümraniye, 27–29 Kasım 2026 — yalnız gör
 ### Pilot kapısı (spec §7 — hepsi ✅ olmadan "pilota hazır" denmez)
 | # | Kapı | Durum | Neden · sorumlu |
 |---|---|---|---|
-| 1 | Staging adult + minor/veli E2E, son build üzerinde | 🟡 | 7 Ekim PASS (eski commit); bugünkü build ile yeniden koşulmadı · geliştirme |
+| 1 | Staging adult + minor/veli E2E, gerçek e-posta teslimiyle, son build üzerinde | 🟡 | 7 Ekim PASS (eski commit); bugünkü build ile yeniden koşulmadı · geliştirme |
 | 2 | Ayrı production Supabase (migration, OTP şablonu, SMTP, secret'lar) | ⛔ | Proje yok; açılması kullanıcı onayı gerektirir · kullanıcı + geliştirme |
 | 3 | Hukuk: aydınlatma + veli onayı + koşullar onaylı ve sürümlü | ⛔ | Metinler yok (`/gizlilik`, `/kosullar` "hazırlanıyor"); gerçek kullanıcıya açılma blokeri · kullanıcı / hukuk |
 | 4 | EAS Android + iOS, emülatörde 8 adımlık yolculuk, gerçek iPhone + Android, Huawei check-in | ⛔ | Hiçbir build cihazda/emülatörde çalıştırılmadı; iOS cihaz/dağıtım yetkisi yok · geliştirme + kullanıcı |

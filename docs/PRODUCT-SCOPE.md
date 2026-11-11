@@ -44,13 +44,13 @@ Durum: ✅ taşındı · 🟡 kısmen · ⚪ başlamadı · 🔒 feature flag ar
 | `EventsScreen` | Etkinlikler (`EventsListScreen`, cursor pagination) | 4 | ✅ |
 | `EventDetailScreen` | `EventDetailScreen` + `EventRegistration` + `RegistrationStatus` + `ParticipationCard` | 4 | ✅ bireysel · ⚪ takım kaydı |
 | `NotificationsScreen` | Keşfet > Bildirimler (`notifications` tablosu hazır) | 10 | ⚪ |
-| `TeamsScreen` | Topluluk > Takımlar | 7 | ✅ liste (`CommunityScreen`) |
-| `TeamDetailScreen` | Takım profili + katılma isteği | 7 | ✅ (`TeamDetailScreen`, `request_team_join`) |
+| `TeamsScreen` | Topluluk > Takımlar | 7 | 🟡 liste (`CommunityScreen`): kodda var, cihazda denenmedi |
+| `TeamDetailScreen` | Takım profili + katılma isteği | 7 | 🟡 (`TeamDetailScreen`, `request_team_join`): kodda var, cihazda denenmedi |
 | `MyTeamScreen` | Topluluk > Takımım — Yapılacak / Devam ediyor / Tamamlandı | 7 | 🟡 `TeamWorkspaceScreen` + `TeamTaskEditorScreen` + `CreateTeamScreen` var |
 | `CreateRecruitScreen` | Takımım > açık rol oluştur | 7 | ⚪ (tablo hazır) |
 | `RecruitDetailScreen` | Takım profili > açık roller | 7 | ⚪ (RPC hazır) |
-| `ListingsScreen` | Fırsatlar | 6 | ✅ (`OpportunitiesScreen`, `DeadlinesScreen`) |
-| `ListingDetailScreen` | Fırsat detayı + paylaşım önizlemesi + başvuru + durum takibi | 6 | ✅ (`OpportunityDetail` + `OpportunityApply` + `MyApplications`) |
+| `ListingsScreen` | Fırsatlar | 6 | 🟡 (`OpportunitiesScreen`, `DeadlinesScreen`): kodda var, cihazda denenmedi |
+| `ListingDetailScreen` | Fırsat detayı + paylaşım önizlemesi + başvuru + durum takibi | 6 | 🟡 (`OpportunityDetail` + `OpportunityApply` + `MyApplications`): kodda var, cihazda denenmedi |
 | `CompaniesScreen` | Ayrı sekme yok; Fırsatlar içinde kurum listesi | 6 | ⚪ |
 | `CompanyDetailScreen` | Kurum profili (`organizations`) | 6 | ⚪ |
 | `TrainingsScreen` | Keşfet > Gelişim | 9 | ⚪ (tablolar + seed hazır) |

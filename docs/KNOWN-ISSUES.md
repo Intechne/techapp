@@ -9,10 +9,10 @@ Son güncelleme: 2026-11-11 (V5). Güncel durumun tek kaynağı `IMPLEMENTATION-
 | # | Konu | Durum |
 |---|---|---|
 | 1 | iOS / Android build | EAS'ta derlendi: Android preview `cbdda535` (commit `a0a97c5`, 2026-10-07; APK süresi doldu), iOS production `8af1d94c` ve development `cb297b76` (2026-09-19). **Hiçbiri bir cihazda ya da emülatörde çalıştırılmadı**; mevcut dal için yeni build yok. Native SecureStore, kamera, klavye, geri jesti doğrulanmadı. `expo-doctor` 21/21 (11 Kasım). |
-| 2 | Gerçek Supabase projesi (staging) | 🟡 7 Ekim'de ✅, **11 Kasım'da yeniden çalıştırılmadı**:: staging `pacvhcnawtnkauvguoaw` erişilebilir, 14/14 migration, remote regresyon 28/28, minor/veli E2E PASS. Yepyeni adult hesap E2E'si de PASS (onaylanan tek kullanımlık test hesabı, sonra silindi). |
+| 2 | Gerçek Supabase projesi (staging) | 🟡 7 Ekim'de ✅, **11 Kasım'da yeniden çalıştırılmadı**: staging `pacvhcnawtnkauvguoaw` erişilebilir, 14/14 migration, remote regresyon 28/28, minor/veli E2E PASS. Yepyeni adult hesap E2E'si de PASS (onaylanan tek kullanımlık test hesabı, sonra silindi). |
 | 3 | Edge Functions (`guardian-dispatch`, `delete-account`) | Deploy edildi ve gerçek JWT ile çağrıldı (veli e-postası; test hesabı silme). Personel/moderatör silme yolu yalnız yerel testte. Function logları CLI'dan okunamıyor (Dashboard). |
 | 4 | `…000500_storage.sql` | Testlerde no-op. `storage.buckets` sütunları ve `storage.foldername()` canlı projeye karşı denenmedi. |
-| 5 | Gerçek e-posta teslimi (OTP, veli) | ✅ OTP kodu ve veli e-postası gerçek gelen kutusuna ulaştı (7 Ekim). OTP süre dolumu / hız limiti denenmedi. |
+| 5 | Gerçek e-posta teslimi (OTP, veli) | 🟡 7 Ekim'de doğrulandı (OTP kodu ve veli e-postası gerçek gelen kutusuna ulaştı), bugün yeniden çalıştırılmadı. OTP süre dolumu / hız limiti denenmedi. |
 | 6 | Huawei / HMS | Cihaz testi yok. `expo-camera` QR taramasının GMS'siz davranışı bilinmiyor (`docs/HUAWEI.md`). |
 | 7 | Erişilebilirlik | Roller, etiketler, 44 pt hedefler, reduced motion kodda var. VoiceOver/TalkBack, en büyük yazı ölçeği ve 320 pt genişlik **denetlenmedi**. |
 | 8 | PostgREST'in `experiences_with_status` görünümünü embed edebilmesi | Denenmedi. |
@@ -43,7 +43,7 @@ Son güncelleme: 2026-11-11 (V5). Güncel durumun tek kaynağı `IMPLEMENTATION-
 - **Crash raporlama yok** (Sentry onaylı, kurulmadı) ve gerçek analytics sink'i yok (`expo-updates` var). **Push bildirimi yok.**
 - HIG Doctor: 2 olası bulgu (TechIcon SVG metin rengi; OTP alanı letterSpacing/fontSize) — `docs/audits/2026-11-11-hig-doctor.md`.
 - Reanimated, Gesture Handler, Haptics henüz yok; pilot build'inde Reanimated + Haptics + Sentry planlı.
-- **Dal `feat/v5-pilot-platform` GitHub'a itilmedi:** varsayılan hesabın yazma yetkisi yok, kullanıcı bekleniyor. Yedek yalnız yerelde.
+- **Dal `feat/v5-pilot-platform`:** fe5a478'e kadar GitHub'a itildi (yedek push, kullanıcı izniyle, Intechne hesabı üzerinden); sonraki commit'ler her görev incelemesinden sonra itilir.
 - Yerel yığın 7 Ekim'den beri yeni migration'ları mevcut veritabanına uygular (`supabase_migrations.schema_migrations`).
 
 ## Eksik ürün kapsamı
