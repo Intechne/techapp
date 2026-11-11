@@ -29,14 +29,20 @@ export function MyRegistrationsScreen({ navigation }: NativeStackScreenProps<Sha
   const networkError = q.isError && isNetworkClassError(q.error);
   const staleOffline = networkError && !!q.data;
   const waiting = !!userId && q.isPending;
-  const [slow, setSlow] = useState(false);
+  // slow / wasOffline live in one state keyed by user; they are adjusted during render (no setState in an effect).
+  // wasOffline survives a retry (a refetch without data flips the query back to pending) until data arrives or the user changes.
+  const [mem, setMem] = useState({ user: userId, slow: false, wasOffline: false });
+  const offline = networkError && !q.data;
+  let cur = mem;
+  if (mem.user !== userId) cur = { user: userId, slow: false, wasOffline: false };
+  else if ((!waiting && mem.slow) || (offline && !mem.wasOffline) || (!!q.data && mem.wasOffline)) cur = { ...mem, slow: waiting ? mem.slow : false, wasOffline: offline || (mem.wasOffline && !q.data) };
+  if (cur !== mem) setMem(cur);
   useEffect(() => {
     if (!waiting) return;
-    const t = setTimeout(() => setSlow(true), SLOW_LOAD_MS);
+    const t = setTimeout(() => setMem((m) => (m.user === userId ? { ...m, slow: true } : m)), SLOW_LOAD_MS);
     return () => clearTimeout(t);
-  }, [waiting]);
-  const offline = networkError && !q.data;
-  const wantSaved = offline || (waiting && slow);
+  }, [waiting, userId]);
+  const wantSaved = !!userId && !q.data && (offline || cur.wasOffline || (waiting && cur.slow));
   const saved = useQuery({ queryKey: ['cards', 'offline', userId], queryFn: () => listCards(userId!), enabled: !!userId && wantSaved, staleTime: 0, gcTime: 0 });
   const savedCards = saved.data ?? [];
   const showSaved = wantSaved && savedCards.length > 0;
@@ -61,8 +67,8 @@ export function MyRegistrationsScreen({ navigation }: NativeStackScreenProps<Sha
         ListEmptyComponent={
           showSaved ? (
             <View style={{ gap: space[3] }}>
-              <Text variant="section">{offline ? 'Çevrimdışı · kayıtlı kartların' : 'Kayıtlı kartların'}</Text>
-              <Notice tone="info">{offline ? 'Bağlantı yok. Daha önce açtığın katılım kartları bu cihazda duruyor.' : 'Liste yükleniyor. Daha önce açtığın katılım kartları bu cihazda duruyor.'}</Notice>
+              <Text variant="section">{offline || cur.wasOffline ? 'Çevrimdışı · kayıtlı kartların' : 'Kayıtlı kartların'}</Text>
+              <Notice tone="info">{offline || cur.wasOffline ? 'Bağlantı yok. Daha önce açtığın katılım kartları bu cihazda duruyor.' : 'Liste yükleniyor. Daha önce açtığın katılım kartları bu cihazda duruyor.'}</Notice>
               {savedCards.map(({ registrationId, card, savedAt }) => (
                 <Card key={registrationId} onPress={() => navigation.navigate('ParticipationCard', { registrationId })} style={{ gap: space[2] }}
                   accessibilityLabel={`${card.event.title}, kayıtlı katılım kartı`}>
@@ -71,7 +77,7 @@ export function MyRegistrationsScreen({ navigation }: NativeStackScreenProps<Sha
                   <MetadataRow icon="event">{formatDateRange(card.event.starts_at, card.event.ends_at)} · {placeLabel(card.event)}</MetadataRow>
                 </Card>
               ))}
-              {offline ? <Button kind="secondary" label="Tekrar dene" onPress={() => void q.refetch()} /> : <LoadingSkeleton />}
+              {offline || cur.wasOffline ? <Button kind="secondary" label="Tekrar dene" onPress={() => void q.refetch()} /> : <LoadingSkeleton />}
             </View>
           ) : !userId ? <EmptyState icon="ticket" title="Katılımların burada görünecek" body="Bir etkinliğe katıldığında kayıt durumunu ve katılım kartını burada bulursun." />
             : q.isPending ? <LoadingSkeleton />

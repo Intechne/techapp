@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { MyRegistrationsScreen } from '../MyRegistrationsScreen';
@@ -92,7 +92,7 @@ describe('Katılımlarım after an offline cold start', () => {
 });
 
 describe('Katılımlarım · slow load shows saved cards without waiting for failure (M2)', () => {
-  afterEach(() => { jest.useRealTimers(); });
+  afterEach(async () => { await cleanup(); jest.useRealTimers(); }); // unmount under fake timers so nothing leaks into the next test
   const item = { id: REG, status: 'confirmed', event: { id: 'e1', title: 'Canlı Liste Etkinliği', starts_at: '2099-12-01T07:00:00Z', ends_at: '2099-12-01T12:00:00Z', city: 'İstanbul', venue: 'Salon', format: 'in_person' } };
   const tick = (ms: number) => act(async () => { await jest.advanceTimersByTimeAsync(ms); });
 
@@ -143,5 +143,50 @@ describe('Katılımlarım · slow load shows saved cards without waiting for fai
     await tick(3500);
     expect(screen.queryByText('Robotik Günü')).toBeNull();
     expect(screen.queryByText('Kayıtlı kartların')).toBeNull();
+  });
+
+  it('hides the saved section and shows the error state for a non-network error after the 3 s window', async () => {
+    await saveCard('u1', card);
+    jest.useFakeTimers();
+    let reject!: (e: unknown) => void;
+    mockFetchMine.mockReturnValue(new Promise((_, r) => { reject = r; }));
+    await renderScreen();
+    await tick(3500);
+    expect(await screen.findByText('Kayıtlı kartların')).toBeTruthy();
+    await act(async () => { reject(makeError('contract_mismatch', 500)); });
+    await tick(10);
+    expect(screen.getByText(/Uygulama ile sunucu uyumsuz/)).toBeTruthy();
+    expect(screen.queryByText('Kayıtlı kartların')).toBeNull();
+    expect(screen.queryByText('Robotik Günü')).toBeNull();
+  });
+  it('after slow load then a non-network error, a retry does not make the saved section reappear instantly', async () => {
+    await saveCard('u1', card);
+    jest.useFakeTimers();
+    let reject!: (e: unknown) => void;
+    mockFetchMine.mockReturnValue(new Promise((_, r) => { reject = r; }));
+    await renderScreen();
+    await tick(3500);
+    expect(await screen.findByText('Kayıtlı kartların')).toBeTruthy();
+    await act(async () => { reject(makeError('contract_mismatch', 500)); });
+    await tick(10);
+    expect(screen.getByText(/Uygulama ile sunucu uyumsuz/)).toBeTruthy();
+    mockFetchMine.mockReturnValue(new Promise(() => {}));
+    await fireEvent.press(screen.getByText('Tekrar dene'));
+    await tick(1000);
+    expect(screen.queryByText('Robotik Günü')).toBeNull();
+  });
+  it('keeps saved cards visible while retrying after a network error', async () => {
+    await saveCard('u1', card);
+    jest.useFakeTimers();
+    mockFetchMine.mockRejectedValueOnce(makeError('network_unreachable', 0));
+    await renderScreen();
+    await tick(10);
+    expect(await screen.findByText('Çevrimdışı · kayıtlı kartların')).toBeTruthy();
+    mockFetchMine.mockReturnValue(new Promise(() => {}));
+    await fireEvent.press(screen.getByText('Tekrar dene'));
+    await tick(10);
+    expect(screen.getByText('Robotik Günü')).toBeTruthy();
+    await tick(4000);
+    expect(screen.getByText('Robotik Günü')).toBeTruthy();
   });
 });
