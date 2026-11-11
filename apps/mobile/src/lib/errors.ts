@@ -14,7 +14,7 @@ const COPY: Record<string, string> = {
   auth_required: 'Devam etmek için giriş yapman gerekiyor.',
   session_expired: 'Oturumunun süresi doldu. Tekrar giriş yapar mısın?',
   otp_invalid: 'Kod hatalı ya da süresi dolmuş. Yeni bir kod isteyebilirsin.',
-  otp_expired: 'Kodun süresi doldu. Yeni kod iste.',
+  otp_expired: 'Kod hatalı ya da süresi dolmuş. Kontrol edip tekrar dene ya da yeni kod iste.',
   email_invalid: 'Geçerli bir e-posta adresi yaz.',
   rate_limited: 'Çok sık denedin. Biraz bekleyip tekrar dene.',
   forbidden: 'Bu işlem için yetkin yok.',

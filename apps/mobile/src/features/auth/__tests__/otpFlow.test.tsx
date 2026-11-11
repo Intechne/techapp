@@ -72,18 +72,27 @@ describe('AuthOtpScreen', () => {
     expect(mockVerifyOtp).toHaveBeenCalledWith({ email: 'ada@example.com', token: '123456', type: 'email' });
     expect(n.popTo).toHaveBeenCalledWith('Main');
     expect(otpFlow.email()).toBeNull();
+    expect(n.replace).not.toHaveBeenCalled();
   });
 
-  it('shows the expiry copy and enables the resend button when the server says the code expired', async () => {
+  it('shows the honest invalid-or-expired copy and enables the resend button when the server says the code expired', async () => {
     otpFlow.begin('ada@example.com');
     mockVerifyOtp.mockResolvedValueOnce({ data: {}, error: { code: 'otp_expired', message: 'Token has expired or is invalid', status: 403 } });
     const n = nav();
     await render(wrap(<AuthOtpScreen {...asProps(n)} />));
     await fireEvent.changeText(screen.getByLabelText('Doğrulama kodu'), '123456');
     await act(async () => {});
-    expect(screen.getByText('Kodun süresi doldu. Yeni kod iste.')).toBeTruthy();
+    expect(screen.getByText('Kod hatalı ya da süresi dolmuş. Kontrol edip tekrar dene ya da yeni kod iste.')).toBeTruthy();
     const resend = screen.getByRole('button', { name: 'Yeni kod iste' });
     expect(resend.props.accessibilityState?.disabled ?? false).toBe(false);
     expect(otpFlow.email()).toBe('ada@example.com');
+  });
+
+  it('clears the e-mail from memory when the screen unmounts without success', async () => {
+    otpFlow.begin('ada@example.com');
+    await render(wrap(<AuthOtpScreen {...asProps(nav())} />));
+    expect(otpFlow.email()).toBe('ada@example.com');
+    await screen.unmount();
+    expect(otpFlow.email()).toBeNull();
   });
 });

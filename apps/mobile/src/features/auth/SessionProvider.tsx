@@ -1,4 +1,3 @@
-import { otpFlow } from './otpFlow';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useQuery } from '@tanstack/react-query';
@@ -9,6 +8,7 @@ import { accountStateSchema, type AccountState } from '../../lib/database.types'
 import { track } from '../../lib/analytics';
 import { RESTORE_TIMEOUT_MS, RETRY_RESTORE_TIMEOUT_MS, restoreSessionOnLaunch, type UnavailableReason } from '../../lib/sessionRestore';
 import { queryClient } from '../../lib/queryClient';
+import { otpFlow } from './otpFlow';
 
 /**
  * A signed-in identity ended (sign-out, expiry, or a different account signed in): everything rendered or cached for it

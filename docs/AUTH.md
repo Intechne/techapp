@@ -13,7 +13,7 @@ E-posta → OTP → oturum → (profil eksikse) ad + doğum tarihi + eğitim aş
 ```
 
 1. `AuthEmailScreen` → `signInWithEmailOtp` (`supabase.auth.signInWithOtp`, `shouldCreateUser: true`). Hesap yoksa aynı adımda oluşur; şifre yoktur.
-2. `AuthOtpScreen` → `verifyOtp` (`type: 'email'`). 60 sn sonra yeniden kod istenebilir. Hatalı/eski kod → `otp_invalid`.
+2. `AuthOtpScreen` → `verifyOtp` (`type: 'email'`). 60 sn sonra yeniden kod istenebilir. Hatalı/eski kod → `otp_expired` (Supabase ikisini ayırmaz; metin ikisini de karşılar).
 3. Doğrulamadan hemen sonra `my_account_state` çağrılır; `profile_complete` değilse `ProfileBootstrap` ekranına geçilir, aksi halde `popTo('Main')`.
 4. `ProfileBootstrapScreen` → `complete_profile_bootstrap` RPC. Misafirken seçilen eğitim aşaması ve ilgi alanları buradan sunucuya yazılır.
 5. `Main`'e dönülünce alttaki ekran (ör. `EventDetail`) `PendingIntent`'i tüketir ve kullanıcıyı `EventRegistration`'a taşır.

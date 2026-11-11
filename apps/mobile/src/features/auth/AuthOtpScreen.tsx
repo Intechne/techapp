@@ -14,11 +14,15 @@ import { accountStateKey, useAccountState, useSession } from './SessionProvider'
 const RESEND_SECONDS = 60;
 
 export function AuthOtpScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'AuthOtp'>) {
-  const email = otpFlow.email();
+  // Snapshot once per mount: clearing the module memory (success, back-out) must not re-trigger the redirect below.
+  const [email] = useState(() => otpFlow.email());
   const lastSubmitted = useRef<string | null>(null);
   const [code, setCode] = useState('');
   const [wait, setWait] = useState(RESEND_SECONDS);
   const qc = useQueryClient();
+
+  // The e-mail does not outlive this screen (success clears it too).
+  useEffect(() => () => otpFlow.clear(), []);
 
   // Nothing to verify without an e-mail in memory (cold start, reload, deep link): start over at the e-mail step.
   useEffect(() => { if (!email) navigation.replace('AuthEmail'); }, [email, navigation]);
@@ -85,7 +89,7 @@ export function AuthOtpScreen({ navigation }: NativeStackScreenProps<RootStackPa
         <Input label="Doğrulama kodu" value={code} onChangeText={onChangeCode} keyboardType="number-pad"
           textContentType="oneTimeCode" autoComplete="one-time-code" maxLength={6} autoFocus style={{ letterSpacing: 8, fontSize: 22 }} />
         {error && <Notice tone="danger">{toAppError(error).message}</Notice>}
-        <TextButton label={waiting ? `Yeni kod iste (${wait} sn)` : 'Yeni kod iste'} disabled={waiting || resend.isPending}
+        <TextButton label={waiting ? `Yeni kod iste (${wait} sn)` : 'Yeni kod iste'} disabled={waiting || resend.isPending || verify.isPending}
           color={waiting ? '#666D66' : undefined} onPress={() => resend.mutate()} />
       </View>
     </Screen>

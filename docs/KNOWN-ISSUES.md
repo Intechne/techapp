@@ -31,12 +31,12 @@ Son güncelleme: 2026-11-11 (V5). Güncel durumun tek kaynağı `IMPLEMENTATION-
 
 - `database.generated.ts` artık staging'den (`supabase gen types --linked`) üretiliyor; kanonik kaynak budur. `db:types:local` (yerel üretici) kozmetik olarak farklı çıktı verir (`isOneToOne`, `__InternalSupabase` yok) — `db:types:check` remote'a karşı çalıştırılmalı.
 - Web önizleme: `RegistrationStatus` / `EventDetail` derin bağlantısı (URL ile doğrudan açma) Keşfet'e düşüyor; kenar çubuğu "Etkinlikler" sekmesi tıklamada gezinmiyor. Native'de ayrıca bakılacak.
-- Web: OTP ekranı e-postayı URL'ye yazıyor (`AuthOtp?email=…`) — kural 9 (PII URL'e yazılmaz) ile çelişiyor; route param yerine bellekte taşınmalı.
+- ~~Web: OTP ekranı e-postayı URL'ye yazıyor (`AuthOtp?email=…`)~~ — **Çözüldü** (a8d9c5a + düzeltme turu): e-posta route param yerine yalnız modül belleğinde (`otpFlow`) tutuluyor.
 - Profil özetindeki "Katılım" sayacı onaylı kayıtta 0 kalıyor (muhtemelen yalnız check-in sayıyor) — ürün kararı teyit edilmeli.
 - Admin paneli bir SPA'dır: oturum 7 Ekim'den beri `sessionStorage`'da (sekme kapanınca biter; httpOnly cookie değil). Build-time CSP + `public/_headers`. Yetki tamamen RLS/RPC'de olduğu için veri sızıntısı yaratmaz; XSS yüzeyini küçük tutmak için panelde üçüncü taraf script yok. Disk kısıtı nedeniyle Next.js yerine Vite seçildi; SSR gerekirse taşınabilir.
 - Admin panelinde eksikler: kapak görseli yükleme, oturum (session) programı düzenleme, kurum/üye yönetimi, audit log ekranı, etiketler. Rol kapısı ekranı (rolsüz kullanıcı) görsel olarak denenmedi; veri tarafı DB testleriyle kanıtlı.
 - Yerel auth gateway gerçek GoTrue değildir (hız sınırı, kod süresi, e-posta şablonu farklıdır).
-- **Açık (P3):** Web geliştirme hedefi rota parametrelerini URL'ye koyar (ör. `AuthOtp?email=…`). Native uygulamada URL yoktur, etkilenmez. Web bir yayın hedefi değildir; olacaksa e-posta parametreden çıkarılmalı.
+- **Çözüldü:** `AuthOtp` artık parametre taşımaz; web URL'sinde e-posta görünmez (`/AuthOtp`). Diğer rotalarda PII param yok.
 - Veli isteklerinin süre dolumu tembel çalışır; `pg_cron` zamanlaması dağıtımda eklenmeli.
 - `app.current_policy_version()` sabit bir taslak sürüm döner; gerçek sürümleme tablosu yok.
 - Uygulama ikonu / splash artık yer tutucu değil ("Açık devre T" amblemi, `design-source/brand`); cihazda bakılmadı.
