@@ -82,11 +82,11 @@ export function MyRegistrationsScreen({ navigation }: NativeStackScreenProps<Sha
                   <MetadataRow icon="event">{formatDateRange(card.event.starts_at, card.event.ends_at)} · {placeLabel(card.event)}</MetadataRow>
                 </Card>
               ))}
-              {offline || cur.wasOffline ? <Button kind="secondary" label="Tekrar dene" onPress={() => void q.refetch()} /> : <LoadingSkeleton />}
+              {offline || cur.wasOffline ? <Button kind="secondary" label="Tekrar dene" onPress={() => void q.refetch()} /> : <LoadingSkeleton variant="row" />}
             </View>
           ) : !userId ? <EmptyState icon="ticket" title="Katılımların burada görünecek" body="Bir etkinliğe katıldığında kayıt durumunu ve katılım kartını burada bulursun." />
-            : q.isPending ? <LoadingSkeleton />
-              : q.isError && offline && saved.isPending ? <LoadingSkeleton />
+            : q.isPending ? <LoadingSkeleton variant="row" />
+              : q.isError && offline && saved.isPending ? <LoadingSkeleton variant="row" />
               : q.isError ? <ErrorState error={toAppError(q.error)} onRetry={() => void q.refetch()} />
                 : <EmptyState icon="ticket" title="Henüz bir katılımın yok" body="İlgini çeken bir etkinlik bul, ilk adımı at." actionLabel="Etkinlikleri keşfet" onAction={navigation.goBack} />
         }

@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Chip, ChipRail, EmptyState, ErrorState, EventCard, HeroCard, IconButton, ListCard, LoadingSkeleton, MiniCard, OfflineBanner, Screen, SearchInput, SectionHeader, Text, space } from '../../design-system';
+import { AppHeader, Chip, ChipRail, EmptyState, ErrorState, HeroCard, IconButton, LoadingSkeleton, MiniCard, OfflineBanner, PosterCard, RowCard, Screen, SearchInput, SectionHeader, Text, keepTogether, space } from '../../design-system';
 import { track } from '../../lib/analytics';
 import { formatDate } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
@@ -12,7 +12,9 @@ import type { InterestRow, OpportunityRow, TeamRow } from '../../lib/database.ty
 import type { DiscoverStackParamList, MainTabParamList } from '../../navigation/types';
 import { useMyProfile } from '../profile/api';
 import { fetchEventsPage } from '../events/api';
-import { toEventCardModel } from '../events/labels';
+import { toEventPoster } from '../events/labels';
+import { OPPORTUNITY_TYPE } from '../opportunities/labels';
+import { kindIcon } from '../teams/labels';
 import { usePrefs } from '../onboarding/PrefsProvider';
 import { TEAM_PUBLIC_COLUMNS } from '../teams/api';
 import { pickFeatured } from './featured';
@@ -84,7 +86,7 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
         </ChipRail>
       </View>
 
-      {events.isPending ? <LoadingSkeleton />
+      {events.isPending ? <LoadingSkeleton variant="poster" />
         : events.isError && !events.data ? <ErrorState error={toAppError(events.error)} onRetry={() => void events.refetch()} />
           : items.length === 0 ? (
             <EmptyState icon="discover" title={submitted ? `“${submitted}” için sonuç yok` : 'Bu alanda şu an etkinlik yok'}
@@ -92,12 +94,12 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
               onAction={() => { setTopic('all'); setSearch(''); setSubmitted(''); }} />
           ) : (
             <>
-              {featured && (() => { const m = toEventCardModel(featured); return (
-                <HeroCard eyebrow={m.typeLabel} title={m.posterLine} accent={m.posterLine.split(' ').slice(-1)[0]} meta={`${m.dateLabel} · ${m.placeLabel} · ${m.feeLabel}`} cta="Detayları gör" onPress={() => openEvent(featured.id)} />
+              {featured && (() => { const m = toEventPoster(featured); const line = m.fallback.line; return (
+                <HeroCard eyebrow={m.typeLabel} title={line} accent={line.split(' ').slice(-1)[0]} meta={`${m.dateLabel} · ${m.placeLabel} · ${m.feeLabel}`} cta="Detayları gör" onPress={() => openEvent(featured.id)} />
               ); })()}
               <SectionHeader title={submitted ? 'Sonuçlar' : 'Yaklaşan etkinlikler'} actionLabel="Tümünü gör" onAction={() => navigation.getParent()?.navigate('EventsTab')} />
               <View style={{ gap: space[3] }}>
-                {listed.map((e) => <EventCard key={e.id} model={toEventCardModel(e)} onPress={() => openEvent(e.id)} />)}
+                {listed.map((e) => <PosterCard key={e.id} {...toEventPoster(e)} onPress={() => openEvent(e.id)} />)}
               </View>
             </>
           )}
@@ -106,7 +108,10 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
         <>
           <SectionHeader title="Sıradaki adımın" actionLabel="Fırsatlar" onAction={() => navigation.getParent()?.navigate('OpportunitiesTab')} />
           <View style={{ gap: space[3] }}>
-            {preview.data.opportunities.map((o) => <ListCard key={o.id} icon="opportunity" title={o.title} body={o.summary} footnote={`Son başvuru: ${formatDate(o.closes_at)}`} onPress={() => openOpportunity(o.id)} />)}
+            {preview.data.opportunities.map((o) => (
+              <RowCard key={o.id} leading={{ kind: 'icon', icon: OPPORTUNITY_TYPE[o.type].icon }} title={o.title} secondary={o.summary}
+                footnote={`Son başvuru: ${keepTogether(formatDate(o.closes_at))}`} isDemo={o.is_demo} trailing={{ kind: 'chevron' }} onPress={() => openOpportunity(o.id)} />
+            ))}
           </View>
         </>
       )}
@@ -114,7 +119,7 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
         <>
           <SectionHeader title="Birlikte üretenler" actionLabel="Topluluk" onAction={() => navigation.getParent()?.navigate('CommunityTab')} />
           <View style={{ flexDirection: 'row', gap: space[3] }}>
-            {preview.data.teams.slice(0, 2).map((t) => <MiniCard key={t.id} icon={t.kind === 'team' ? 'robot' : 'community'} title={t.name} body={t.tagline ?? ''} onPress={() => openTeam(t.id)} />)}
+            {preview.data.teams.slice(0, 2).map((t) => <MiniCard key={t.id} icon={kindIcon(t.kind)} title={t.name} body={t.tagline ?? undefined} onPress={() => openTeam(t.id)} />)}
           </View>
         </>
       )}

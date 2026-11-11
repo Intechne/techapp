@@ -12,7 +12,7 @@ import { useSession } from '../auth/SessionProvider';
 import { usePendingIntent } from '../auth/pendingIntent';
 import { eventKeys, fetchEligibility, fetchEvent } from './api';
 import { VolunteerSection } from '../volunteers/VolunteerSection';
-import { ELIGIBILITY_REASON, EVENT_TYPE_LABEL, audienceLabel, availability, feeLabel, placeLabel, registrationTermsLabel } from './labels';
+import { ELIGIBILITY_REASON, EVENT_TYPE_ICON, EVENT_TYPE_LABEL, audienceLabel, availability, feeLabel, placeLabel, registrationTermsLabel } from './labels';
 
 export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<SharedEventParamList, 'EventDetail'>) {
   const { eventId } = route.params;
@@ -56,7 +56,7 @@ export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<
   return (
     <Screen header={<AppHeader onBack={navigation.goBack} title="Etkinlik" />} footer={footer}
       refreshing={event.isRefetching} onRefresh={() => { void event.refetch(); void eligibility.refetch(); }}>
-      <Poster large tone={e.tone} brand={`${(e.organization?.name ?? 'TechApp').toLocaleUpperCase('tr')} / ${EVENT_TYPE_LABEL[e.type]}`} line={e.poster_line ?? e.title} />
+      <Poster large tone={e.tone} icon={EVENT_TYPE_ICON[e.type]} brand={`${e.organization?.name ?? 'TechApp'} · ${EVENT_TYPE_LABEL[e.type]}`} line={e.poster_line ?? e.title} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginTop: space[4] }}>
         <Tag label={EVENT_TYPE_LABEL[e.type]} />
         {avail && <Tag label={avail.label} tone={avail.tone} />}

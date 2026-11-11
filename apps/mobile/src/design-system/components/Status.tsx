@@ -5,7 +5,8 @@ import type { RegistrationStatus as RegStatus, GuardianStatus } from '../../lib/
 import { formatTime } from '../../lib/dates';
 
 type Tone = 'iris' | 'moss' | 'neutral' | 'danger' | 'apricot';
-interface StatusView { label: string; tone: Tone; icon?: TechIconName }
+/** A status as cards and badges show it: capitalised label, tag tone, optional glyph. */
+export interface StatusView { label: string; tone: Tone; icon?: TechIconName }
 
 /** Single source for status wording: status strings are never re-typed in screens. */
 export const registrationStatusView: Record<RegStatus, StatusView> = {

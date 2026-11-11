@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { Button, Checkbox, Chip, EmptyState, ErrorState, EventCard, Notice, RegistrationStatus, VerificationBadge } from '..';
+import { Button, Checkbox, Chip, EmptyState, ErrorState, Notice, RegistrationStatus, VerificationBadge } from '..';
 import { iconFillPaths, iconPaths } from '../icons.generated';
 import { makeError } from '../../lib/errors';
 
@@ -58,15 +58,6 @@ describe('design system', () => {
     await render(<EmptyState title="Henüz bir katılımın yok" actionLabel="Etkinlikleri keşfet" onAction={go} />);
     await fireEvent.press(screen.getByText('Etkinlikleri keşfet'));
     expect(go).toHaveBeenCalled();
-  });
-
-  it('EventCard: whole card is one accessible button, bookmark is separate', async () => {
-    const open = jest.fn(); const save = jest.fn();
-    await render(<EventCard onPress={open} onToggleSave={save} model={{ id: '1', title: 'İyi Bir Gelecek Hackathonu', posterLine: 'Bir fikir.', tone: 'iris', typeLabel: 'HACKATHON', organizer: 'Intechne', dateLabel: '17 Ekim 2026', placeLabel: 'İstanbul', audienceLabel: 'Lise + üniversite', feeLabel: 'Ücretsiz' }} />);
-    await fireEvent.press(screen.getByLabelText('Kaydet'));
-    expect(save).toHaveBeenCalled(); expect(open).not.toHaveBeenCalled();
-    await fireEvent.press(screen.getByText('İyi Bir Gelecek Hackathonu'));
-    expect(open).toHaveBeenCalled();
   });
 
   it('status and provenance wording comes from one place', async () => {

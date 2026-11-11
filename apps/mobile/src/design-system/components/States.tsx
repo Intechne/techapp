@@ -1,10 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { Animated, StyleSheet, View, type DimensionValue } from 'react-native';
+import React, { useEffect } from 'react';
+import { StyleSheet, View, type DimensionValue } from 'react-native';
+import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { colors, radius, space } from '../tokens';
 import { Text } from '../Text';
 import { TechIcon, type TechIconName } from '../TechIcon';
 import { Button } from './Button';
 import { useReducedMotion } from '../useReducedMotion';
+import { PosterCardSkeleton } from './cards/PosterCard';
+import { RowCardSkeleton } from './cards/RowCard';
 import type { AppError } from '../../lib/errors';
 
 interface EmptyProps { icon?: TechIconName; title: string; body?: string; actionLabel?: string; onAction?: () => void }
@@ -34,32 +37,28 @@ export function ErrorState({ error, onRetry }: { error: AppError; onRetry?: () =
   );
 }
 
+/** Standalone placeholder bar (non-card content). One calm opacity pulse on the UI thread; static with reduced motion. */
 export function Skeleton({ width = '100%', height = 16, rounded = radius.small }: { width?: DimensionValue; height?: number; rounded?: number }) {
   const reduced = useReducedMotion();
-  const [opacity] = useState(() => new Animated.Value(0.55));
+  const opacity = useSharedValue(1);
   useEffect(() => {
-    if (reduced) return;
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
-      Animated.timing(opacity, { toValue: 0.55, duration: 700, useNativeDriver: true }),
-    ]));
-    loop.start();
-    return () => loop.stop();
+    if (reduced) { cancelAnimation(opacity); opacity.set(1); return; }
+    opacity.set(withRepeat(withTiming(0.55, { duration: 900, easing: Easing.inOut(Easing.sin) }), -1, true));
+    return () => cancelAnimation(opacity);
   }, [opacity, reduced]);
-  return <Animated.View style={{ width, height, borderRadius: rounded, backgroundColor: colors.surfaceSunken, opacity }} />;
+  const animated = useAnimatedStyle(() => ({ opacity: opacity.get() }));
+  return <Animated.View style={[{ width, height, borderRadius: rounded, backgroundColor: colors.surfaceSunken }, animated]} />;
 }
 
-export function LoadingSkeleton({ cards = 2 }: { cards?: number }) {
+/**
+ * Loading state of a list: the skeleton variant of the card the list will show, so nothing jumps when data arrives.
+ * `poster` for events/courses, `row` for opportunities, teams, registrations, applications.
+ */
+export function LoadingSkeleton({ cards = 2, variant = 'poster' }: { cards?: number; variant?: 'poster' | 'row' }) {
+  const Item = variant === 'row' ? RowCardSkeleton : PosterCardSkeleton;
   return (
-    <View accessibilityLabel="Yükleniyor" accessibilityRole="progressbar" style={{ gap: space[4] }}>
-      {Array.from({ length: cards }, (_, i) => (
-        <View key={i} style={styles.skeletonCard}>
-          <Skeleton height={148} rounded={0} />
-          <View style={{ padding: space[4], gap: space[3] }}>
-            <Skeleton width="30%" height={20} /><Skeleton width="85%" height={20} /><Skeleton width="55%" />
-          </View>
-        </View>
-      ))}
+    <View accessibilityLabel="Yükleniyor" accessibilityRole="progressbar" style={{ gap: space[3] }}>
+      {Array.from({ length: cards }, (_, i) => <Item key={i} />)}
     </View>
   );
 }
@@ -76,6 +75,5 @@ export function OfflineBanner() {
 const styles = StyleSheet.create({
   center: { alignItems: 'center', gap: space[3], paddingVertical: space[8], paddingHorizontal: space[4] },
   badge: { width: 64, height: 64, borderRadius: radius.card, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', marginBottom: space[1] },
-  skeletonCard: { borderRadius: radius.card, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, overflow: 'hidden' },
   offline: { flexDirection: 'row', gap: space[2], alignItems: 'center', justifyContent: 'center', backgroundColor: colors.ink, paddingVertical: space[2], paddingHorizontal: space[4] },
 });

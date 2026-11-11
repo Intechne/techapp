@@ -27,7 +27,7 @@ export function DeadlinesScreen({ navigation }: NativeStackScreenProps<Opportuni
       <Text variant="body" color="textSecondary" style={{ marginTop: space[2], marginBottom: space[4] }}>Yarışma, hibe, ödül ve program başvurularının kapanış tarihleri.</Text>
       <SegmentedControl options={SEGMENTS} value={segment} onChange={setSegment} />
       <View style={{ height: space[4] }} />
-      {q.isPending ? <LoadingSkeleton /> : q.isError ? <ErrorState error={toAppError(q.error)} onRetry={() => void q.refetch()} />
+      {q.isPending ? <LoadingSkeleton variant="row" /> : q.isError ? <ErrorState error={toAppError(q.error)} onRetry={() => void q.refetch()} />
         : groups.length === 0 ? (
           segment === 'Takip ettiklerim'
             ? <EmptyState icon="bookmark" title={follow.requiresAuth ? 'Takip etmek için giriş yap' : 'Henüz takip ettiğin bir çağrı yok'} body="Bir çağrının üzerindeki yer imine dokun; son tarihi burada görünsün." actionLabel="Tüm son tarihleri göster" onAction={() => setSegment('Tüm son tarihler')} />

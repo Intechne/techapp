@@ -22,7 +22,7 @@ export function MyApplicationsScreen({ navigation }: NativeStackScreenProps<Oppo
     <Screen wide header={<AppHeader onBack={navigation.goBack} title="Başvurularım" />} refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
       <Text variant="display" style={{ marginBottom: space[4] }}>Attığın adımlar.</Text>
       {!userId ? <EmptyState icon="opportunity" title="Başvuruların burada görünecek" body="Bir çağrıya başvurduğunda durumunu buradan takip edersin." />
-        : q.isPending ? <LoadingSkeleton /> : q.isError ? <ErrorState error={toAppError(q.error)} onRetry={() => void q.refetch()} />
+        : q.isPending ? <LoadingSkeleton variant="row" /> : q.isError ? <ErrorState error={toAppError(q.error)} onRetry={() => void q.refetch()} />
           : q.data.length === 0 ? <EmptyState icon="opportunity" title="Henüz bir başvurun yok" body="Sana uyan bir çağrı bul, ilk adımı at." actionLabel="Çağrılara göz at" onAction={() => navigation.navigate('OpportunitiesHome')} />
             : <ResponsiveGrid maxColumns={2}>{q.data.map((a) => (
               <Card key={a.id} style={{ gap: space[2] }}>

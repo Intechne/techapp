@@ -49,7 +49,7 @@ export function TeamWorkspaceScreen({ navigation, route }: NativeStackScreenProp
     right={perms.canManage ? <IconButton icon="plus" accessibilityLabel="Yeni görev" onPress={() => navigation.navigate('TeamTaskEditor', { teamId })} /> : undefined} />;
 
   if (!userId) return <Screen header={header}><EmptyState icon="community" title="Takım alanı üyeler içindir" body="Giriş yaptığında üyesi olduğun takımların alanı burada açılır." actionLabel="Giriş yap" onAction={() => navigation.getParent()?.getParent()?.navigate('AuthEmail')} /></Screen>;
-  if (roster.isPending) return <Screen header={header}><LoadingSkeleton /></Screen>;
+  if (roster.isPending) return <Screen header={header}><LoadingSkeleton variant="row" /></Screen>;
   if (roster.isError) {
     const err = toAppError(roster.error);
     return (
@@ -95,7 +95,7 @@ export function TeamWorkspaceScreen({ navigation, route }: NativeStackScreenProp
 
       {tab === 'Görevler' && (
         <View style={{ marginTop: space[4] }}>
-          {tasks.isPending ? <LoadingSkeleton /> : tasks.isError ? <ErrorState error={toAppError(tasks.error)} onRetry={() => void tasks.refetch()} />
+          {tasks.isPending ? <LoadingSkeleton variant="row" /> : tasks.isError ? <ErrorState error={toAppError(tasks.error)} onRetry={() => void tasks.refetch()} />
             : tasks.data.length === 0 ? <EmptyState icon="check" title="Henüz görev yok" body={perms.canManage ? 'İlk görevi ekle; kime ait olduğu ve son tarihi herkes için net olsun.' : 'Kaptan ya da mentor görev eklediğinde burada göreceksin.'} actionLabel={perms.canManage ? 'Görev ekle' : undefined} onAction={() => navigation.navigate('TeamTaskEditor', { teamId })} />
               : (<>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2], flexWrap: 'wrap', marginBottom: space[4] }}>

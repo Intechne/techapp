@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
-  AppHeader, Avatar, Button, Card, Divider, EmptyState, ErrorState, ListCard, LoadingSkeleton, MetadataRow, Modal, Notice, ResponsiveGrid, Screen,
+  AppHeader, Avatar, Button, Card, Divider, EmptyState, ErrorState, LoadingSkeleton, MetadataRow, Modal, Notice, ResponsiveGrid, RowCard, Screen,
   RegistrationStatus, SegmentedControl, Tag, TechIcon, Text, colors, radius, space, tones, useToast,
 } from '../../design-system';
 import { formatDate, formatDateTime } from '../../lib/dates';
@@ -70,7 +70,7 @@ export function ProfileScreen({ navigation }: NativeStackScreenProps<ProfileStac
 
   return (
     <Screen wide header={<AppHeader brand />} refreshing={cv.isRefetching} onRefresh={() => { void cv.refetch(); void account.refetch(); void regs.refetch(); }}>
-      {cv.isPending ? <LoadingSkeleton cards={2} /> : cv.isError ? <ErrorState error={toAppError(cv.error)} onRetry={() => void cv.refetch()} /> : (() => {
+      {cv.isPending ? <LoadingSkeleton cards={2} variant="row" /> : cv.isError ? <ErrorState error={toAppError(cv.error)} onRetry={() => void cv.refetch()} /> : (() => {
         const { profile, experiences, participations, volunteering, teams, share_token: shareToken } = cv.data;
         const stats = profileStats(cv.data, regs.data ?? [], new Date());
         const verifiedCount = stats.verified;
@@ -177,8 +177,8 @@ export function ProfileScreen({ navigation }: NativeStackScreenProps<ProfileStac
 
             <Divider />
             <ResponsiveGrid maxColumns={2}>
-              <ListCard icon="ticket" title="Katılımlarım" body="Kayıt durumların ve katılım kartların" onPress={() => navigation.navigate('MyRegistrations')} />
-              {canCheckIn && <ListCard icon="verified" title="Giriş kontrolü" body="Düzenleyen ekip için katılımcı girişi" onPress={() => navigation.navigate('CheckIn')} />}
+              <RowCard leading={{ kind: 'icon', icon: 'ticket' }} title="Katılımlarım" secondary="Kayıt durumların ve katılım kartların" trailing={{ kind: 'chevron' }} onPress={() => navigation.navigate('MyRegistrations')} />
+              {canCheckIn && <RowCard leading={{ kind: 'icon', icon: 'verified' }} title="Giriş kontrolü" secondary="Düzenleyen ekip için katılımcı girişi" trailing={{ kind: 'chevron' }} onPress={() => navigation.navigate('CheckIn')} />}
             </ResponsiveGrid>
           </>
         );

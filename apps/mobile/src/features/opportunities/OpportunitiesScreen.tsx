@@ -2,15 +2,17 @@ import React, { useState } from 'react';
 import { View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Chip, ChipRail, EmptyState, ErrorState, LoadingSkeleton, ResponsiveGrid, Screen, Text, TextButton, space } from '../../design-system';
+import { AppHeader, Chip, ChipRail, EmptyState, ErrorState, LoadingSkeleton, ResponsiveGrid, RowCard, Screen, Text, TextButton, metaJoin, space } from '../../design-system';
 import { track } from '../../lib/analytics';
 import { toAppError } from '../../lib/errors';
 import type { OpportunityType } from '../../lib/database.types';
 import type { OpportunitiesStackParamList } from '../../navigation/types';
 import { fetchOpportunities, opportunityKeys } from './api';
-import { OPPORTUNITY_TYPE, TYPE_FILTERS } from './labels';
-import { OpportunityCardView } from './OpportunityCardView';
+import { OPPORTUNITY_TYPE, TYPE_FILTERS, deadlineView, placeOf } from './labels';
 import { useFollowedOpportunities } from './useFollow';
+
+/** Saving an opportunity means following its deadline: the control is the card bookmark, the words stay specific. */
+const FOLLOW_LABELS = { save: 'Son tarihi takip et', unsave: 'Takipten çıkar' };
 
 export function OpportunitiesScreen({ navigation }: NativeStackScreenProps<OpportunitiesStackParamList, 'OpportunitiesHome'>) {
   const [type, setType] = useState<OpportunityType | 'all'>('all');
@@ -30,9 +32,18 @@ export function OpportunitiesScreen({ navigation }: NativeStackScreenProps<Oppor
       <View style={{ marginBottom: space[4] }}>
         <ChipRail>{TYPE_FILTERS.map((t) => <Chip key={t} label={t === 'all' ? 'Tümü' : OPPORTUNITY_TYPE[t].label} selected={type === t} onPress={() => setType(t)} />)}</ChipRail>
       </View>
-      {q.isPending ? <LoadingSkeleton /> : q.isError ? <ErrorState error={toAppError(q.error)} onRetry={() => void q.refetch()} />
+      {q.isPending ? <LoadingSkeleton variant="row" /> : q.isError ? <ErrorState error={toAppError(q.error)} onRetry={() => void q.refetch()} />
         : q.data.length === 0 ? <EmptyState icon="opportunity" title={type === 'all' ? 'Şu an açık çağrı yok' : 'Bu türde açık çağrı yok'} body="Yeni çağrılar eklendiğinde burada göreceksin." actionLabel={type === 'all' ? undefined : 'Tümünü göster'} onAction={() => setType('all')} />
-          : <ResponsiveGrid>{q.data.map((o) => <OpportunityCardView key={o.id} item={o} followed={follow.ids.has(o.id)} onPress={() => open(o.id)} onToggleFollow={follow.requiresAuth ? undefined : () => follow.toggle(o.id)} />)}</ResponsiveGrid>}
+          : (
+            <ResponsiveGrid>
+              {q.data.map((o) => (
+                <RowCard key={o.id} leading={{ kind: 'icon', icon: OPPORTUNITY_TYPE[o.type].icon }} title={o.title} secondary={o.summary}
+                  footnote={metaJoin([OPPORTUNITY_TYPE[o.type].label, deadlineView(o.closes_at).label, placeOf(o)])} isDemo={o.is_demo}
+                  trailing={follow.requiresAuth ? { kind: 'chevron' } : { kind: 'bookmark', saved: follow.ids.has(o.id), onToggle: () => follow.toggle(o.id), labels: FOLLOW_LABELS }}
+                  onPress={() => open(o.id)} />
+              ))}
+            </ResponsiveGrid>
+          )}
     </Screen>
   );
 }

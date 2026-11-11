@@ -3,12 +3,12 @@ import { ActivityIndicator, FlatList, RefreshControl, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, BottomSheet, Button, Checkbox, Chip, ChipRail, EmptyState, ErrorState, EventCard, LoadingSkeleton, Text, TextButton, colors, layout, space } from '../../design-system';
+import { AppHeader, BottomSheet, Button, Checkbox, Chip, ChipRail, EmptyState, ErrorState, LoadingSkeleton, PosterCard, Text, TextButton, colors, layout, space } from '../../design-system';
 import { toAppError } from '../../lib/errors';
 import type { EventType } from '../../lib/database.types';
 import type { EventsStackParamList } from '../../navigation/types';
 import { eventKeys, fetchEventsPage, type EventCursor, type EventFilters } from './api';
-import { EVENT_TYPE_FILTERS, toEventCardModel, type EventWithOrg } from './labels';
+import { EVENT_TYPE_FILTERS, toEventPoster, type EventWithOrg } from './labels';
 
 /**
  * Filter state lives in this screen and the native stack keeps it mounted while a detail is open,
@@ -31,7 +31,7 @@ export function EventsListScreen({ navigation }: NativeStackScreenProps<EventsSt
   const filtered = type !== 'all' || onlineOnly;
 
   const renderItem = useCallback(({ item }: { item: EventWithOrg }) => (
-    <EventCard model={toEventCardModel(item)} onPress={() => navigation.navigate('EventDetail', { eventId: item.id })} />
+    <PosterCard {...toEventPoster(item)} onPress={() => navigation.navigate('EventDetail', { eventId: item.id })} />
   ), [navigation]);
 
   const header = (
@@ -62,7 +62,7 @@ export function EventsListScreen({ navigation }: NativeStackScreenProps<EventsSt
         onEndReached={() => { if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage(); }}
         refreshControl={<RefreshControl refreshing={query.isRefetching && !query.isFetchingNextPage} onRefresh={() => void query.refetch()} tintColor={colors.primary} />}
         ListEmptyComponent={
-          query.isPending ? <LoadingSkeleton />
+          query.isPending ? <LoadingSkeleton variant="poster" />
             : query.isError ? <ErrorState error={toAppError(query.error)} onRetry={() => void query.refetch()} />
               : filtered ? <EmptyState icon="filter" title="Bu filtrede etkinlik yok" body="Filtreleri gevşetip tekrar bakabilirsin." actionLabel="Filtreleri temizle" onAction={() => { setType('all'); setOnlineOnly(false); }} />
                 : <EmptyState icon="event" title="Yakında burası dolacak" body="Şu an yayında etkinlik yok. Yeni etkinlikler eklendiğinde burada göreceksin." />

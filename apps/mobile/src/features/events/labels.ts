@@ -1,10 +1,15 @@
-import type { EventCardModel } from '../../design-system';
+import type { PosterCardProps, StatusView, TechIconName } from '../../design-system';
 import { formatDateRange } from '../../lib/dates';
 import type { EventFormat, EventRow, EventType } from '../../lib/database.types';
 
 export const EVENT_TYPE_LABEL: Record<EventType, string> = {
   hackathon: 'HACKATHON', competition: 'YARIŞMA', workshop: 'ATÖLYE', conference: 'KONFERANS',
   meetup: 'BULUŞMA', social_impact: 'SOSYAL ETKİ', training: 'EĞİTİM', festival: 'ŞENLİK',
+};
+/** Type glyph on the fallback poster (icon meaning table: robot stays reserved for the robotics category). */
+export const EVENT_TYPE_ICON: Record<EventType, TechIconName> = {
+  hackathon: 'code', competition: 'badge', workshop: 'project', conference: 'mentor',
+  meetup: 'community', social_impact: 'leaf', training: 'learn', festival: 'spark',
 };
 export const EVENT_TYPE_FILTERS: readonly { value: EventType | 'all'; label: string }[] = [
   { value: 'all', label: 'Tümü' }, { value: 'hackathon', label: 'Hackathon' }, { value: 'competition', label: 'Yarışma' },
@@ -40,7 +45,7 @@ export function registrationTermsLabel(e: Pick<EventRow, 'registration_mode' | '
 }
 
 /** Availability is display-only; the server decides again at registration time. */
-export function availability(e: Pick<EventRow, 'capacity' | 'seats_taken' | 'waitlist_enabled' | 'registration_closes_at'>, now = Date.now()): EventCardModel['availability'] {
+export function availability(e: Pick<EventRow, 'capacity' | 'seats_taken' | 'waitlist_enabled' | 'registration_closes_at'>, now = Date.now()): StatusView | undefined {
   if (new Date(e.registration_closes_at).getTime() <= now) return { label: 'KAYIT KAPANDI', tone: 'danger' };
   if (e.capacity === null) return undefined;
   const left = e.capacity - e.seats_taken;
@@ -49,12 +54,17 @@ export function availability(e: Pick<EventRow, 'capacity' | 'seats_taken' | 'wai
   return undefined;
 }
 
-export function toEventCardModel(e: EventWithOrg): EventCardModel {
+/** Everything a PosterCard shows for an event; the screen adds navigation (and saving, when it exists). */
+export type EventPosterModel = Omit<PosterCardProps, 'onPress' | 'saved' | 'onToggleSave'>;
+
+export function toEventPoster(e: EventWithOrg): EventPosterModel {
   return {
-    id: e.id, title: e.title, posterLine: e.poster_line ?? e.title, tone: e.tone,
-    typeLabel: EVENT_TYPE_LABEL[e.type], organizer: e.organization?.name ?? 'TechApp',
+    title: e.title, typeLabel: EVENT_TYPE_LABEL[e.type], availability: availability(e),
     dateLabel: formatDateRange(e.starts_at, e.ends_at), placeLabel: placeLabel(e),
-    audienceLabel: audienceLabel(e), feeLabel: feeLabel(e.fee_minor_units), availability: availability(e),
+    audienceLabel: audienceLabel(e), feeLabel: feeLabel(e.fee_minor_units),
+    cover: { path: null, blurhash: null },
+    fallback: { tone: e.tone, icon: EVENT_TYPE_ICON[e.type], line: e.poster_line ?? e.title },
+    isDemo: e.is_demo,
   };
 }
 
