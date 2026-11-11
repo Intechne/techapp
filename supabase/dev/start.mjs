@@ -7,7 +7,7 @@
  * The gateway serves /rest/v1 (PostgREST), a minimal GoTrue-compatible /auth/v1 (e-mail OTP; the code is printed
  * to this terminal instead of being e-mailed), dev versions of our Edge Functions under /functions/v1, (the guardian
  * consent page is apps/web → http://localhost:3100/veli). The mobile app runs unmodified against it with the real supabase-js client.
- * Binds to 127.0.0.1 only. Requires `brew install postgrest`. Use `--reset` to recreate the database.
+ * Binds to 127.0.0.1 only. Requires `brew install postgrest`. Use `--reset` to recreate the database; `--reset --worst-case` also loads the hostile break-ui data set (local only).
  * `--lan` additionally opens the GATEWAY (never Postgres or PostgREST) to the local network and points the MOBILE app at this
  * machine's LAN address, so a phone on the same Wi-Fi can use it. The dev gateway hands out OTP codes without e-mail: use it on a
  * network you trust, and drop the flag when you are done.
@@ -35,6 +35,8 @@ const lanAddress = () => Object.values(networkInterfaces()).flat().find((n) => n
 const LAN_IP = LAN ? lanAddress() : undefined;
 if (LAN && !LAN_IP) { console.error('--lan: no local network address found (is Wi-Fi on?)'); process.exit(1); }
 
+const WORST_CASE = process.argv.includes('--worst-case');
+if (WORST_CASE && !process.argv.includes('--reset')) { console.error('--worst-case needs --reset: the hostile data set is only ever loaded into a freshly created LOCAL database (npm run db:dev -- --reset --worst-case).'); process.exit(1); }
 if (process.argv.includes('--reset')) rmSync(dataDir, { recursive: true, force: true });
 if (!existsSync(secretFile)) { mkdirSync(here, { recursive: true }); writeFileSync(secretFile, randomBytes(32).toString('hex')); }
 const JWT_SECRET = readFileSync(secretFile, 'utf8').trim();
@@ -99,6 +101,17 @@ if (fresh) {
   await db.query(`insert into public.organization_members (organization_id, user_id, role) select id, $1, 'owner' from public.organizations where is_demo`, [id]);
   await db.query(`insert into public.platform_admins (user_id) values ($1)`, [id]);
   console.log('database created: migrations + seed applied');
+  if (WORST_CASE) {
+    // Break-ui data (supabase/dev/seed-worst-case.sql). Refuses anything but the embedded LOCAL Postgres started by this script.
+    const where = (await db.query(`select inet_server_addr()::text as addr, inet_server_port() as port, current_setting('data_directory') as dir`)).rows[0];
+    const loopback = ['127.0.0.1', '::1'].includes(where.addr?.replace(/\/\d+$/, ''));
+    if (!loopback || Number(where.port) !== PG_PORT || where.dir !== dataDir) {
+      console.error(`--worst-case refused: the database is not this script's local embedded Postgres (${where.addr}:${where.port} ${where.dir}).`);
+      process.exit(1);
+    }
+    await db.query(readFileSync(join(here, 'seed-worst-case.sql'), 'utf8'));
+    console.log('worst-case seed applied (every row is_demo = true)');
+  }
 }
 
 // ------------------------------------------------------------------ PostgREST

@@ -65,6 +65,7 @@
     "test": "jest",
     "icons": "node scripts/generate-icons.mjs",
     "doctor": "expo-doctor",
+    "check:no-dev-preview": "node scripts/check-no-dev-preview.mjs",
     "verify": "npm run typecheck && npm run lint && npm test",
     "e2e:remote": "node scripts/remote-e2e.mjs"
   },

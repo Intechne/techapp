@@ -33,6 +33,7 @@ import { OpportunityApplyScreen } from '../features/opportunities/OpportunityApp
 import { MyApplicationsScreen } from '../features/opportunities/MyApplicationsScreen';
 import { VolunteerHubScreen } from '../features/volunteers/VolunteerHubScreen';
 import { useLayout } from '../design-system';
+import { env } from '../lib/env';
 import type { CommunityStackParamList, DiscoverStackParamList, EventsStackParamList, MainTabParamList, OpportunitiesStackParamList, ProfileStackParamList, RootStackParamList } from './types';
 
 const Root = createNativeStackNavigator<RootStackParamList>();
@@ -42,6 +43,14 @@ const Events = createNativeStackNavigator<EventsStackParamList>();
 const Opportunities = createNativeStackNavigator<OpportunitiesStackParamList>();
 const Community = createNativeStackNavigator<CommunityStackParamList>();
 const Profile = createNativeStackNavigator<ProfileStackParamList>();
+
+/**
+ * Developer-only design preview. The condition is written out (not wrapped in a helper) and the module is `require`d
+ * only inside it, so Metro folds `__DEV__` to false in release exports and leaves the preview and its fixtures out of
+ * the bundle. `npm run check:no-dev-preview` proves it on a real export.
+ */
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const DesignPreviewScreen: React.ComponentType | null = __DEV__ && env.appEnv === 'local' ? require('../dev/DesignPreviewScreen').DesignPreviewScreen : null;
 
 const stackOptions = { headerShown: false, contentStyle: { backgroundColor: colors.canvas } } as const;
 
@@ -120,6 +129,7 @@ export function RootNavigator() {
       {!(prefs.onboarded || serverOnboarded) ? <Root.Screen name="Onboarding" component={OnboardingScreen} /> : (
         <>
           <Root.Screen name="Main" component={MainTabs} />
+          {DesignPreviewScreen && <Root.Screen name="DesignPreview" component={DesignPreviewScreen} />}
           <Root.Group screenOptions={{ presentation: 'modal' }}>
             <Root.Screen name="AuthEmail" component={AuthEmailScreen} />
             <Root.Screen name="AuthOtp" component={AuthOtpScreen} />

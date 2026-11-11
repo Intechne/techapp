@@ -49,6 +49,8 @@ export type RootStackParamList = {
   AuthEmail: undefined;
   AuthOtp: undefined;
   ProfileBootstrap: undefined;
+  /** Developer-only (`__DEV__ && appEnv === 'local'`): the route is never registered in any other build. */
+  DesignPreview: { data?: string; state?: string } | undefined;
 };
 
 declare global {

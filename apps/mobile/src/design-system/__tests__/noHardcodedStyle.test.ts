@@ -3,14 +3,14 @@ import path from 'path';
 
 /**
  * Guard: screens and components take colours, font sizes and radii from tokens.
- * Scanned: src/features/** and src/design-system/components/** (tests excluded).
+ * Scanned: src/features/**, src/design-system/components/** and src/dev/** (the design preview: layout only, tokens only) (tests excluded).
  * tokens.ts and *.generated.ts live outside the scanned roots by design.
  * ALLOW is intentionally empty: add `'relative/path.tsx'` (with a reason) only for debt that belongs to a later task.
  */
 const ALLOW: string[] = [];
 
 const SRC = path.resolve(__dirname, '..', '..');
-const ROOTS = ['features', 'design-system/components'];
+const ROOTS = ['features', 'design-system/components', 'dev'];
 
 const RULES: { name: string; re: RegExp }[] = [
   { name: 'hex colour literal', re: /#[0-9A-Fa-f]{3,8}\b/ },

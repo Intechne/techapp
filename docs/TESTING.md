@@ -42,6 +42,14 @@ Altyapı: Vitest + `embedded-postgres` (gerçek PostgreSQL 18, çoklu bağlantı
 - `features/events/labels`: doluluk / bekleme listesi / kapanış etiketleri, kitle ve ücret
 - `design-system`: 30 ikon, `Button` yüklenirken etkisiz + `busy`, `Chip`/`Checkbox` erişilebilirlik durumu, `ErrorState` yalnız `retryable` hatada tekrar dene, `EventCard` kart ve yer imi ayrı hedef, durum metinleri
 
+## Tasarım önizleme ve en kötü durum verisi (geliştirici aracı)
+
+Kart ailesi ve liste durumları, iyi niyetli demo verisiyle değil gerçekçi en kötü veriyle yargılanır (break-ui).
+
+- **Veri:** `npm run db:dev -- --reset --worst-case` yalnız yerel gömülü Postgres'e `supabase/dev/seed-worst-case.sql` yükler (tüm satırlar `is_demo = true`; dosyanın son ifadesi aksi halde yüklemeyi düşürür). `--reset` olmadan `--worst-case` reddedilir; veritabanı bu betiğin kendi loopback Postgres'i değilse yükleme reddedilir. `db:test` bu dosyayı yüklemez. Şema tek harfli adı kabul etmez (kurum/takım ≥ 2, etkinlik/kurs ≥ 4 karakter): tek harfli ad yalnız istemci fixture'ında (`apps/mobile/src/dev/fixtures/worstCase.ts`) vardır.
+- **Ekran:** `DesignPreview` rotası yalnız `__DEV__ && env.appEnv === 'local'` iken kayıtlıdır (`techapp://design-preview`, web'de `/design-preview?data=worst&state=error`). Üstte "Demo veri / En kötü durum" anahtarı ve durum çipleri (veri, yükleniyor, boş, filtre boş, hata, çevrimdışı); ikisi de URL'de kalır. Ekran `src/dev/` altındadır ve `noHardcodedStyle` korumasının tarama kökleri arasındadır (izin listesi boş).
+- **Yayına girmediğinin kanıtı:** `npm --prefix apps/mobile run check:no-dev-preview` Android'i `expo export --no-bytecode` ile (appEnv=local zorlanmış) dışa aktarır ve paketlerde fixture/ekran işaret dizelerini arar; bulursa ya da paket gerçek bir uygulama paketi gibi görünmüyorsa (kontrol dizesi yok) başarısız olur. `--dir <klasör>` var olan bir dışa aktarımı tarar. Export çıktısı commit edilmez. Birim testi (`src/dev/__tests__/devOnly.test.tsx`) `development|preview|production` ortamlarında rotanın ve derin bağlantının olmadığını denetler.
+
 ## Elle uçtan uca doğrulama — 2026-09-19
 
 Ortam: Expo **web** önizlemesi (yalnız geliştirme hedefi) + yerel yığın (gerçek Postgres + PostgREST + RLS).
