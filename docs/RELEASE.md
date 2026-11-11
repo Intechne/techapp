@@ -16,6 +16,16 @@ Durum: **yayına hazır değil.** Bu belge, yayın için gerekenleri ve şu an e
 `appVersionSource: remote`. `submit.production` bilinçli olarak boştur: v4'teki `REPLACE_*` yer tutucuları taşınmadı ve kod içine gerçek kimlik bilgisi yazılmayacak.
 
 Her EAS ortamında tanımlanacak değişkenler: `EXPO_PUBLIC_APP_ENV`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+İsteğe bağlı: `EXPO_PUBLIC_SENTRY_DSN` (boş = crash raporlama kapalı).
+
+## Crash raporlama (Sentry) — 11 Kasım 2026
+
+Kod hazır, **bağlantı açık madde**: hesap/DSN/token yok, bu yüzden kapalı. Ayrıntı, gönderilen/gönderilmeyen veri, saklama
+süresi kararı ve bağlantı adımları: [`docs/CRASH-REPORTING.md`](CRASH-REPORTING.md).
+- Source map / debug symbol yükleme: `SENTRY_AUTH_TOKEN` **yalnız EAS secret** (`--visibility secret`) + `SENTRY_ORG` +
+  `SENTRY_PROJECT`. Üçü yoksa Sentry config plugin'i ve Metro config'i eklenmez; build yükleme adımı olmadan geçer.
+- OTA (`eas update`) sonrası source map: `npx sentry-expo-upload-sourcemaps dist` (token yalnız o komutun ortamında).
+- Production build preview/development DSN'iyle derlenmez (`envValidation.js` → `NON_PRODUCTION_SENTRY_PROJECT_IDS`).
 
 ## Intechne'nin sağlaması gerekenler
 
@@ -42,7 +52,7 @@ Kaynak: `design-source/TEKNIK-VE-YAYIN.md`.
 
 - ~~Uygulama ikonu placeholder~~ **Tamam:** "oyulmuş T." amblemi `design-source/brand/build.mjs` ile üretiliyor (iOS/Android/splash/favicon/mağaza); değişince tek komutla yeniden üret.
 - ~~Yerel build alınamadı~~ **EAS bulut build kullanılıyor** (yerel disk yetmiyor). EAS projesi: `@intechne/techapp` (`da99e9ee-4f05-4283-9a75-ed71051575e1`).
-- Crash raporlama, gerçek analytics sink'i, OTA güncelleme (`expo-updates`) henüz eklenmedi; `channel` alanları bunun için hazır.
+- Gerçek analytics sink'i henüz yok. Crash raporlama (Sentry) kodu hazır, DSN bağlantısı açık madde (`docs/CRASH-REPORTING.md`).
 - Kamera izni metni yalnız check-in içindir; mikrofon izni Android'de bilinçli olarak engellenir (`blockedPermissions`).
 - Push bildirimi yok → mağaza formlarında bildirim beyanı şimdilik gerekmez.
 
@@ -54,6 +64,7 @@ Kaynak: `design-source/TEKNIK-VE-YAYIN.md`.
 - [ ] RLS testleri gerçek projeye karşı da koşuldu
 - [ ] VoiceOver / TalkBack, büyük yazı, 320 pt genişlik denetimi
 - [ ] Hukuk: onay metni, en küçük yaş, saklama süreleri
+- [ ] Sentry: DSN bağlandı, saklama süresi kararı yazıldı, bağlantı sonrası doğrulama (`docs/CRASH-REPORTING.md`) geçti
 - [ ] İkon / splash / mağaza varlıkları
 
 ## Remote Supabase'e ilk bağlanma (sırayla)

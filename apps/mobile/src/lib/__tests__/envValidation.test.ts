@@ -1,4 +1,4 @@
-import { validateEnv } from '../envValidation';
+import { validateEnv, validateSentryDsn } from '../envValidation';
 
 const jwt = (role: string) => `x.${Buffer.from(JSON.stringify({ role })).toString('base64url')}.y`;
 const REF = 'abcdefghijklmnopqrst';
@@ -57,5 +57,36 @@ describe('validateEnv', () => {
       'a release build must use EXPO_PUBLIC_APP_ENV=preview or production',
       'EXPO_PUBLIC_SUPABASE_URL points to a local or private network host',
     ]));
+  });
+});
+
+describe('validateSentryDsn', () => {
+  // Fake fixtures in Sentry's documented example format.
+  const DEV = 'https://examplePublicKey@o0.ingest.de.sentry.io/1111111';
+  const PROD = 'https://examplePublicKey@o0.ingest.de.sentry.io/2222222';
+
+  it('no DSN means crash reporting is off, which is not a problem', () => {
+    for (const dsn of [undefined, '', '   ']) expect(validateSentryDsn({ appEnv: 'production', dsn })).toEqual({ enabled: false, projectId: null, problems: [] });
+  });
+
+  it('accepts a public https DSN and reads its project id', () => {
+    expect(validateSentryDsn({ appEnv: 'production', dsn: PROD })).toEqual({ enabled: true, projectId: '2222222', problems: [] });
+    expect(validateSentryDsn({ appEnv: 'development', dsn: 'https://k@sentry.example.org/team/42' }).projectId).toBe('42');
+  });
+
+  it('refuses a DSN with a secret key, http, a private host or garbage', () => {
+    expect(validateSentryDsn({ appEnv: 'local', dsn: 'https://pub:secret@o0.ingest.sentry.io/1' }).problems).toContain('EXPO_PUBLIC_SENTRY_DSN must be the public DSN, without a secret key');
+    expect(validateSentryDsn({ appEnv: 'local', dsn: 'http://pub@o0.ingest.sentry.io/1' }).problems).toContain('EXPO_PUBLIC_SENTRY_DSN must use https');
+    expect(validateSentryDsn({ appEnv: 'local', dsn: 'https://pub@192.168.1.5/1' }).problems).toContain('EXPO_PUBLIC_SENTRY_DSN points to a local or private network host');
+    for (const dsn of ['not-a-dsn', 'https://o0.ingest.sentry.io/1', 'https://pub@o0.ingest.sentry.io/', 'https://pub@o0.ingest.sentry.io/abc']) {
+      expect(validateSentryDsn({ appEnv: 'local', dsn }).enabled).toBe(false);
+    }
+  });
+
+  it('production never reports into a non-production project; other environments may', () => {
+    const nonProductionProjectIds = ['1111111'];
+    expect(validateSentryDsn({ appEnv: 'production', dsn: DEV, nonProductionProjectIds }).problems).toEqual(['production must not report into a non-production Sentry project']);
+    expect(validateSentryDsn({ appEnv: 'production', dsn: PROD, nonProductionProjectIds }).enabled).toBe(true);
+    expect(validateSentryDsn({ appEnv: 'preview', dsn: DEV, nonProductionProjectIds }).enabled).toBe(true);
   });
 });

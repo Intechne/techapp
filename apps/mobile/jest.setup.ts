@@ -8,3 +8,9 @@ jest.mock('expo-haptics', () => ({
   NotificationFeedbackType: { Success: 'success', Warning: 'warning', Error: 'error' },
   ImpactFeedbackStyle: { Light: 'light', Medium: 'medium', Heavy: 'heavy' },
 }));
+// Crash reporting never talks to the real SDK in tests. src/lib/crash.ts is the only importer.
+jest.mock('@sentry/react-native', () => ({
+  init: jest.fn(),
+  captureException: jest.fn(),
+  breadcrumbsIntegration: jest.fn((options: unknown) => ({ name: 'Breadcrumbs', options })),
+}));

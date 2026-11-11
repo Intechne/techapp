@@ -8,6 +8,9 @@
  *   production           never the staging project (STAGING_PROJECT_REFS): staging data must not reach store users
  *   release JS bundle    must be preview or production: a bundle built with local settings must not run in a store
  *                        build or arrive through an OTA update
+ *
+ * Crash reporting (validateSentryDsn) is separate on purpose: a missing or bad DSN only switches crash reporting off,
+ * it never makes the app "not configured". Builds (app.config.ts) refuse a bad DSN for preview/production.
  */
 const APP_ENVS = ['local', 'development', 'preview', 'production'];
 
@@ -32,6 +35,30 @@ function jwtRole(key) {
 // eslint-disable-next-line no-restricted-syntax -- detects (and rejects) a service-role key; contains no key
 const isSecretKey = (key) => key.startsWith('sb_secret_') || jwtRole(key) === 'service_role';
 const isPrivateHost = (host) => PRIVATE_HOST.test(host);
+
+// Sentry project ids that receive local / development / preview events (docs/CRASH-REPORTING.md). A production build
+// must never report into one of them, so production and test data stay in separate projects. Filled in when the
+// projects are created; only the numeric project id is listed, never a key.
+const NON_PRODUCTION_SENTRY_PROJECT_IDS = [];
+
+// https://<public key>@<host>[:port]/[path/]<project id>. Parsed with a regex: lib/crash.ts runs before the URL polyfill loads.
+const SENTRY_DSN = /^([a-z]+):\/\/([^:@/\s]+)(?::([^@/\s]*))?@([^/:@\s]+)(?::\d+)?(?:\/[^\s?#]*)?\/(\d+)\/?$/i;
+
+function validateSentryDsn({ appEnv, dsn = '', nonProductionProjectIds = NON_PRODUCTION_SENTRY_PROJECT_IDS }) {
+  const value = (dsn ?? '').trim();
+  if (!value) return { enabled: false, projectId: null, problems: [] };
+  const m = SENTRY_DSN.exec(value);
+  if (!m) return { enabled: false, projectId: null, problems: ['EXPO_PUBLIC_SENTRY_DSN is not a Sentry DSN'] };
+  const [, protocol, , secret, host, projectId] = m;
+  const problems = [];
+  if (secret !== undefined) problems.push('EXPO_PUBLIC_SENTRY_DSN must be the public DSN, without a secret key');
+  if (protocol.toLowerCase() !== 'https') problems.push('EXPO_PUBLIC_SENTRY_DSN must use https');
+  if (isPrivateHost(host)) problems.push('EXPO_PUBLIC_SENTRY_DSN points to a local or private network host');
+  if (appEnv === 'production' && nonProductionProjectIds.includes(projectId)) {
+    problems.push('production must not report into a non-production Sentry project');
+  }
+  return { enabled: problems.length === 0, projectId, problems };
+}
 
 function validateEnv({ appEnv, url = '', key = '', releaseBuild = false }) {
   const problems = [];
@@ -63,4 +90,4 @@ function validateEnv({ appEnv, url = '', key = '', releaseBuild = false }) {
   return { appEnv: known, strict, problems };
 }
 
-module.exports = { APP_ENVS, STAGING_PROJECT_REFS, isPrivateHost, isSecretKey, validateEnv };
+module.exports = { APP_ENVS, NON_PRODUCTION_SENTRY_PROJECT_IDS, STAGING_PROJECT_REFS, isPrivateHost, isSecretKey, validateEnv, validateSentryDsn };

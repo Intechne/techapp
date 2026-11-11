@@ -3,6 +3,9 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StartupUnavailableScreen } from '../StartupUnavailableScreen';
 import { AppErrorBoundary } from '../../../app/AppErrorBoundary';
+import { captureError } from '../../../lib/crash';
+
+jest.mock('../../../lib/crash', () => ({ captureError: jest.fn() }));
 
 const metrics = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
 const wrap = (ui: React.ReactElement) => <SafeAreaProvider initialMetrics={metrics}>{ui}</SafeAreaProvider>;
@@ -32,6 +35,7 @@ describe('AppErrorBoundary', () => {
     await render(<AppErrorBoundary><Boom /></AppErrorBoundary>);
     expect(screen.getByText('Bir şeyler ters gitti.')).toBeTruthy();
     expect(screen.queryByText(/boom-internal-detail/)).toBeNull();
+    expect(captureError).toHaveBeenCalledWith(expect.objectContaining({ message: 'boom-internal-detail' }), { code: 'render_crash' });
     spy.mockRestore();
   });
 });

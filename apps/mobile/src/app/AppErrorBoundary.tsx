@@ -2,12 +2,14 @@ import React from 'react';
 import { View } from 'react-native';
 import { Button, Text, colors, space } from '../design-system';
 import { track } from '../lib/analytics';
+import { captureError } from '../lib/crash';
 
 interface State { failed: boolean }
 
 /**
  * Last line of defence for render-time crashes: a calm screen with a retry instead of a white page.
- * Retry remounts the tree. No stack traces or debug data are shown to the user.
+ * Retry remounts the tree. No stack traces or debug data are shown to the user. The error goes to crash reporting
+ * (a no-op unless a Sentry DSN is configured), scrubbed and tagged with a machine code only.
  */
 export class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, State> {
   state: State = { failed: false };
@@ -18,6 +20,7 @@ export class AppErrorBoundary extends React.Component<{ children: React.ReactNod
 
   componentDidCatch(error: Error) {
     track('app_crash_caught', { name: error.name });
+    captureError(error, { code: 'render_crash' });
   }
 
   render() {
