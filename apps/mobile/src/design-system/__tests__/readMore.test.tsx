@@ -1,6 +1,13 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { READ_MORE_LINES, ReadMoreText, needsReadMore } from '../components/Content';
+import { READ_MORE_LINES, ReadMoreText, needsReadMore, readMoreClamp } from '../components/Content';
+
+let mockFontScale = 1;
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+  __esModule: true,
+  default: () => ({ width: 390, height: 844, scale: 2, fontScale: mockFontScale }),
+}));
+beforeEach(() => { mockFontScale = 1; });
 
 const lines = (n: number) => ({ nativeEvent: { lines: Array.from({ length: n }, () => ({ text: 'x' })) } });
 
@@ -12,6 +19,28 @@ describe('read more (approved Q12): long description clamps at 8 lines and expan
     expect(needsReadMore(8)).toBe(false);
     expect(needsReadMore(9)).toBe(true);
     expect(needsReadMore(120)).toBe(true);
+  });
+
+  it('clamp decision: unmeasured text is never clamped (it could never be expanded); measured > 8 clamps until expanded', () => {
+    expect(readMoreClamp(null, false)).toBe(false);
+    expect(readMoreClamp(8, false)).toBe(false);
+    expect(readMoreClamp(9, false)).toBe(true);
+    expect(readMoreClamp(9, true)).toBe(false);
+  });
+
+  it('before (or without) a measurement the full text shows, with no button', async () => {
+    await render(<ReadMoreText>Ölçülmemiş açıklama.</ReadMoreText>);
+    expect(screen.getByTestId('read-more-text').props.numberOfLines).toBeUndefined();
+    expect(screen.queryByText('Devamını oku')).toBeNull();
+  });
+
+  it('a font scale change measures again', async () => {
+    const view = await render(<ReadMoreText>Uzun açıklama.</ReadMoreText>);
+    await fireEvent(screen.getByTestId('read-more-measure', { includeHiddenElements: true }), 'textLayout', lines(40));
+    expect(screen.queryByTestId('read-more-measure', { includeHiddenElements: true })).toBeNull();
+    mockFontScale = 2;
+    await view.rerender(<ReadMoreText>Uzun açıklama.</ReadMoreText>);
+    expect(screen.getByTestId('read-more-measure', { includeHiddenElements: true })).toBeTruthy();
   });
 
   it('short text: no button and no clamp', async () => {

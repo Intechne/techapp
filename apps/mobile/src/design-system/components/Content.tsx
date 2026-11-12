@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Platform, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Platform, Pressable, StyleSheet, View, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
 import { colors, radius, space, tones, type, type Tone, type TypeVariant } from '../tokens';
 import { Text } from '../Text';
 import { TextButton } from './Button';
@@ -76,28 +76,34 @@ export function ProfileCard({ name, headline, onPress }: { name: string | null; 
 export const READ_MORE_LINES = 8;
 /** The decision, apart from layout: only text that measured more than `max` lines gets the button. Unknown (null) = no button. */
 export const needsReadMore = (lines: number | null, max = READ_MORE_LINES): boolean => lines !== null && lines > max;
+/**
+ * Clamp only what was measured long and not yet expanded. Unmeasured text is never clamped: if the measurement never
+ * arrives (a platform without onTextLayout, an odd layout) the reader still gets the whole text instead of a dead end.
+ */
+export const readMoreClamp = (lines: number | null, expanded: boolean): boolean => !expanded && needsReadMore(lines);
 
 /**
- * Body text that clamps at READ_MORE_LINES and expands in place. An invisible copy measures the full text once (native:
- * onTextLayout line count; web has no onTextLayout, so its height / line height); until then the text is clamped, so a
- * long description never flashes at full length. Short text gets no button and no clamp.
+ * Body text that clamps at READ_MORE_LINES and expands in place. An invisible copy measures the full text (native:
+ * onTextLayout line count; web has no onTextLayout, so its height / line height). The measurement is keyed by the text
+ * and the system font scale, so a font-size change measures again. Short text gets no button and no clamp.
  */
 export function ReadMoreText({ children, variant = 'body', color = 'textSecondary', style }: {
   children: string; variant?: TypeVariant; color?: React.ComponentProps<typeof Text>['color']; style?: StyleProp<ViewStyle>;
 }) {
-  const [measured, setMeasured] = useState<{ text: string; lines: number } | null>(null);
+  const { fontScale } = useWindowDimensions();
+  const key = `${fontScale}|${children}`;
+  const [measured, setMeasured] = useState<{ key: string; lines: number } | null>(null);
   const [expanded, setExpanded] = useState(false);
-  const lines = measured?.text === children ? measured.lines : null;
-  const clamp = !expanded && (lines === null || needsReadMore(lines));
-  const lineHeight = type[variant].lineHeight;
+  const lines = measured?.key === key ? measured.lines : null;
+  const lineHeight = type[variant].lineHeight * fontScale;
   return (
     <View style={style}>
-      <Text testID="read-more-text" variant={variant} color={color} numberOfLines={clamp ? READ_MORE_LINES : undefined}>{children}</Text>
+      <Text testID="read-more-text" variant={variant} color={color} numberOfLines={readMoreClamp(lines, expanded) ? READ_MORE_LINES : undefined}>{children}</Text>
       {lines === null && (
         <Text testID="read-more-measure" variant={variant} color={color} style={styles.measure} aria-hidden
           accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
-          onTextLayout={(e) => setMeasured({ text: children, lines: e.nativeEvent.lines.length })}
-          onLayout={Platform.OS === 'web' ? (e) => setMeasured({ text: children, lines: Math.round(e.nativeEvent.layout.height / lineHeight) }) : undefined}>
+          onTextLayout={(e) => setMeasured({ key, lines: e.nativeEvent.lines.length })}
+          onLayout={Platform.OS === 'web' ? (e) => setMeasured({ key, lines: Math.round(e.nativeEvent.layout.height / lineHeight) }) : undefined}>
           {children}
         </Text>
       )}

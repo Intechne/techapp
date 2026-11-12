@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { EventsListScreen } from '../EventsListScreen';
 import { EventFiltersScreen } from '../EventFiltersScreen';
-import { DEFAULT_LIST_FILTERS, activeFilterCount, readListFilters, toListParams, toQueryFilters, type EventListParams } from '../filters';
+import { DEFAULT_LIST_FILTERS, activeFilterCount, findEventsList, readListFilters, toListParams, toQueryFilters, type EventListParams } from '../filters';
 
 const DAY = 86_400_000;
 const iso = (d: number) => new Date(Date.now() + d * DAY).toISOString();
@@ -33,9 +33,9 @@ jest.mock('../../../lib/supabase', () => ({ getSupabase: () => ({ from: () => mo
 jest.mock('../../../lib/analytics', () => ({ track: jest.fn() }));
 
 const navigate = jest.fn();
-const popTo = jest.fn();
+const goBack = jest.fn();
 const dispatch = jest.fn();
-beforeEach(() => { data.events = []; data.cities = []; queries.length = 0; navigate.mockClear(); popTo.mockClear(); dispatch.mockClear(); });
+beforeEach(() => { data.events = []; data.cities = []; queries.length = 0; navigate.mockClear(); goBack.mockClear(); dispatch.mockClear(); });
 
 const metrics = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
 const wrap = (ui: React.ReactElement) => {
@@ -46,7 +46,8 @@ const wrap = (ui: React.ReactElement) => {
 /** The list keeps its filters in route params (the sheet hands them back that way); setParams merges like the native stack. */
 function ListHarness({ initial }: { initial?: EventListParams }) {
   const [params, setParams] = useState<EventListParams>(initial);
-  const navigation = { navigate, setParams: (p: Partial<NonNullable<EventListParams>>) => setParams((prev) => ({ ...prev, ...p })) };
+  // The filter sheet lives on the root stack (above the tab bar): the list reaches it through its parents.
+  const navigation = { navigate: jest.fn(), getState: () => ({ key: 'events-stack' }), getParent: () => ({ getParent: () => ({ navigate }) }), setParams: (p: Partial<NonNullable<EventListParams>>) => setParams((prev) => ({ ...prev, ...p })) };
   const props = { navigation, route: { key: 'k', name: 'EventsList', params } } as unknown as React.ComponentProps<typeof EventsListScreen>;
   return <EventsListScreen {...props} />;
 }
@@ -63,7 +64,7 @@ describe('Etkinlikler listesi — filtreler', () => {
     data.events = [event('e1', 'Robot atölyesi')];
     await render(wrap(<ListHarness initial={{ city: 'Ankara' }} />));
     await fireEvent.press(await screen.findByRole('button', { name: 'Filtrele · 1' }));
-    expect(navigate).toHaveBeenCalledWith('EventFilters', { city: 'Ankara' });
+    expect(navigate).toHaveBeenCalledWith('EventFilters', { city: 'Ankara', listKey: 'k', stackKey: 'events-stack' });
   });
 
   it('filtered-empty: "Bu filtrelerle sonuç yok" and "Filtreleri temizle" resets every filter', async () => {
@@ -128,9 +129,30 @@ describe('filter params (route params are strings on web)', () => {
   });
 });
 
+/** Root stack: Main (tabs → Events stack → EventsList) with the filter sheet on top of it, so it covers the tab bar. */
+const ROOT_STATE = {
+  key: 'root', routes: [
+    { name: 'Main', key: 'main', state: { key: 'tabs', routes: [
+      { name: 'DiscoverTab', key: 'dt' },
+      { name: 'EventsTab', key: 'et', state: { key: 'events-stack', routes: [{ name: 'EventsList', key: 'list-1' }, { name: 'EventDetail', key: 'd1' }] } },
+    ] } },
+    { name: 'EventFilters', key: 's' },
+  ],
+};
+
+describe('findEventsList', () => {
+  it('finds the list route and its stack inside the tabs', () => {
+    expect(findEventsList(ROOT_STATE)).toEqual({ stackKey: 'events-stack', listKey: 'list-1' });
+  });
+  it('null when the Events stack has not been mounted', () => {
+    expect(findEventsList({ key: 'root', routes: [{ name: 'Main', key: 'main' }] })).toBeNull();
+    expect(findEventsList(undefined)).toBeNull();
+  });
+});
+
 describe('EventFiltersScreen (form sheet)', () => {
   async function renderSheet(params: EventListParams) {
-    const navigation = { popTo, goBack: jest.fn(), dispatch, getState: () => ({ routes: [{ name: 'EventsList', key: 'list-1' }, { name: 'EventFilters', key: 's' }] }) };
+    const navigation = { goBack, dispatch, getState: () => ROOT_STATE };
     const props = { navigation, route: { key: 's', name: 'EventFilters', params } } as unknown as React.ComponentProps<typeof EventFiltersScreen>;
     await render(wrap(<EventFiltersScreen {...props} />));
   }
@@ -142,13 +164,17 @@ describe('EventFiltersScreen (form sheet)', () => {
     await fireEvent.press(screen.getByRole('button', { name: '7 gün içinde' }));
     await fireEvent.press(screen.getByText('Yalnız kaydı açık olanlar'));
     await fireEvent.press(screen.getByRole('button', { name: 'Sonuçları göster' }));
-    expect(popTo).toHaveBeenCalledWith('EventsList', { type: 'hackathon', city: 'Ankara', within: 'week', open: '1' });
+    const last = dispatch.mock.calls.at(-1)![0];
+    expect(last).toMatchObject({ type: 'SET_PARAMS', source: 'list-1', target: 'events-stack' });
+    expect(last.payload.params).toEqual({ type: 'hackathon', format: undefined, city: 'Ankara', within: 'week', open: '1' });
+    expect(goBack).toHaveBeenCalledTimes(1);
   });
   it('each change is applied to the list behind the sheet at once (setParams on the list route, cleared keys included)', async () => {
     await renderSheet({ type: 'hackathon', city: 'Ankara' });
     await fireEvent.press(screen.getByRole('button', { name: '7 gün içinde' }));
     const last = dispatch.mock.calls.at(-1)![0];
     expect(last.source).toBe('list-1');
+    expect(last.target).toBe('events-stack');
     expect(last.type).toBe('SET_PARAMS');
     expect(last.payload.params).toEqual({ type: 'hackathon', format: undefined, city: 'Ankara', within: 'week', open: undefined });
     await fireEvent.press(screen.getByRole('button', { name: 'Temizle' }));
@@ -161,10 +187,19 @@ describe('EventFiltersScreen (form sheet)', () => {
     const labels = screen.getAllByText(/^(Ankara|Çanakkale|İzmir)$/).map((n) => n.props.children);
     expect(labels).toEqual(['Ankara', 'Çanakkale', 'İzmir']);
   });
+  it('the keys the list passed win over the state lookup (a fresh nested stack is not in the root snapshot yet)', async () => {
+    const navigation = { goBack, dispatch, getState: () => ({ key: 'root', routes: [{ name: 'Main', key: 'main' }] }) };
+    const props = { navigation, route: { key: 's', name: 'EventFilters', params: { type: 'hackathon', listKey: 'L', stackKey: 'S' } } } as unknown as React.ComponentProps<typeof EventFiltersScreen>;
+    await render(wrap(<EventFiltersScreen {...props} />));
+    await fireEvent.press(screen.getByRole('button', { name: 'Sonuçları göster' }));
+    expect(dispatch.mock.calls.at(-1)![0]).toMatchObject({ source: 'L', target: 'S' });
+    expect(dispatch.mock.calls.at(-1)![0].payload.params.type).toBe('hackathon');
+  });
   it('"Temizle" resets the sheet; showing results then returns no filters', async () => {
     await renderSheet({ type: 'hackathon', open: '1' });
     await fireEvent.press(screen.getByRole('button', { name: 'Temizle' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Sonuçları göster' }));
-    expect(popTo).toHaveBeenCalledWith('EventsList', {});
+    expect(dispatch.mock.calls.at(-1)![0].payload.params).toEqual({ type: undefined, format: undefined, city: undefined, within: undefined, open: undefined });
+    expect(goBack).toHaveBeenCalled();
   });
 });

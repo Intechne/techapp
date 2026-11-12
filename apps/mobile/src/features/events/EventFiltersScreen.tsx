@@ -5,9 +5,9 @@ import { CommonActions } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Button, Checkbox, Chip, IconButton, Skeleton, Text, TextButton, colors, layout, radius, semantic, space } from '../../design-system';
-import type { EventsStackParamList } from '../../navigation/types';
+import type { RootStackParamList } from '../../navigation/types';
 import { eventKeys, fetchEventCities } from './api';
-import { CLEARED_LIST_PARAMS, DEFAULT_LIST_FILTERS, FORMAT_FILTERS, WITHIN_FILTERS, readListFilters, toListParams, type EventListFilters } from './filters';
+import { CLEARED_LIST_PARAMS, DEFAULT_LIST_FILTERS, FORMAT_FILTERS, WITHIN_FILTERS, findEventsList, readListFilters, toListParams, type EventListFilters } from './filters';
 import { EVENT_TYPE_FILTERS } from './labels';
 
 const sem = semantic.light;
@@ -25,16 +25,21 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
 /**
  * Etkinlikler filters as a native form sheet (presentation 'formSheet', detents 0.6 / 1). It edits a draft that starts
  * from the list's filters. Each change is also applied to the list behind the sheet (setParams on that route), so at the
- * 60 % detent the results update in view and closing the sheet any way keeps them; "Sonuçları göster" hands the set back
- * with popTo. Android lays the sheet out at its largest detent, so the footer is only in view at full height: Temizle and
- * close live in the header, reachable at both detents.
+ * 60 % detent the results update in view and closing the sheet any way keeps them; "Sonuçları göster" applies the set and
+ * closes. It is registered on the root stack so the sheet covers the tab bar. Android lays the sheet out at its largest
+ * detent, so the footer is only in view at full height: Temizle and close live in the header, reachable at both detents.
  */
-export function EventFiltersScreen({ navigation, route }: NativeStackScreenProps<EventsStackParamList, 'EventFilters'>) {
+export function EventFiltersScreen({ navigation, route }: NativeStackScreenProps<RootStackParamList, 'EventFilters'>) {
   const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState<EventListFilters>(() => readListFilters(route.params));
+  // The sheet is a root-stack route; the list sits in the Events tab's stack. A SET_PARAMS action targeted at that stack
+  // (source = the list route) is handed down to it by React Navigation, so the list behind the sheet updates in place.
+  // The list passes its own keys when it opens the sheet: a nested stack that never changed has no state in the root
+  // snapshot yet, so the lookup is only the fallback.
   const applyToList = (next: EventListFilters) => {
-    const list = navigation.getState?.()?.routes.find((r) => r.name === 'EventsList');
-    if (list) navigation.dispatch({ ...CommonActions.setParams({ ...CLEARED_LIST_PARAMS, ...toListParams(next) }), source: list.key });
+    const { listKey, stackKey } = route.params ?? {};
+    const list = listKey && stackKey ? { listKey, stackKey } : findEventsList(navigation.getState());
+    if (list) navigation.dispatch({ ...CommonActions.setParams({ ...CLEARED_LIST_PARAMS, ...toListParams(next) }), source: list.listKey, target: list.stackKey });
   };
   const update = (next: EventListFilters) => { setDraft(next); applyToList(next); };
   const set = (patch: Partial<EventListFilters>) => update({ ...draft, ...patch });
@@ -70,7 +75,7 @@ export function EventFiltersScreen({ navigation, route }: NativeStackScreenProps
         </View>
       </ScrollView>
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, space[4]) }]}>
-        <Button label="Sonuçları göster" onPress={() => navigation.popTo('EventsList', toListParams(draft))} />
+        <Button label="Sonuçları göster" onPress={() => { applyToList(draft); navigation.goBack(); }} />
       </View>
     </View>
   );

@@ -13,7 +13,7 @@ import { EVENT_TYPE_FILTERS, toEventPoster, type EventWithOrg } from './labels';
 const Separator = () => <View style={{ height: space[3] }} />;
 
 /**
- * Filters live in this screen's route params (the filter sheet returns them with popTo); the native stack keeps the
+ * Filters live in this screen's route params (the root-stack filter sheet sets them); the native stack keeps the
  * screen mounted while a detail is open, so "filter → detail → back" returns to the same filters and scroll offset.
  */
 export function EventsListScreen({ navigation, route }: NativeStackScreenProps<EventsStackParamList, 'EventsList'>) {
@@ -43,7 +43,7 @@ export function EventsListScreen({ navigation, route }: NativeStackScreenProps<E
         <TextButton icon="ticket" label="Katılımlarım" onPress={() => navigation.navigate('MyRegistrations')} />
         <TextButton icon="filter" label={filterButtonLabel(active)}
           accessibilityHint={active > 0 ? `${active} filtre etkin` : undefined}
-          onPress={() => navigation.navigate('EventFilters', toListParams(listFilters))} />
+          onPress={() => navigation.getParent()?.getParent()?.navigate('EventFilters', { ...toListParams(listFilters), listKey: route.key, stackKey: navigation.getState().key })} />
       </View>
       <ChipRail>
         {EVENT_TYPE_FILTERS.map((f) => (

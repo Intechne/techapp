@@ -1,5 +1,5 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
-import type { EventListParams } from '../features/events/filters';
+import type { EventFiltersTarget, EventListParams } from '../features/events/filters';
 
 /** Screens reachable from more than one tab (event journey). Registered in every stack that needs them. */
 export type SharedEventParamList = {
@@ -14,7 +14,7 @@ export type SharedEventParamList = {
 
 export type DiscoverStackParamList = SharedEventParamList & { DiscoverHome: undefined };
 /** Etkinlikler list filters travel as route params (strings on web); the filter sheet starts from and returns the same shape. */
-export type EventsStackParamList = SharedEventParamList & { EventsList: EventListParams; EventFilters: EventListParams };
+export type EventsStackParamList = SharedEventParamList & { EventsList: EventListParams };
 export type OpportunitiesStackParamList = {
   OpportunitiesHome: undefined;
   Deadlines: undefined;
@@ -51,6 +51,8 @@ export type RootStackParamList = {
   AuthEmail: undefined;
   AuthOtp: undefined;
   ProfileBootstrap: undefined;
+  /** Etkinlikler filters: a form sheet on the root stack so it covers the tab bar; it edits the Events list's params. */
+  EventFilters: EventListParams & EventFiltersTarget;
   /** Developer-only (`__DEV__ && appEnv === 'local'`): the route is never registered in any other build. */
   DesignPreview: { data?: string; state?: string } | undefined;
 };

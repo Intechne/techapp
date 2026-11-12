@@ -63,3 +63,21 @@ export function toQueryFilters(f: EventListFilters): EventFilters {
     ...(f.openOnly ? { registrationOpenOnly: true } : null),
   };
 }
+
+/** Which list the root-stack filter sheet edits: the Events stack's key and the EventsList route key (set by the list). */
+export interface EventFiltersTarget { listKey?: string; stackKey?: string }
+
+/** The bits of a navigation state this lookup reads (a full or partial state). */
+interface NavStateLike { key?: string; routes: readonly { name: string; key?: string; state?: NavStateLike }[] }
+
+/**
+ * The filter sheet lives on the root stack, above the tab bar (Android draws the tab bar over a sheet presented inside a
+ * tab). It finds the Etkinlikler list it edits — root → Main (tabs) → EventsTab (stack) → EventsList — so it can target
+ * that route with setParams. Null when the Events stack is not mounted.
+ */
+export function findEventsList(root: NavStateLike | undefined): { stackKey: string; listKey: string } | null {
+  const tabs = root?.routes.find((r) => r.name === 'Main')?.state;
+  const stack = tabs?.routes.find((r) => r.name === 'EventsTab')?.state;
+  const list = stack?.routes.find((r) => r.name === 'EventsList');
+  return stack?.key && list?.key ? { stackKey: stack.key, listKey: list.key } : null;
+}
