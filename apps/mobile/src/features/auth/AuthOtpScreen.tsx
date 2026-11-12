@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, TextInput, View } from 'react-native';
+import { AccessibilityInfo, InteractionManager, TextInput, View } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppHeader, Button, Input, Notice, Screen, Text, TextButton, codeField, colors, fonts, space } from '../../design-system';
@@ -30,10 +30,15 @@ export function AuthOtpScreen({ navigation }: NativeStackScreenProps<RootStackPa
 
   // Opens the keyboard on arrival, like `autoFocus`, but not for screen-reader users: moving their focus into a field before
   // they have heard the heading and the e-mail it was sent to is disorienting (the HIG Doctor "autoFocus" finding).
+  // Runs after the native-stack push has settled; a failed screen-reader query counts as "off".
   useEffect(() => {
     let live = true;
-    AccessibilityInfo.isScreenReaderEnabled().then((on) => { if (live && !on) field.current?.focus(); }, () => {});
-    return () => { live = false; };
+    let task: { cancel: () => void } | null = null;
+    AccessibilityInfo.isScreenReaderEnabled().catch(() => false).then((on) => {
+      if (!live || on) return;
+      task = InteractionManager.runAfterInteractions(() => { if (live) field.current?.focus(); });
+    });
+    return () => { live = false; task?.cancel(); };
   }, []);
 
   useEffect(() => {

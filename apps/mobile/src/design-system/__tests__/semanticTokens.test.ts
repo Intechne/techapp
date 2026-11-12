@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { colors, elevation, radius, semantic, tones } from '../tokens';
+import { codeField, colors, elevation, radius, semantic, tones } from '../tokens';
 import { elevationStyle } from '../elevation';
 import { Platform } from 'react-native';
 import { noticeTones } from '../components/Surface';
@@ -17,6 +17,11 @@ describe('tokens.ts mirrors design-source/tokens.json', () => {
     });
     expect(radius).toMatchObject({ control: json.radius.control, card: json.radius.card, hero: json.radius.hero, pill: json.radius.pill });
     expect(elevation).toEqual(json.elevation);
+  });
+  it('one-time-code field matches', () => {
+    expect(codeField.fontSize).toBe(json.codeField.size);
+    expect(codeField.letterSpacing).toBe(json.codeField.letterSpacing);
+    expect(codeField.fontVariant.includes('tabular-nums')).toBe(json.codeField.tabularNums);
   });
   it('semantic.light matches', () => {
     expect(semantic.light).toEqual(json.semantic.light);

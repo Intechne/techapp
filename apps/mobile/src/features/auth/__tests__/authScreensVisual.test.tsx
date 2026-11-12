@@ -1,10 +1,9 @@
 import React from 'react';
-import { AccessibilityInfo, StyleSheet } from 'react-native';
-import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
+import { AccessibilityInfo, StyleSheet, TextInput } from 'react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthOtpScreen } from '../AuthOtpScreen';
-import { ProfileBootstrapScreen } from '../ProfileBootstrapScreen';
 import { StartupUnavailableScreen } from '../StartupUnavailableScreen';
 import { otpFlow } from '../otpFlow';
 import { noticeTones, radius } from '../../../design-system';
@@ -20,7 +19,6 @@ jest.mock('../SessionProvider', () => ({
   useSession: () => ({ userId: 'u1' }),
   useAccountState: () => mockAccount(),
 }));
-jest.mock('../../onboarding/PrefsProvider', () => ({ usePrefs: () => ({ prefs: { educationStage: null, interestSlugs: [] } }) }));
 
 const metrics = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
 const wrap = (ui: React.ReactElement) => (
@@ -42,13 +40,39 @@ describe('AuthOtp field and error', () => {
     expect(f.props.maxLength).toBe(6);
   });
 
-  it('does not use the autoFocus prop (steals screen-reader focus); sighted users still get the field focused', async () => {
-    const sr = jest.spyOn(AccessibilityInfo, 'isScreenReaderEnabled').mockResolvedValue(false);
-    otpFlow.begin('ada@example.com');
-    await render(wrap(<AuthOtpScreen {...props()} />));
-    expect(screen.getByLabelText('Doğrulama kodu').props.autoFocus).toBeFalsy();
-    await act(async () => {});
-    expect(sr).toHaveBeenCalled();
+  describe('focus', () => {
+    const focus = jest.spyOn(TextInput.prototype, 'focus').mockImplementation(() => {});
+    const reader = (r: () => Promise<boolean>) => jest.spyOn(AccessibilityInfo, 'isScreenReaderEnabled').mockImplementation(r);
+    beforeEach(() => focus.mockClear());
+    afterAll(() => { focus.mockRestore(); });
+    const open = async () => { otpFlow.begin('ada@example.com'); return render(wrap(<AuthOtpScreen {...props()} />)); };
+    const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 30)); });
+
+    it('no autoFocus prop; reader off: focus is requested after interactions', async () => {
+      reader(async () => false);
+      await open();
+      expect(screen.getByLabelText('Doğrulama kodu').props.autoFocus).toBeFalsy();
+      await settle();
+      expect(focus).toHaveBeenCalledTimes(1);
+    });
+    it('reader on: not focused', async () => {
+      reader(async () => true);
+      await open(); await settle();
+      expect(focus).not.toHaveBeenCalled();
+    });
+    it('reader query rejects: treated as off, focused anyway', async () => {
+      reader(async () => { throw new Error('no a11y service'); });
+      await open(); await settle();
+      expect(focus).toHaveBeenCalledTimes(1);
+    });
+    it('unmount before the reader answers: never focused', async () => {
+      let resolve!: (v: boolean) => void;
+      reader(() => new Promise<boolean>((r) => { resolve = r; }));
+      const view = await open();
+      await view.unmount();
+      resolve(false); await settle();
+      expect(focus).not.toHaveBeenCalled();
+    });
   });
 
   it('a wrong code shows a danger Notice with the error icon and the honest copy', async () => {
@@ -70,27 +94,6 @@ describe('AuthOtp field and error', () => {
     const s = StyleSheet.flatten(screen.getByLabelText('Doğrulama kodu').props.style);
     expect(s.fontSize).toBe(24);
     expect(s.letterSpacing).toBe(8);
-  });
-});
-
-describe('ProfileBootstrap under-18 note comes from the server answer only', () => {
-  const NOTE = /veli onayı/;
-  it('no account state yet, or an adult: no note beyond the one-line birth date reason', async () => {
-    await render(wrap(<ProfileBootstrapScreen {...props()} />));
-    expect(screen.queryByTestId('minor-note')).toBeNull();
-    mockAccount.mockReturnValue({ data: { is_minor: false } });
-    await render(wrap(<ProfileBootstrapScreen {...props()} />));
-    expect(screen.queryByTestId('minor-note')).toBeNull();
-  });
-  it('is_minor true from the server: the note is shown, plain wording', async () => {
-    mockAccount.mockReturnValue({ data: { is_minor: true } });
-    await render(wrap(<ProfileBootstrapScreen {...props()} />));
-    expect(within(screen.getByTestId('minor-note')).getByText(NOTE)).toBeTruthy();
-  });
-  it('never decides from the typed birth date', async () => {
-    await render(wrap(<ProfileBootstrapScreen {...props()} />));
-    await fireEvent.changeText(screen.getByLabelText('Doğum tarihi'), '01.01.2015');
-    expect(screen.queryByTestId('minor-note')).toBeNull();
   });
 });
 

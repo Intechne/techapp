@@ -1,4 +1,5 @@
 import React from 'react';
+import { AccessibilityInfo } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -77,6 +78,8 @@ describe('AuthOtpScreen', () => {
 
   it('a wrong code shows the honest copy but keeps the resend cooldown until the countdown ends', async () => {
     jest.useFakeTimers();
+    // Focus-after-interactions is not what this test is about and its scheduler does not survive the fake/real clock swap.
+    jest.spyOn(AccessibilityInfo, 'isScreenReaderEnabled').mockResolvedValue(true);
     try {
       otpFlow.begin('ada@example.com');
       // Supabase answers otp_expired for a wrong code too.

@@ -11,14 +11,12 @@ import type { RootStackParamList } from '../../navigation/types';
 import { EDUCATION_STAGES } from '../onboarding/options';
 import { usePrefs } from '../onboarding/PrefsProvider';
 import { signOut } from './authService';
-import { useAccountState, useSession } from './SessionProvider';
+import { useSession } from './SessionProvider';
 
 export function ProfileBootstrapScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'ProfileBootstrap'>) {
   const { prefs } = usePrefs();
   const { userId } = useSession();
   const qc = useQueryClient();
-  // The server decides who is a minor (from the stored birth date); the note never reads the date typed here.
-  const isMinor = useAccountState().data?.is_minor === true;
   const [name, setName] = useState('');
   const [birth, setBirth] = useState('');
   const [stage, setStage] = useState<EducationStage | null>(prefs.educationStage);
@@ -60,9 +58,6 @@ export function ProfileBootstrapScreen({ navigation }: NativeStackScreenProps<Ro
         <Input label="Ad soyad" value={name} onChangeText={(v) => { setName(v); clear('name'); }} autoComplete="name" textContentType="name" error={errors.name} />
         <DateField label="Doğum tarihi" value={birth} onChangeText={(v) => { setBirth(v); clear('birth'); }} error={errors.birth}
           help="Veli onayı gerekip gerekmediğini belirlemek için kullanılır. Profilinde görünmez, sonradan değiştirilemez." />
-        {isMinor && (
-          <View testID="minor-note"><Notice tone="info">Bazı etkinliklere katılmak için veli onayı gerekebilir; ilgili etkinliklerde bu adım ayrıca gösterilir.</Notice></View>
-        )}
         <Select label="Eğitim aşaman" options={EDUCATION_STAGES} value={stage} onChange={(v) => { setStage(v); clear('stage'); }} />
         {errors.stage && <Text variant="caption" color="danger">{errors.stage}</Text>}
         {save.error && <Notice tone="danger">{toAppError(save.error).message}</Notice>}

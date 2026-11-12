@@ -7,7 +7,7 @@ import { parseBirthDate } from '../../../lib/dates';
 
 jest.mock('../../../lib/supabase', () => ({ getSupabase: () => ({ rpc: jest.fn() }) }));
 jest.mock('../authService', () => ({ signOut: jest.fn().mockResolvedValue(undefined) }));
-jest.mock('../SessionProvider', () => ({ useSession: () => ({ userId: 'u1' }), useAccountState: () => ({ data: undefined }) }));
+jest.mock('../SessionProvider', () => ({ useSession: () => ({ userId: 'u1' }) }));
 jest.mock('../../onboarding/PrefsProvider', () => ({ usePrefs: () => ({ prefs: { educationStage: null, interestSlugs: [] } }) }));
 
 const metrics = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
