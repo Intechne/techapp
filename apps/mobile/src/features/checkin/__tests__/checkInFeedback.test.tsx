@@ -318,3 +318,22 @@ describe('manual check-in by short code (D1)', () => {
     await waitFor(() => expect(mockRpc).toHaveBeenLastCalledWith('check_in_by_short_code', { p_event_id: 'evA', p_short_code: 'AB12CD34' }));
   });
 });
+
+describe('check-in visual contract (Faz 4)', () => {
+  it('the result glyph sits in a round badge (24 px glyph, 40 px badge), the title is not a display headline', async () => {
+    mockRpc.mockResolvedValue(ok('checked_in'));
+    await renderScreen();
+    await typeAndSubmit('TA1.abc');
+    const badge = await screen.findByTestId('checkin-result-badge');
+    const { StyleSheet } = jest.requireActual('react-native');
+    const s = StyleSheet.flatten(badge.props.style);
+    expect([s.width, s.height, s.borderRadius]).toEqual([40, 40, 20]);
+    expect(screen.getByTestId('checkin-result-icon-check')).toBeTruthy();
+    expect(StyleSheet.flatten(screen.getByText('GİRİŞ ONAYLANDI').props.style).fontSize).toBe(24);
+  });
+  it('with the camera allowed, the short-code field is still visible', async () => {
+    await renderScreen();
+    expect(screen.getByTestId('camera')).toBeTruthy();
+    expect(screen.getByPlaceholderText(PLACEHOLDER)).toBeTruthy();
+  });
+});

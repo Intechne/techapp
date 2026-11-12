@@ -42,8 +42,7 @@ export function GuardianRequestScreen({ navigation, route }: NativeStackScreenPr
 
   return (
     <Screen header={<AppHeader onBack={navigation.goBack} title="Veli onayı" />} footer={<Button label={pending ? 'Bağlantıyı yeniden gönder' : 'Onay bağlantısını gönder'} loading={send.isPending} onPress={submit} />}>
-      <Text variant="eyebrow" color="textSecondary">BİR ADIM DAHA</Text>
-      <Text variant="display" style={{ marginTop: space[2] }}>Velinden{'\n'}onay isteyelim.</Text>
+      <Text variant="title">Velinden onay isteyelim.</Text>
       <Text variant="body" color="textSecondary" style={{ marginTop: space[3] }}>
         Velin; etkinliği, tarihini ve düzenleyeni görecek ve tek dokunuşla onaylayıp reddedebilecek. Bağlantı süreli ve tek kullanımlıktır; gönderdiğinde son geçerlilik tarihini burada göreceksin.
       </Text>

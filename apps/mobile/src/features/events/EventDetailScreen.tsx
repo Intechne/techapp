@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect } from 'react';
-import { View } from 'react-native';
+import { Share, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Button, Divider, ErrorState, LoadingSkeleton, MetadataRow, Notice, OrganizerRow, Poster, RegistrationStatus, Screen, Tag, Text, space } from '../../design-system';
+import { AppHeader, Button, DemoTag, Divider, ErrorState, IconButton, LoadingSkeleton, MetadataRow, Notice, OrganizerRow, Poster, ReadMoreText, RegistrationStatus, Screen, Tag, TechIcon, Text, keepNumbersTogether, semantic, space } from '../../design-system';
 import { track } from '../../lib/analytics';
 import { formatDate, formatDateRange, formatTime, formatTimeRange } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
@@ -11,8 +11,11 @@ import type { SharedEventParamList } from '../../navigation/types';
 import { useSession } from '../auth/SessionProvider';
 import { usePendingIntent } from '../auth/pendingIntent';
 import { eventKeys, fetchEligibility, fetchEvent } from './api';
+import { primaryBlocker } from './detailBlocker';
 import { VolunteerSection } from '../volunteers/VolunteerSection';
-import { ELIGIBILITY_REASON, EVENT_TYPE_ICON, EVENT_TYPE_LABEL, audienceLabel, availability, feeLabel, placeLabel, registrationTermsLabel } from './labels';
+import { EVENT_TYPE_ICON, EVENT_TYPE_LABEL, audienceLabel, availability, blockerCopy, feeLabel, placeLabel, registrationTermsLabel } from './labels';
+
+const sem = semantic.light;
 
 export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<SharedEventParamList, 'EventDetail'>) {
   const { eventId } = route.params;
@@ -40,27 +43,43 @@ export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<
   const e = event.data;
   const el = eligibility.data;
   const avail = availability(e);
-  const blocked = el ? el.reasons.filter((r) => r !== 'profile_incomplete') : [];
   const existing = el?.registration_id && el.registration_status ? { id: el.registration_id, status: el.registration_status } : null;
   const full = !!el?.is_full;
+  // profile_incomplete is not a blocker here: the registration screen asks for the missing profile fields.
+  const reasons = el ? [...el.reasons.filter((r) => r !== 'profile_incomplete'), ...(full && !el.waitlist_enabled ? ['event_full'] : [])] : [];
+  // One deciding reason, never a lone disabled primary button (approved S11 / Review Focus 5).
+  const blocker = primaryBlocker([...new Set(reasons)], !!existing);
+  const tabs = navigation.getParent();
+  const similar = () => tabs?.navigate('EventsTab', { screen: 'EventsList', params: { type: e.type }, pop: true });
 
   const footer = existing ? (
     <Button label={existing.status === 'confirmed' ? 'Katılım kartımı göster' : 'Kayıt durumumu gör'} icon="ticket"
       onPress={() => navigation.navigate('RegistrationStatus', { registrationId: existing.id })} />
-  ) : blocked.length > 0 || (full && !el?.waitlist_enabled) ? (
-    <Button label={full ? 'Kontenjan doldu' : 'Kayıt şu an yapılamıyor'} disabled />
+  ) : blocker ? (
+    <>
+      <View testID="blocker-footer" style={styles.reasonLine} accessible accessibilityLabel={`Kayıt yapılamıyor: ${blockerCopy(blocker.reason).short}`}>
+        <TechIcon name="info" size={18} color={sem.text.secondary} />
+        <Text variant="bodySmall" color="textSecondary" style={{ flex: 1 }}>{blockerCopy(blocker.reason).short}</Text>
+      </View>
+      {/* 'save' (not yet open) needs Kaydedilenler (Faz 3b); until it exists the helpful action is the same as for a closed event. */}
+      {blocker.secondary === 'find_team'
+        ? <Button kind="secondary" icon="team" label="Takımını bul" onPress={() => tabs?.navigate('CommunityTab')} />
+        : <Button kind="secondary" icon="event" label="Benzer etkinlikler" onPress={similar} />}
+    </>
   ) : (
     <Button label={full ? 'Bekleme listesine katıl' : 'Etkinliğe katıl'} iconRight="arrow" onPress={join} loading={eligibility.isPending} />
   );
+  const share = () => { void Share.share({ message: `${e.title} · ${formatDateRange(e.starts_at, e.ends_at)}` }); };
 
   return (
-    <Screen header={<AppHeader onBack={navigation.goBack} title="Etkinlik" />} footer={footer}
+    // No "Etkinlik" title: the content names itself. Back + share (save joins with Kaydedilenler, Faz 3b).
+    <Screen header={<AppHeader onBack={navigation.goBack} right={<IconButton icon="share" accessibilityLabel="Paylaş" onPress={share} />} />} footer={footer}
       refreshing={event.isRefetching} onRefresh={() => { void event.refetch(); void eligibility.refetch(); }}>
       <Poster large tone={e.tone} icon={EVENT_TYPE_ICON[e.type]} typeLabel={EVENT_TYPE_LABEL[e.type]} line={e.poster_line ?? e.title} />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginTop: space[4] }}>
+      <View style={styles.tags}>
         <Tag label={EVENT_TYPE_LABEL[e.type]} />
-        {avail && <Tag label={avail.label} tone={avail.tone} />}
-        {e.is_demo && <Tag label="ÖRNEK İÇERİK" tone="neutral" />}
+        {avail && <Tag label={keepNumbersTogether(avail.label)} tone={avail.tone} />}
+        {e.is_demo && <DemoTag />}
         {existing && <RegistrationStatus status={existing.status} />}
       </View>
       <Text variant="title" style={{ marginTop: space[3] }}>{e.title}</Text>
@@ -75,38 +94,51 @@ export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<
         {e.capacity !== null && <MetadataRow icon="ticket" strong>{Math.max(e.capacity - e.seats_taken, 0)} / {e.capacity} yer açık</MetadataRow>}
       </View>
 
-      {blocked.map((r) => <View key={r} style={{ marginTop: space[4] }}><Notice tone="warning">{ELIGIBILITY_REASON[r] ?? 'Bu etkinliğe şu an kayıt olamıyorsun.'}</Notice></View>)}
-      {el?.guardian_required && !existing && (
-        <View style={{ marginTop: space[4] }}><Notice tone="info" title="Veli onayı gerekiyor">18 yaşından küçük katılımcılar için bu etkinlikte velinin onayı isteniyor. Kaydından sonra velinin e-postasını soracağız.</Notice></View>
+      {blocker && (
+        <View testID="blocker-notice" style={{ marginTop: space[5] }}>
+          <Notice tone="warning" title={blockerCopy(blocker.reason).short}>
+            {[blockerCopy(blocker.reason).detail, blocker.others.length > 0 ? `Diğer nedenler: ${blocker.others.map((r) => blockerCopy(r).short).join(' ')}` : null].filter(Boolean).join('\n')}
+          </Notice>
+        </View>
+      )}
+      {el?.guardian_required && !existing && !blocker && (
+        <View style={{ marginTop: space[5] }}><Notice tone="info" title="Veli onayı gerekiyor">18 yaşından küçük katılımcılar için bu etkinlikte velinin onayı isteniyor. Kaydından sonra velinin e-postasını soracağız.</Notice></View>
       )}
 
-      <Divider />
-      {e.organization && <OrganizerRow name={e.organization.name} verified={e.organization.verification === 'verified'} />}
+      {/* Organiser: in the detail, with its verification (Q5); a name never upper-cased. Organisation profile screen: Faz 3b. */}
+      {e.organization && <><Divider /><OrganizerRow name={e.organization.name} verified={e.organization.verification === 'verified'} /></>}
 
-      {e.description && (<><Divider /><Text variant="section">Neler olacak?</Text><Text variant="body" color="textSecondary" style={{ marginTop: space[2] }}>{e.description}</Text></>)}
+      {e.description && (<><Divider /><Text variant="section">Neler olacak?</Text><ReadMoreText style={{ marginTop: space[2] }}>{e.description}</ReadMoreText></>)}
 
       {e.sessions.length > 0 && (
         <><Divider /><Text variant="section">Program</Text>
           <View style={{ gap: space[3], marginTop: space[3] }}>
             {e.sessions.map((s) => (
               <View key={s.id} style={{ flexDirection: 'row', gap: space[3] }}>
-                <Text variant="label" color="primary" style={{ width: 96 }}>{formatTime(s.starts_at)}</Text>
+                <Text variant="label" color="primary" style={styles.sessionTime}>{formatTime(s.starts_at)}</Text>
                 <View style={{ flex: 1 }}><Text variant="bodySmall">{s.title}</Text>{s.location_note && <Text variant="caption" color="textSecondary">{s.location_note}</Text>}</View>
               </View>
             ))}
           </View></>
       )}
 
-      <View style={{ marginTop: space[6] }}>
-        <VolunteerSection eventId={eventId} accepts={e.accepts_volunteers} ended={new Date(e.ends_at) <= new Date()}
-          onSignIn={() => navigation.getParent()?.getParent()?.navigate('AuthEmail')} onOpenHub={() => navigation.navigate('VolunteerHub', { eventId })} />
-      </View>
-
       {(e.cancellation_policy || e.support_contact) && (
         <><Divider /><Text variant="section">Bilmen gerekenler</Text>
           {e.cancellation_policy && <Text variant="bodySmall" color="textSecondary" style={{ marginTop: space[2] }}>{e.cancellation_policy}</Text>}
           {e.support_contact && <Text variant="bodySmall" color="textSecondary" style={{ marginTop: space[2] }}>Destek: {e.support_contact}</Text>}</>
       )}
+
+      {/* Gönüllü ol is last: the visitor's own decision (join) comes first. */}
+      <View style={{ marginTop: space[7] }}>
+        <VolunteerSection eventId={eventId} accepts={e.accepts_volunteers} ended={new Date(e.ends_at) <= new Date()}
+          onSignIn={() => navigation.getParent()?.getParent()?.navigate('AuthEmail')} onOpenHub={() => navigation.navigate('VolunteerHub', { eventId })} />
+      </View>
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginTop: space[4] },
+  reasonLine: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+  sessionTime: { width: 96, fontVariant: ['tabular-nums'] },
+});

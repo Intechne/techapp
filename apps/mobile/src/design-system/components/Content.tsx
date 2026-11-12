@@ -1,7 +1,8 @@
-import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { colors, radius, space, tones, type Tone } from '../tokens';
+import React, { useState } from 'react';
+import { Platform, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { colors, radius, space, tones, type, type Tone, type TypeVariant } from '../tokens';
 import { Text } from '../Text';
+import { TextButton } from './Button';
 import { TechIcon, type TechIconName } from '../TechIcon';
 import { Card } from './Surface';
 import { CircuitArt, circuitArtHeight } from './cards/PosterCard';
@@ -47,9 +48,10 @@ export function OrganizerRow({ name, verified, caption, onPress }: { name: strin
       accessibilityLabel={`Düzenleyen: ${name}${verified ? ', doğrulanmış kurum' : ''}`}>
       <View style={styles.orgLogo}><TechIcon name="mark" color={colors.primary} /></View>
       <View style={{ flex: 1 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Text variant="label" numberOfLines={1} style={{ flexShrink: 1 }}>{name}</Text>
-          {verified && <TechIcon name="verified" size={16} color={colors.moss} />}
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 4 }}>
+          {/* The full name wraps (detail screens never cut a name); the badge never shrinks into a dot beside it. */}
+          <Text variant="label" breakStrategy="words" style={{ flexShrink: 1 }}>{name}</Text>
+          {verified && <View style={styles.badge}><TechIcon name="verified" size={16} color={colors.moss} /></View>}
         </View>
         <Text variant="caption" color="textSecondary">{caption ?? (verified ? 'Doğrulanmış kurum' : 'Düzenleyen')}</Text>
       </View>
@@ -70,7 +72,44 @@ export function ProfileCard({ name, headline, onPress }: { name: string | null; 
   );
 }
 
+/** Long descriptions clamp at this many lines on detail screens, with "Devamını oku" (approved Q12). */
+export const READ_MORE_LINES = 8;
+/** The decision, apart from layout: only text that measured more than `max` lines gets the button. Unknown (null) = no button. */
+export const needsReadMore = (lines: number | null, max = READ_MORE_LINES): boolean => lines !== null && lines > max;
+
+/**
+ * Body text that clamps at READ_MORE_LINES and expands in place. An invisible copy measures the full text once (native:
+ * onTextLayout line count; web has no onTextLayout, so its height / line height); until then the text is clamped, so a
+ * long description never flashes at full length. Short text gets no button and no clamp.
+ */
+export function ReadMoreText({ children, variant = 'body', color = 'textSecondary', style }: {
+  children: string; variant?: TypeVariant; color?: React.ComponentProps<typeof Text>['color']; style?: StyleProp<ViewStyle>;
+}) {
+  const [measured, setMeasured] = useState<{ text: string; lines: number } | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const lines = measured?.text === children ? measured.lines : null;
+  const clamp = !expanded && (lines === null || needsReadMore(lines));
+  const lineHeight = type[variant].lineHeight;
+  return (
+    <View style={style}>
+      <Text testID="read-more-text" variant={variant} color={color} numberOfLines={clamp ? READ_MORE_LINES : undefined}>{children}</Text>
+      {lines === null && (
+        <Text testID="read-more-measure" variant={variant} color={color} style={styles.measure} aria-hidden
+          accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
+          onTextLayout={(e) => setMeasured({ text: children, lines: e.nativeEvent.lines.length })}
+          onLayout={Platform.OS === 'web' ? (e) => setMeasured({ text: children, lines: Math.round(e.nativeEvent.layout.height / lineHeight) }) : undefined}>
+          {children}
+        </Text>
+      )}
+      {!expanded && needsReadMore(lines) && <TextButton label="Devamını oku" onPress={() => setExpanded(true)} />}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  measure: { position: 'absolute', top: 0, left: 0, right: 0, opacity: 0, pointerEvents: 'none' },
+  // Sits on the first line of a wrapped name (label line box 20, glyph 16).
+  badge: { flexShrink: 0, marginTop: 2 },
   poster: { justifyContent: 'flex-end', overflow: 'hidden' },
   meta: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
   organizer: { flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: 56 },

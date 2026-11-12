@@ -1,5 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
+import { colors } from '../../../design-system';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ParticipationCardScreen } from '../ParticipationCardScreen';
@@ -74,5 +76,27 @@ describe('ParticipationCardScreen offline behaviour', () => {
     await view.rerender(ui());
     expect(await screen.findByText('Robotik Günü')).toBeTruthy();
     expect(screen.getByText(/çevrimdışı$/)).toBeTruthy();
+  });
+});
+
+describe('ParticipationCardView visual contract', () => {
+  it('the short code uses tabular numbers and the title size', async () => {
+    mockFetch.mockResolvedValue(card);
+    await renderScreen();
+    await screen.findByText('Robotik Günü');
+    const code = StyleSheet.flatten(screen.getByTestId('short-code').props.style);
+    expect(screen.getByTestId('short-code').props.children).toBe('ABC123');
+    expect(code.fontVariant).toEqual(['tabular-nums']);
+    expect(code.fontSize).toBe(24);
+  });
+  it('the offline label is neutral (ink, white text, offline icon) — apricot stays for deadlines (Q1)', async () => {
+    await saveCard('u1', card);
+    mockFetch.mockRejectedValue(makeError('network_unreachable', 0));
+    await renderScreen();
+    const label = await screen.findByTestId('offline-label');
+    expect(StyleSheet.flatten(label.props.style).backgroundColor).toBe(colors.ink);
+    expect(screen.getByTestId('offline-label-icon-offline')).toBeTruthy();
+    const text = screen.getByText(/^Son güncelleme: bugün \d{2}:\d{2} · çevrimdışı$/);
+    expect(StyleSheet.flatten(text.props.style).color).toBe(colors.white);
   });
 });

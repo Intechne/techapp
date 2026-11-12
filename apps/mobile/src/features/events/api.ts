@@ -1,7 +1,6 @@
 import { getSupabase } from '../../lib/supabase';
 import { fromFunctionError, parsePayload, toAppError } from '../../lib/errors';
-import { eventEligibilitySchema, participationCardSchema, type EventEligibility, type EventRegistrationRow, type EventSessionRow, type EventType, type MyGuardianRequestRow, type ParticipationCard } from '../../lib/database.types';
-import type { EventRow } from '../../lib/database.types';
+import { eventEligibilitySchema, participationCardSchema, type EventEligibility, type EventRegistrationRow, type EventRow, type EventSessionRow, type EventType, type MyGuardianRequestRow, type ParticipationCard } from '../../lib/database.types';
 import type { EventWithOrg } from './labels';
 
 /**
@@ -22,9 +21,17 @@ const EVENT_SELECT = `${EVENT_PUBLIC_COLUMNS}, organization:organizations(id, na
 export const PAGE_SIZE = 10;
 
 export interface EventCursor { startsAt: string; id: string }
-export interface EventFilters { type: EventType | 'all'; onlineOnly: boolean; topicInterestIds?: number[]; search?: string;
-  /** Keşfet only: skip events whose registration already closed, server-side, so a 10-row page is not eaten by them. */
-  registrationOpenOnly?: boolean }
+export interface EventFilters { type: EventType | 'all'; topicInterestIds?: number[]; search?: string;
+  /** Skip events whose registration already closed, server-side, so a 10-row page is not eaten by them (Keşfet, list filter). */
+  registrationOpenOnly?: boolean;
+  /** Can attend in this way: hybrid events count for both. */
+  format?: 'in_person' | 'online';
+  city?: string;
+  /** Starts within the next 7 / 30 / 90 days (WITHIN_DAYS); the bound is computed when the page is fetched. */
+  within?: 'week' | 'month' | 'quarter' }
+
+const WITHIN_DAYS = { week: 7, month: 30, quarter: 90 } as const;
+const DAY_MS = 86_400_000;
 export interface EventsPage { items: EventWithOrg[]; nextCursor: EventCursor | null }
 
 /** Keyset (cursor) pagination on (starts_at, id): stable under inserts, no OFFSET scans. One query, organiser embedded. */
@@ -34,7 +41,9 @@ export async function fetchEventsPage(filters: EventFilters, cursor: EventCursor
     .order('starts_at', { ascending: true }).order('id', { ascending: true }).limit(PAGE_SIZE + 1);
   if (filters.type !== 'all') query = query.eq('type', filters.type);
   if (filters.registrationOpenOnly) query = query.gt('registration_closes_at', new Date().toISOString());
-  if (filters.onlineOnly) query = query.in('format', ['online', 'hybrid']);
+  if (filters.format) query = query.in('format', [filters.format, 'hybrid']);
+  if (filters.city) query = query.eq('city', filters.city);
+  if (filters.within) query = query.lte('starts_at', new Date(Date.now() + WITHIN_DAYS[filters.within] * DAY_MS).toISOString());
   if (filters.topicInterestIds?.length) query = query.in('topic_interest_id', filters.topicInterestIds);
   if (filters.search?.trim()) {
     const term = filters.search.trim().replace(/[%,()]/g, ' ');
@@ -47,6 +56,18 @@ export async function fetchEventsPage(filters: EventFilters, cursor: EventCursor
   const items = data.slice(0, PAGE_SIZE);
   const last = items[items.length - 1];
   return { items, nextCursor: data.length > PAGE_SIZE && last ? { startsAt: last.starts_at, id: last.id } : null };
+}
+
+/**
+ * Cities of the events the list can show (published, not yet ended), for the filter sheet: a plain column read,
+ * de-duplicated and sorted here. Capped; a city beyond the cap is still reachable through the type/date filters.
+ */
+export async function fetchEventCities(): Promise<string[]> {
+  const { data, error } = await getSupabase().from('events').select('city').eq('status', 'published')
+    .gte('ends_at', new Date().toISOString()).not('city', 'is', null).order('city', { ascending: true }).limit(500)
+    .overrideTypes<{ city: string | null }[], { merge: false }>();
+  if (error) throw toAppError(error);
+  return [...new Set(data.map((r) => r.city?.trim()).filter((c): c is string => !!c))].sort((a, b) => a.localeCompare(b, 'tr'));
 }
 
 export interface EventDetail extends EventWithOrg { sessions: EventSessionRow[] }
@@ -128,6 +149,7 @@ export async function dispatchGuardianEmail(requestId: string): Promise<void> {
 
 export const eventKeys = {
   list: (f: EventFilters) => ['events', 'list', f] as const,
+  cities: () => ['events', 'cities'] as const,
   detail: (id: string) => ['events', 'detail', id] as const,
   eligibility: (id: string, userId: string | null) => ['events', 'eligibility', id, userId] as const,
   registration: (id: string) => ['registrations', id] as const,

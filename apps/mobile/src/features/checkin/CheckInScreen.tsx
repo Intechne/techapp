@@ -88,7 +88,7 @@ export function CheckInScreen({ navigation }: NativeStackScreenProps<ProfileStac
     <Screen header={<AppHeader onBack={navigation.goBack} title="Giriş kontrolü" />}>
       {!outcome && (
         <>
-          <Text variant="display">Kodu okut.</Text>
+          <Text variant="title">Kodu okut.</Text>
           <Text variant="body" color="textSecondary" style={{ marginTop: space[2], marginBottom: space[4] }}>Katılımcının katılım kartındaki QR kodunu kameraya göster ya da kartın altındaki 8 karakterlik kodu yaz.</Text>
           <View style={{ marginBottom: space[4] }}>
             {pickerError ? <ErrorState error={toAppError(pickerError)} onRetry={retryPicker} />
@@ -102,9 +102,11 @@ export function CheckInScreen({ navigation }: NativeStackScreenProps<ProfileStac
 
       {outcome && palette ? (
         <View style={[styles.result, { backgroundColor: palette.bg }]} accessibilityRole={outcome.tone === 'danger' ? 'alert' : undefined} accessible accessibilityLabel={`${outcome.spoken}. ${outcome.name ?? ''} ${outcome.detail}`.replace(/\s+/g, ' ').trim()}>
-          <View testID={`checkin-result-icon-${outcome.icon}`}><TechIcon name={outcome.icon} size={72} color={palette.fg} /></View>
-          <Text variant="display" style={{ color: palette.fg, textAlign: 'center' }}>{outcome.title}</Text>
-          {outcome.name && <Text variant="title" style={{ color: palette.fg, textAlign: 'center' }}>{outcome.name}</Text>}
+          <View testID="checkin-result-badge" style={styles.badge}>
+            <View testID={`checkin-result-icon-${outcome.icon}`}><TechIcon name={outcome.icon} size={RESULT_GLYPH} color={palette.fg} /></View>
+          </View>
+          <Text variant="title" style={{ color: palette.fg, textAlign: 'center' }}>{outcome.title}</Text>
+          {outcome.name && <Text variant="section" breakStrategy="words" style={{ color: palette.fg, textAlign: 'center' }}>{outcome.name}</Text>}
           <Text variant="body" style={{ color: palette.fg, textAlign: 'center' }}>{outcome.detail}</Text>
         </View>
       ) : !permission?.granted ? (
@@ -130,7 +132,12 @@ export function CheckInScreen({ navigation }: NativeStackScreenProps<ProfileStac
   );
 }
 
+/** Result glyph in a round badge (icon table: 24 px glyph in a 40 px badge, so outlined and filled glyphs weigh the same). */
+const RESULT_BADGE = 40;
+const RESULT_GLYPH = 24;
+
 const styles = StyleSheet.create({
+  badge: { width: RESULT_BADGE, height: RESULT_BADGE, borderRadius: RESULT_BADGE / 2, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
   result: { borderRadius: radius.card, padding: space[6], alignItems: 'center', gap: space[3], minHeight: 300, justifyContent: 'center' },
   camera: { height: 300, borderRadius: radius.card, overflow: 'hidden', backgroundColor: colors.ink },
 });

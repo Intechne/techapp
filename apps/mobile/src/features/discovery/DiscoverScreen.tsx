@@ -54,7 +54,7 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
     return all.filter((i) => slugs.includes(i.slug)).map((i) => i.id);
   }, [topic, interests.data, prefs.interestSlugs]);
 
-  const filters = useMemo(() => ({ type: 'all' as const, onlineOnly: false, topicInterestIds: topicIds, search: submitted, registrationOpenOnly: !submitted }), [topicIds, submitted]);
+  const filters = useMemo(() => ({ type: 'all' as const, topicInterestIds: topicIds, search: submitted, registrationOpenOnly: !submitted }), [topicIds, submitted]);
   const events = useQuery({ queryKey: ['discover', 'events', filters], queryFn: () => fetchEventsPage(filters, null), enabled: topic === 'all' || interests.isSuccess });
   const preview = useQuery({ queryKey: ['discover', 'preview'], queryFn: fetchPreview });
 

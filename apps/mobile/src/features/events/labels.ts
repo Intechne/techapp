@@ -17,7 +17,8 @@ export const EVENT_TYPE_FILTERS: readonly { value: EventType | 'all'; label: str
   { value: 'workshop', label: 'Atölye' }, { value: 'meetup', label: 'Buluşma' }, { value: 'conference', label: 'Konferans' },
   { value: 'social_impact', label: 'Sosyal etki' }, { value: 'training', label: 'Eğitim' }, { value: 'festival', label: 'Şenlik' },
 ];
-const FORMAT_LABEL: Record<EventFormat, string> = { in_person: 'Yüz yüze', online: 'Çevrim içi', hybrid: 'Hibrit' };
+/** No-break spaces: a two-word format never splits across lines ("Yüz / yüze"). */
+const FORMAT_LABEL: Record<EventFormat, string> = { in_person: 'Yüz\u00A0yüze', online: 'Çevrim\u00A0içi', hybrid: 'Hibrit' };
 
 export type EventWithOrg = EventPublicRow & { organization: { id: string; name: string; verification: string } | null };
 
@@ -76,11 +77,18 @@ export function toEventPoster(e: EventWithOrg): EventPosterModel {
   };
 }
 
-export const ELIGIBILITY_REASON: Record<string, string> = {
-  registration_not_open: 'Kayıtlar henüz açılmadı.',
-  registration_closed: 'Kayıtlar kapandı.',
-  team_registration_only: 'Bu etkinliğe takım olarak kayıt olunuyor.',
-  profile_incomplete: 'Katılmak için profilini tamamlaman gerekiyor.',
-  below_min_age: 'Bu etkinlik senin yaş grubuna açık değil.',
-  above_max_age: 'Bu etkinlik senin yaş grubuna açık değil.',
+/**
+ * Why registration is not possible, for the detail screen's single notice and footer line (approved S11): `short` is the
+ * deciding reason, shown as the notice title and alone in the footer; `detail` is the notice body. Unknown codes fall back.
+ */
+export const BLOCKER_COPY: Record<string, { short: string; detail: string }> = {
+  registration_closed: { short: 'Kayıtlar kapandı.', detail: 'Bu etkinliğin son kayıt tarihi geçti.' },
+  registration_not_open: { short: 'Kayıtlar henüz açılmadı.', detail: 'Kayıtlar açıldığında bu sayfadan katılabilirsin.' },
+  event_full: { short: 'Kontenjan doldu.', detail: 'Bu etkinlikte boş yer kalmadı ve bekleme listesi yok.' },
+  below_min_age: { short: 'Bu etkinlik senin yaş grubuna açık değil.', detail: 'Yaş sınırını etkinliği düzenleyen kurum belirler.' },
+  above_max_age: { short: 'Bu etkinlik senin yaş grubuna açık değil.', detail: 'Yaş sınırını etkinliği düzenleyen kurum belirler.' },
+  team_registration_only: { short: 'Bu etkinliğe takım olarak kayıt olunuyor.', detail: 'Bir takımla katılmak için Topluluk’ta takımını bulabilirsin.' },
 };
+const BLOCKER_FALLBACK = { short: 'Bu etkinliğe şu an kayıt olamıyorsun.', detail: '' };
+export const blockerCopy = (reason: string) => BLOCKER_COPY[reason] ?? BLOCKER_FALLBACK;
+

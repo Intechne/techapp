@@ -39,7 +39,7 @@ describe('events are read by an explicit public column list', () => {
 
   it('all four events reads (list, detail, registration, Katılımlarım) use it, organiser embedded', async () => {
     selects.length = 0;
-    await fetchEventsPage({ type: 'all', onlineOnly: false }, null);
+    await fetchEventsPage({ type: 'all' }, null);
     await fetchEvent('e1').catch(() => {});
     await fetchRegistration('r1').catch(() => {});
     await fetchMyRegistrations('u1');

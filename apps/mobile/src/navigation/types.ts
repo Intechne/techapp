@@ -1,4 +1,5 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
+import type { EventListParams } from '../features/events/filters';
 
 /** Screens reachable from more than one tab (event journey). Registered in every stack that needs them. */
 export type SharedEventParamList = {
@@ -12,7 +13,8 @@ export type SharedEventParamList = {
 };
 
 export type DiscoverStackParamList = SharedEventParamList & { DiscoverHome: undefined };
-export type EventsStackParamList = SharedEventParamList & { EventsList: undefined };
+/** Etkinlikler list filters travel as route params (strings on web); the filter sheet starts from and returns the same shape. */
+export type EventsStackParamList = SharedEventParamList & { EventsList: EventListParams; EventFilters: EventListParams };
 export type OpportunitiesStackParamList = {
   OpportunitiesHome: undefined;
   Deadlines: undefined;

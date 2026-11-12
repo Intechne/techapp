@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, View, type DimensionValue } from 'react-native';
 import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
-import { colors, radius, space } from '../tokens';
+import { colors, fonts, radius, space } from '../tokens';
+import { keepNumbersTogether } from './cards/label';
 import { Text } from '../Text';
 import { TechIcon, type TechIconName } from '../TechIcon';
 import { Button } from './Button';
@@ -73,7 +74,23 @@ export function OfflineBanner() {
   );
 }
 
+/**
+ * "This is a saved copy" label (participation card, saved cards): the same neutral tone as OfflineBanner — ink ground,
+ * white text, offline glyph (approved Q1). Apricot stays reserved for deadlines.
+ */
+export function OfflineLabel({ label }: { label: string }) {
+  return (
+    <View testID="offline-label" style={styles.offlineLabel}>
+      <View testID="offline-label-icon-offline" style={styles.offlineIcon}><TechIcon name="offline" size={14} color={colors.white} /></View>
+      <Text variant="caption" color="white" style={styles.offlineText}>{keepNumbersTogether(label)}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  offlineLabel: { flexDirection: 'row', alignItems: 'center', gap: space[1], alignSelf: 'flex-start', maxWidth: '100%', backgroundColor: colors.ink, borderRadius: radius.small, paddingHorizontal: space[2], paddingVertical: 5 },
+  offlineIcon: { flexShrink: 0 },
+  offlineText: { flexShrink: 1, minWidth: 0, fontFamily: fonts.bodyBold },
   center: { alignItems: 'center', gap: space[3], paddingVertical: space[8], paddingHorizontal: space[4] },
   badge: { width: 64, height: 64, borderRadius: radius.card, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', marginBottom: space[1] },
   offline: { flexDirection: 'row', gap: space[2], alignItems: 'center', justifyContent: 'center', backgroundColor: colors.ink, paddingVertical: space[2], paddingHorizontal: space[4] },

@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { MyRegistrationsScreen } from '../MyRegistrationsScreen';
+import { MY_REGISTRATION_ROW_LINES, MyRegistrationsScreen } from '../MyRegistrationsScreen';
 import { fetchMyRegistrations } from '../api';
 
 // An organiser's RLS view of event_registrations: their own rows AND their attendees' (incl. a minor's pending one).
@@ -41,5 +41,11 @@ describe('Katılımlarım only shows the signed-in user’s own registrations', 
     expect(await screen.findByText('Organizatörün kendi katılımı')).toBeTruthy();
     expect(screen.queryByText('Reşit olmayanın etkinliği')).toBeNull();
     expect(screen.queryByText('Yetişkinin etkinliği')).toBeNull();
+    // Status row (RowCard trailing status; under the text on phones, see cards.test).
+    expect(screen.getByText(/^KATILIMIN.ONAYLANDI$/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Organizatörün kendi katılımı\. /)).toBeTruthy();
+  });
+  it('the loading skeleton is shaped like a status row', () => {
+    expect(MY_REGISTRATION_ROW_LINES.status).toBe(true);
   });
 });

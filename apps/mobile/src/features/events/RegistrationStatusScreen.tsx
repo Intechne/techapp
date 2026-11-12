@@ -12,14 +12,15 @@ import { placeLabel } from './labels';
 import { dropCard, dropCards } from './offlineCard';
 import { useSession } from '../auth/SessionProvider';
 
-const HEADLINE: Record<Status, { eyebrow: string; title: string; body: string; icon: TechIconName; good: boolean }> = {
-  confirmed: { eyebrow: 'GÜZEL BİR BAŞLANGIÇ', title: 'Yerini ayırdık.', body: 'Katılım kartın hazır. Etkinlik günü girişte göstermen yeterli.', icon: 'check', good: true },
-  waitlisted: { eyebrow: 'SIRADASIN', title: 'Bekleme listesindesin.', body: 'Yer açıldığında sıradaki kişi otomatik olarak kayda geçer. Durumun değişirse burada göreceksin.', icon: 'clock', good: false },
-  pending_guardian: { eyebrow: 'BİR ADIM DAHA VAR', title: 'Veli onayı bekleniyor.', body: 'Yerin ayrıldı. Katılımın, velin onay verdiğinde kesinleşecek.', icon: 'shield', good: false },
-  pending_review: { eyebrow: 'BAŞVURUN ALINDI', title: 'Değerlendirmede.', body: 'Düzenleyen ekip başvuruları inceliyor. Sonucu burada göreceksin.', icon: 'clock', good: false },
-  cancelled: { eyebrow: 'KAYIT', title: 'Bu kayıt iptal edildi.', body: 'Fikrini değiştirirsen, kayıtlar açıkken yeniden katılabilirsin.', icon: 'close', good: false },
-  rejected: { eyebrow: 'KAYIT', title: 'Bu sefer olmadı.', body: 'Başvurun bu etkinlik için uygun bulunmadı. Sana uyan başka etkinlikler var.', icon: 'close', good: false },
-  expired: { eyebrow: 'KAYIT', title: 'Onay süresi doldu.', body: 'Veli onayı zamanında gelmediği için yerin serbest bırakıldı. Kayıtlar açıksa yeniden deneyebilirsin.', icon: 'clock', good: false },
+/** Result headline per status. No slogan eyebrow (eyebrow is for categories/status only); the status tag on the summary card names the state. */
+const HEADLINE: Record<Status, { title: string; body: string; icon: TechIconName; good: boolean }> = {
+  confirmed: { title: 'Yerini ayırdık.', body: 'Katılım kartın hazır. Etkinlik günü girişte göstermen yeterli.', icon: 'check', good: true },
+  waitlisted: { title: 'Bekleme listesindesin.', body: 'Yer açıldığında sıradaki kişi otomatik olarak kayda geçer. Durumun değişirse burada göreceksin.', icon: 'clock', good: false },
+  pending_guardian: { title: 'Veli onayı bekleniyor.', body: 'Yerin ayrıldı. Katılımın, velin onay verdiğinde kesinleşecek.', icon: 'shield', good: false },
+  pending_review: { title: 'Değerlendirmede.', body: 'Düzenleyen ekip başvuruları inceliyor. Sonucu burada göreceksin.', icon: 'clock', good: false },
+  cancelled: { title: 'Bu kayıt iptal edildi.', body: 'Fikrini değiştirirsen, kayıtlar açıkken yeniden katılabilirsin.', icon: 'close', good: false },
+  rejected: { title: 'Bu sefer olmadı.', body: 'Başvurun bu etkinlik için uygun bulunmadı. Sana uyan başka etkinlikler var.', icon: 'close', good: false },
+  expired: { title: 'Onay süresi doldu.', body: 'Veli onayı zamanında gelmediği için yerin serbest bırakıldı. Kayıtlar açıksa yeniden deneyebilirsin.', icon: 'clock', good: false },
 };
 
 export function RegistrationStatusScreen({ navigation, route }: NativeStackScreenProps<SharedEventParamList, 'RegistrationStatus'>) {
@@ -75,8 +76,7 @@ export function RegistrationStatusScreen({ navigation, route }: NativeStackScree
       <View style={[styles.icon, { backgroundColor: h.good ? colors.mossSoft : colors.primarySoft }]}>
         <TechIcon name={h.icon} size={32} color={h.good ? colors.moss : colors.primary} />
       </View>
-      <Text variant="eyebrow" color="textSecondary" center>{h.eyebrow}</Text>
-      <Text variant="display" center style={{ marginTop: space[2] }}>{h.title}</Text>
+      <Text variant="title" center>{h.title}</Text>
       <Text variant="body" color="textSecondary" center style={{ marginTop: space[3] }}>{h.body}</Text>
 
       <Card style={{ marginTop: space[6], gap: space[2] }}>

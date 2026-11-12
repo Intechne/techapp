@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { TechIcon, colors, fonts, layout, space, type, type TechIconName } from '../design-system';
+import { createNativeStackNavigator, type NativeStackNavigationOptions } from '@react-navigation/native-stack';
+import { TechIcon, colors, fonts, layout, radius, space, type, type TechIconName } from '../design-system';
 import { AuthEmailScreen } from '../features/auth/AuthEmailScreen';
 import { AuthOtpScreen } from '../features/auth/AuthOtpScreen';
 import { ProfileBootstrapScreen } from '../features/auth/ProfileBootstrapScreen';
@@ -11,6 +11,7 @@ import { DiscoverScreen } from '../features/discovery/DiscoverScreen';
 import { EventDetailScreen } from '../features/events/EventDetailScreen';
 import { EventRegistrationScreen } from '../features/events/EventRegistrationScreen';
 import { EventsListScreen } from '../features/events/EventsListScreen';
+import { EventFiltersScreen } from '../features/events/EventFiltersScreen';
 import { MyRegistrationsScreen } from '../features/events/MyRegistrationsScreen';
 import { ParticipationCardScreen } from '../features/events/ParticipationCardScreen';
 import { RegistrationStatusScreen } from '../features/events/RegistrationStatusScreen';
@@ -71,7 +72,15 @@ function eventJourney<T extends typeof Discover | typeof Events | typeof Profile
 }
 
 const DiscoverStack = () => <Discover.Navigator screenOptions={stackOptions}><Discover.Screen name="DiscoverHome" component={DiscoverScreen} />{eventJourney(Discover)}</Discover.Navigator>;
-const EventsStack = () => <Events.Navigator screenOptions={stackOptions}><Events.Screen name="EventsList" component={EventsListScreen} />{eventJourney(Events)}</Events.Navigator>;
+/** Etkinlikler filters: a native form sheet resting at 60 % or full height (react-native-screens 4.26). */
+const filterSheetOptions: NativeStackNavigationOptions = { presentation: 'formSheet', sheetAllowedDetents: [0.6, 1], sheetGrabberVisible: true, sheetCornerRadius: radius.hero, contentStyle: { backgroundColor: colors.surface } };
+const EventsStack = () => (
+  <Events.Navigator screenOptions={stackOptions}>
+    <Events.Screen name="EventsList" component={EventsListScreen} />
+    <Events.Screen name="EventFilters" component={EventFiltersScreen} options={filterSheetOptions} />
+    {eventJourney(Events)}
+  </Events.Navigator>
+);
 const OpportunitiesStack = () => <Opportunities.Navigator screenOptions={stackOptions}><Opportunities.Screen name="OpportunitiesHome" component={OpportunitiesScreen} /><Opportunities.Screen name="Deadlines" component={DeadlinesScreen} /><Opportunities.Screen name="OpportunityDetail" component={OpportunityDetailScreen} /><Opportunities.Screen name="OpportunityApply" component={OpportunityApplyScreen} /><Opportunities.Screen name="MyApplications" component={MyApplicationsScreen} /></Opportunities.Navigator>;
 const CommunityStack = () => <Community.Navigator screenOptions={stackOptions}><Community.Screen name="CommunityHome" component={CommunityScreen} /><Community.Screen name="TeamDetail" component={TeamDetailScreen} /><Community.Screen name="TeamWorkspace" component={TeamWorkspaceScreen} /><Community.Screen name="TeamTaskEditor" component={TeamTaskEditorScreen} /><Community.Screen name="CreateTeam" component={CreateTeamScreen} /></Community.Navigator>;
 const ProfileStack = () => <Profile.Navigator screenOptions={stackOptions}><Profile.Screen name="ProfileHome" component={ProfileScreen} /><Profile.Screen name="CheckIn" component={CheckInScreen} /><Profile.Screen name="EditProfile" component={EditProfileScreen} /><Profile.Screen name="ExperienceEditor" component={ExperienceEditorScreen} /><Profile.Screen name="ExperienceDetail" component={ExperienceDetailScreen} />{eventJourney(Profile)}</Profile.Navigator>;

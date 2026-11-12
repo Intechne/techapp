@@ -59,8 +59,7 @@ export function EventRegistrationScreen({ navigation, route }: NativeStackScreen
     <Screen header={<AppHeader onBack={navigation.goBack} title="Katılım" />}
       footer={<Button label={waitlist ? 'Bekleme listesine katıl' : 'Katılımı tamamla'} loading={submit.isPending}
         onPress={() => { if (!accepted) { setShowError(true); return; } submit.mutate(); }} />}>
-      <Text variant="eyebrow" color="textSecondary">KATILIMINI TAMAMLA</Text>
-      <Text variant="display" style={{ marginTop: space[2] }}>İlk adım,{'\n'}burada.</Text>
+      <Text variant="title">İlk adım, burada.</Text>
       <Card style={{ marginTop: space[5], gap: space[2] }}>
         <Text variant="cardTitle">{e.title}</Text>
         <MetadataRow icon="event">{formatDateRange(e.starts_at, e.ends_at)}</MetadataRow>

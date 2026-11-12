@@ -18,7 +18,7 @@ describe('event labels', () => {
     expect(audienceLabel({ audience_note: 'Lise + üniversite', min_age: 14, max_age: null })).toBe('Lise + üniversite');
     expect(audienceLabel({ audience_note: null, min_age: null, max_age: null })).toBe('Herkese açık');
     expect(feeLabel(0)).toBe('Ücretsiz');
-    expect(placeLabel({ format: 'online', city: 'İstanbul' })).toBe('Çevrim içi');
+    expect(placeLabel({ format: 'online', city: 'İstanbul' })).toBe('Çevrim\u00A0içi'); // no-break: the format never splits across lines
     expect(placeLabel({ format: 'hybrid', city: 'Ankara' })).toBe('Ankara · Hibrit');
   });
   it('registration terms: mode, minimum age and guardian threshold', () => {
