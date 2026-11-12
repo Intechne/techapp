@@ -11,12 +11,14 @@ import type { RootStackParamList } from '../../navigation/types';
 import { EDUCATION_STAGES } from '../onboarding/options';
 import { usePrefs } from '../onboarding/PrefsProvider';
 import { signOut } from './authService';
-import { useSession } from './SessionProvider';
+import { useAccountState, useSession } from './SessionProvider';
 
 export function ProfileBootstrapScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'ProfileBootstrap'>) {
   const { prefs } = usePrefs();
   const { userId } = useSession();
   const qc = useQueryClient();
+  // The server decides who is a minor (from the stored birth date); the note never reads the date typed here.
+  const isMinor = useAccountState().data?.is_minor === true;
   const [name, setName] = useState('');
   const [birth, setBirth] = useState('');
   const [stage, setStage] = useState<EducationStage | null>(prefs.educationStage);
@@ -53,12 +55,14 @@ export function ProfileBootstrapScreen({ navigation }: NativeStackScreenProps<Ro
   return (
     <Screen header={<AppHeader title="Profilin" onBack={() => { void signOut().finally(() => navigation.popTo('Main')); }} />}
       footer={<Button label="Devam et" loading={save.isPending} onPress={submit} />}>
-      <Text variant="eyebrow" color="textSecondary">SENİ TANIYALIM</Text>
-      <Text variant="display" style={{ marginTop: space[2] }}>Birkaç bilgi,{'\n'}o kadar.</Text>
+      <Text variant="display" style={{ marginTop: space[3] }}>Birkaç bilgi,{'\n'}o kadar.</Text>
       <View style={{ marginTop: space[6], gap: space[5] }}>
         <Input label="Ad soyad" value={name} onChangeText={(v) => { setName(v); clear('name'); }} autoComplete="name" textContentType="name" error={errors.name} />
         <DateField label="Doğum tarihi" value={birth} onChangeText={(v) => { setBirth(v); clear('birth'); }} error={errors.birth}
-          help="Yaşına uygun içerikleri ve gerekiyorsa veli onayını belirlemek için kullanılır. Profilinde görünmez, sonradan değiştirilemez." />
+          help="Veli onayı gerekip gerekmediğini belirlemek için kullanılır. Profilinde görünmez, sonradan değiştirilemez." />
+        {isMinor && (
+          <View testID="minor-note"><Notice tone="info">Bazı etkinliklere katılmak için veli onayı gerekebilir; ilgili etkinliklerde bu adım ayrıca gösterilir.</Notice></View>
+        )}
         <Select label="Eğitim aşaman" options={EDUCATION_STAGES} value={stage} onChange={(v) => { setStage(v); clear('stage'); }} />
         {errors.stage && <Text variant="caption" color="danger">{errors.stage}</Text>}
         {save.error && <Notice tone="danger">{toAppError(save.error).message}</Notice>}

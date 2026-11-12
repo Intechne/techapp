@@ -22,8 +22,7 @@ export function AuthEmailScreen({ navigation }: NativeStackScreenProps<RootStack
       header={<AppHeader onBack={() => { intent.clear(); navigation.goBack(); }} title="Giriş" />}
       footer={<Button label="Kodu gönder" loading={send.isPending} onPress={() => { setTouched(true); if (isValidEmail(email)) send.mutate(email); }} />}
     >
-      <Text variant="eyebrow" color="textSecondary">HESABIN</Text>
-      <Text variant="display" style={{ marginTop: space[2] }}>E-postanla{'\n'}devam et.</Text>
+      <Text variant="display" style={{ marginTop: space[3] }}>E-postanla{'\n'}devam et.</Text>
       <Text variant="body" color="textSecondary" style={{ marginTop: space[3] }}>
         Şifre yok. Adresine tek kullanımlık bir kod gönderiyoruz; hesabın yoksa aynı adımda oluşur.
       </Text>

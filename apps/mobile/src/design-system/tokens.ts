@@ -77,6 +77,9 @@ export const type = {
 } as const;
 export type TypeVariant = keyof typeof type;
 
+/** One-time-code field (e-mail OTP): `title` size (24), spaced digits of equal width so six of them read as six cells. */
+export const codeField = { fontSize: type.title.fontSize, letterSpacing: 8, fontVariant: ['tabular-nums'] as 'tabular-nums'[] } as const;
+
 /** Elevation levels (Android `elevation`, iOS/web shadow via `elevationStyle`). */
 export const elevation = { none: 0, raised: 2, sheet: 8 } as const;
 export type ElevationLevel = keyof typeof elevation;

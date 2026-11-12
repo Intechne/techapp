@@ -16,15 +16,18 @@ export function OnboardingScreen() {
   const [interests, setInterests] = useState<string[]>([]);
   useEffect(() => { track('onboarding_started'); }, []);
 
-  const finish = () => {
-    update({ onboarded: true, educationStage: stage, interestSlugs: interests });
-    track('onboarding_completed', { interests: interests.length, stage });
+  /** `skip` keeps only the answers already confirmed with "Devam et"; nothing typed or tapped on the current step is saved. */
+  const finish = (confirmed: { stage: EducationStage | null; interests: string[] }) => {
+    update({ onboarded: true, educationStage: confirmed.stage, interestSlugs: confirmed.interests });
+    track('onboarding_completed', { interests: confirmed.interests.length, stage: confirmed.stage });
   };
   const toggle = (slug: string) => setInterests((cur) => (cur.includes(slug) ? cur.filter((s) => s !== slug) : [...cur, slug]));
+  const skip = (confirmed: { stage: EducationStage | null; interests: string[] }) => <TextButton label="Şimdilik geç" onPress={() => finish(confirmed)} />;
 
   if (step === 'welcome') {
     return (
-      <Screen footer={<><Button label="Başlayalım" iconRight="arrow" onPress={() => setStep('stage')} /><TextButton label="Şimdilik sadece göz at" onPress={finish} /></>}>
+      <Screen footer={<><Button label="Başlayalım" iconRight="arrow" onPress={() => setStep('stage')} />{skip({ stage: null, interests: [] })}</>}>
+        <StepLabel n={1} title="Hoş geldin" />
         <View style={styles.art}>
           <View style={styles.orbit} /><View style={styles.orbitTwo} /><View style={styles.orb} />
           <Text variant="title" style={{ color: colors.lime }}>merak.{'\n'}üretim.{'\n'}etki.</Text>
@@ -38,23 +41,29 @@ export function OnboardingScreen() {
   }
   if (step === 'stage') {
     return (
-      <Screen footer={<Button label="Devam et" disabled={!stage} onPress={() => setStep('interests')} />}>
-        <Text variant="eyebrow" color="textSecondary">1 / 2 · TANIŞALIM</Text>
-        <Text variant="display" style={{ marginTop: space[2], marginBottom: space[5] }}>Sen nereden{'\n'}başlıyorsun?</Text>
+      <Screen footer={<><Button label="Devam et" disabled={!stage} onPress={() => setStep('interests')} />{skip({ stage: null, interests: [] })}</>}>
+        <StepLabel n={2} title="Tanışalım" />
+        <Text variant="display" style={{ marginTop: space[3], marginBottom: space[5] }}>Sen nereden{'\n'}başlıyorsun?</Text>
         <Select label="Sana uygun deneyimleri birlikte bulalım." options={EDUCATION_STAGES} value={stage} onChange={setStage} />
       </Screen>
     );
   }
   return (
-    <Screen footer={<Button label={interests.length ? 'Keşfetmeye başla' : 'Seçmeden devam et'} onPress={finish} />}>
-      <Text variant="eyebrow" color="textSecondary">2 / 2 · MERAK ETTİKLERİN</Text>
-      <Text variant="display" style={{ marginTop: space[2] }}>Neler ilgini{'\n'}çekiyor?</Text>
+    <Screen footer={<><Button label="Keşfetmeye başla" onPress={() => finish({ stage, interests })} />{skip({ stage, interests: [] })}</>}>
+      <StepLabel n={3} title="Merak ettiklerin" />
+      <Text variant="display" style={{ marginTop: space[3] }}>Neler ilgini{'\n'}çekiyor?</Text>
       <Text variant="body" color="textSecondary" style={{ marginTop: space[3] }}>İstediğin kadar seç. Sonradan değiştirebilirsin.</Text>
       <View style={styles.chips}>
         {FALLBACK_INTERESTS.map((i) => <Chip key={i.slug} label={i.label} icon={i.icon} selected={interests.includes(i.slug)} onPress={() => toggle(i.slug)} />)}
       </View>
     </Screen>
   );
+}
+
+const STEPS = 3;
+/** Text progress, not dots: "2/3 · Tanışalım". The accessibility label carries the count first ("Adım 2/3, Tanışalım"). */
+function StepLabel({ n, title }: { n: number; title: string }) {
+  return <Text variant="label" color="textSecondary" accessibilityLabel={`Adım ${n}/${STEPS}, ${title}`}>{`${n}/${STEPS} · ${title}`}</Text>;
 }
 
 const styles = StyleSheet.create({

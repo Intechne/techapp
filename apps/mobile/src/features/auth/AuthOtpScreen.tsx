@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { AccessibilityInfo, TextInput, View } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Button, Input, Notice, Screen, Text, TextButton, colors, space, type } from '../../design-system';
+import { AppHeader, Button, Input, Notice, Screen, Text, TextButton, codeField, colors, fonts, space } from '../../design-system';
 import { makeError, parsePayload, toAppError } from '../../lib/errors';
 import { accountStateSchema } from '../../lib/database.types';
 import { getSupabase } from '../../lib/supabase';
@@ -17,6 +17,7 @@ export function AuthOtpScreen({ navigation }: NativeStackScreenProps<RootStackPa
   // Snapshot once per mount: clearing the module memory (success, back-out) must not re-trigger the redirect below.
   const [email] = useState(() => otpFlow.email());
   const lastSubmitted = useRef<string | null>(null);
+  const field = useRef<TextInput>(null);
   const [code, setCode] = useState('');
   const [wait, setWait] = useState(RESEND_SECONDS);
   const qc = useQueryClient();
@@ -26,6 +27,14 @@ export function AuthOtpScreen({ navigation }: NativeStackScreenProps<RootStackPa
 
   // Nothing to verify without an e-mail in memory (cold start, reload, deep link): start over at the e-mail step.
   useEffect(() => { if (!email) navigation.replace('AuthEmail'); }, [email, navigation]);
+
+  // Opens the keyboard on arrival, like `autoFocus`, but not for screen-reader users: moving their focus into a field before
+  // they have heard the heading and the e-mail it was sent to is disorienting (the HIG Doctor "autoFocus" finding).
+  useEffect(() => {
+    let live = true;
+    AccessibilityInfo.isScreenReaderEnabled().then((on) => { if (live && !on) field.current?.focus(); }, () => {});
+    return () => { live = false; };
+  }, []);
 
   useEffect(() => {
     if (wait <= 0) return;
@@ -83,12 +92,13 @@ export function AuthOtpScreen({ navigation }: NativeStackScreenProps<RootStackPa
   return (
     <Screen header={<AppHeader onBack={navigation.goBack} title="Doğrulama" />}
       footer={<Button label="Doğrula" loading={verify.isPending} disabled={code.length < 6} onPress={() => submit(code)} />}>
-      <Text variant="eyebrow" color="textSecondary">SON ADIM</Text>
-      <Text variant="display" style={{ marginTop: space[2] }}>Kodunu gir.</Text>
-      <Text variant="body" color="textSecondary" style={{ marginTop: space[3] }}>{email} adresine bir e-posta gönderdik. İçindeki 6 haneli kodu buraya yaz.</Text>
+      <Text variant="display" style={{ marginTop: space[3] }}>Kodunu gir.</Text>
+      <Text variant="body" color="textSecondary" style={{ marginTop: space[3] }}>
+        <Text variant="body" color="ink" style={{ fontFamily: fonts.bodySemibold }}>{email}</Text> adresine bir e-posta gönderdik. İçindeki 6 haneli kodu buraya yaz.
+      </Text>
       <View style={{ marginTop: space[6], gap: space[4] }}>
-        <Input label="Doğrulama kodu" value={code} onChangeText={onChangeCode} keyboardType="number-pad"
-          textContentType="oneTimeCode" autoComplete="one-time-code" maxLength={6} autoFocus style={{ letterSpacing: space[2], fontSize: type.title.fontSize }} />
+        <Input ref={field} label="Doğrulama kodu" value={code} onChangeText={onChangeCode} keyboardType="number-pad"
+          textContentType="oneTimeCode" autoComplete="one-time-code" maxLength={6} style={codeField} />
         {error && <Notice tone="danger">{toAppError(error).message}</Notice>}
         <TextButton label={waiting ? `Yeni kod iste (${wait} sn)` : 'Yeni kod iste'} disabled={waiting || resend.isPending || verify.isPending}
           color={waiting ? colors.textSecondary : undefined} onPress={() => resend.mutate()} />

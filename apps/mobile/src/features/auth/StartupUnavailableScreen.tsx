@@ -66,8 +66,8 @@ export function StartupUnavailableScreen({ reason, onRetry, retrying = false, lo
   return (
     <Screen contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
       <View style={{ gap: space[3] }} accessibilityRole="alert">
-        <View style={{ width: 56, height: 56, borderRadius: radius.pill, backgroundColor: colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
-          <TechIcon name="link" size={26} color={colors.ink} />
+        <View testID="startup-icon" style={{ width: 72, height: 72, borderRadius: radius.hero, backgroundColor: colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
+          <TechIcon name="link" size={30} color={colors.ink} />
         </View>
         <Text variant="title">{copy.title}</Text>
         <Text variant="body" color="textSecondary">{copy.body}</Text>
