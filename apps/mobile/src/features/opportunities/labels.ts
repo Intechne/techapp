@@ -29,24 +29,38 @@ export function deadlineView(closesAtIso: string, now: Date = new Date()): Deadl
   if (daysLeft <= 7) return { daysLeft, urgency: 'soon', label: `Son ${daysLeft} gün` };
   return { daysLeft, urgency: 'upcoming', label: `${daysLeft} gün kaldı` };
 }
-export const urgencyTone = (u: DeadlineUrgency) => (u === 'closed' ? 'neutral' : u === 'today' ? 'danger' : u === 'soon' ? 'apricot' : 'moss') as 'neutral' | 'danger' | 'apricot' | 'moss';
-
-const monthFmt = new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric', timeZone: 'Europe/Istanbul' });
-/** Groups open calls by the month of their deadline, soonest first. */
-export function groupByMonth<T extends Pick<OpportunityRow, 'closes_at'>>(rows: readonly T[]): { month: string; items: T[] }[] {
-  const groups = new Map<string, T[]>();
+export type DeadlineHorizon = 'Bu hafta' | 'Bu ay' | 'Sonra';
+const DAY_MS = 86_400_000;
+const istanbulDay = (d: Date) => Math.floor((d.getTime() + 3 * 3_600_000) / DAY_MS); // days since 1970-01-01, Istanbul calendar
+const istanbulMonth = (day: number) => { const d = new Date(day * DAY_MS); return d.getUTCFullYear() * 12 + d.getUTCMonth(); };
+/**
+ * Son tarihler groups: Bu hafta (through Sunday of the Europe/Istanbul calendar week), Bu ay (the rest of the calendar
+ * month), Sonra. A week that straddles a month end stays "Bu hafta". Closed calls are dropped; soonest first; empty groups are omitted.
+ */
+export function groupByHorizon<T extends Pick<OpportunityRow, 'closes_at'>>(rows: readonly T[], now: Date = new Date()): { label: DeadlineHorizon; items: T[] }[] {
+  const today = istanbulDay(now);
+  const weekEnd = today + (6 - ((today + 3) % 7)); // 1970-01-01 was a Thursday; Monday-based weekday = (day + 3) % 7
+  const thisMonth = istanbulMonth(today);
+  const groups: Record<DeadlineHorizon, T[]> = { 'Bu hafta': [], 'Bu ay': [], Sonra: [] };
   for (const row of [...rows].sort((a, b) => a.closes_at.localeCompare(b.closes_at))) {
-    const key = monthFmt.format(new Date(row.closes_at));
-    groups.set(key, [...(groups.get(key) ?? []), row]);
+    if (new Date(row.closes_at).getTime() <= now.getTime()) continue;
+    const day = istanbulDay(new Date(row.closes_at));
+    groups[day <= weekEnd ? 'Bu hafta' : istanbulMonth(day) === thisMonth ? 'Bu ay' : 'Sonra'].push(row);
   }
-  return [...groups].map(([month, items]) => ({ month, items }));
+  return (['Bu hafta', 'Bu ay', 'Sonra'] as const).filter((label) => groups[label].length > 0).map((label) => ({ label, items: groups[label] }));
 }
+/** A call that is still open: lists never show a deadline that already passed, even if the data was fetched before it. */
+export const isOpen = (o: Pick<OpportunityRow, 'closes_at'>, now: Date = new Date()) => new Date(o.closes_at).getTime() > now.getTime();
 export const placeOf = (o: Pick<OpportunityRow, 'is_remote' | 'city'>) => (o.is_remote ? 'Çevrim içi' : o.city ?? 'Yer belirtilmedi');
 
-/** Remaining-days tag for a deadline: wording from deadlineView, tone from urgencyTone, clock glyph (time / deadline). */
-export function deadlineTag(closesAtIso: string, now: Date = new Date()): StatusView {
+/**
+ * Remaining-days tag for a list row: <=1 gün apricot (a warning, not panic), <=7 gün iris, later none — the absolute
+ * "Son başvuru" date is enough — and none once closed (closed calls are not listed). Clock glyph (time / deadline).
+ */
+export function deadlineTag(closesAtIso: string, now: Date = new Date()): StatusView | undefined {
   const d = deadlineView(closesAtIso, now);
-  return { label: d.label.toLocaleUpperCase('tr'), tone: urgencyTone(d.urgency), icon: 'clock' };
+  if (d.urgency === 'closed' || d.daysLeft > 7) return undefined;
+  return { label: d.label.toLocaleUpperCase('tr'), tone: d.daysLeft <= 1 ? 'apricot' : 'iris', icon: 'clock' };
 }
 
 /** Typical opportunity row on a phone: two-line title, two-line meta, deadline tag footnote (skeleton shape). */

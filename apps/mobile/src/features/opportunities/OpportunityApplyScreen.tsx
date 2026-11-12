@@ -39,11 +39,9 @@ export function OpportunityApplyScreen({ navigation, route }: NativeStackScreenP
   const ineligible = opportunityIneligibility(opportunity.data, account.data?.is_minor);
   return (
     <Screen header={<AppHeader onBack={navigation.goBack} title="Başvuru" />}
-      footer={<Button label="Başvuruyu gönder" disabled={!!ineligible} loading={submit.isPending} onPress={() => { if (!accepted) { setShowError(true); return; } submit.mutate(); }} />}>
+      footer={ineligible ? undefined : <Button label="Başvuruyu gönder" loading={submit.isPending} onPress={() => { if (!accepted) { setShowError(true); return; } submit.mutate(); }} />}>
       {ineligible && <Notice tone="warning" title="Bu fırsata başvuramıyorsun">{ineligible}</Notice>}
-      <Text variant="eyebrow" color="textSecondary">KENDİNDEN BAHSET</Text>
-      <Text variant="display" style={{ marginTop: space[2] }}>Yeni bir{'\n'}başlangıç.</Text>
-      <Text variant="body" color="textSecondary" style={{ marginTop: space[2] }}>{opportunity.data.title}</Text>
+      <Text variant="title" style={ineligible ? { marginTop: space[4] } : undefined}>{opportunity.data.title}</Text>
 
       <Text variant="section" style={{ marginTop: space[6] }}>{preview.data.organization ?? 'Kurum'} şunları görecek</Text>
       <Card style={{ marginTop: space[3], gap: space[3] }}>
