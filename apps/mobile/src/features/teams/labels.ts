@@ -17,4 +17,10 @@ export const ROLE_OPTIONS: readonly { value: TeamRole; label: string; descriptio
 ];
 
 export const KIND_LABEL = { team: 'TAKIM', community: 'TOPLULUK' } as const;
+/**
+ * Robot glyph only for a robotics category (icon meaning table); other teams get the team glyph, communities the
+ * community glyph. Stand-in for Faz 3b's `categoryIcon`.
+ */
+export const teamIcon = (t: { kind: 'team' | 'community'; category: string | null }): TechIconName =>
+  /robot/i.test(t.category ?? '') ? 'robot' : t.kind === 'team' ? 'team' : 'community';
 export const kindIcon = (kind: 'team' | 'community'): TechIconName => (kind === 'team' ? 'robot' : 'community');

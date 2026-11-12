@@ -91,10 +91,16 @@ export function Divider({ spacing = space[5] }: { spacing?: number }) {
   return <View style={{ height: 1, backgroundColor: sem.border.default, marginVertical: spacing }} />;
 }
 
+/** Below this window width, or from this font scale, the action drops under the title instead of squeezing it (approved D1). */
+export const SECTION_STACK_BELOW = 360;
+export const SECTION_STACK_FONT_SCALE = 1.5;
+
 export function SectionHeader({ title, actionLabel, onAction }: { title: string; actionLabel?: string; onAction?: () => void }) {
+  const { width, fontScale } = useWindowDimensions();
+  const stacked = width < SECTION_STACK_BELOW || fontScale >= SECTION_STACK_FONT_SCALE;
   return (
-    <View style={styles.sectionHeader}>
-      <Text variant="section" style={{ flex: 1 }}>{title}</Text>
+    <View testID="section-header" style={[styles.sectionHeader, stacked && styles.sectionHeaderStacked]}>
+      <Text variant="section" style={stacked ? undefined : { flex: 1 }}>{title}</Text>
       {actionLabel && onAction && <TextButton label={actionLabel} iconRight="arrow" onPress={onAction} />}
     </View>
   );
@@ -140,5 +146,6 @@ const styles = StyleSheet.create({
   orbitInner: { position: 'absolute', borderColor: sem.decor.irisMuted },
   orb: { position: 'absolute', backgroundColor: colors.apricot },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', marginTop: space[7], marginBottom: space[3], gap: space[2] },
+  sectionHeaderStacked: { flexDirection: 'column', alignItems: 'flex-start', gap: space[1] },
   notice: { flexDirection: 'row', gap: space[3], borderRadius: radius.control, padding: space[4] },
 });

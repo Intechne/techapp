@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Chip, ChipRail, EmptyState, ErrorState, HeroCard, IconButton, LoadingSkeleton, MiniCard, MiniCardGrid, OfflineBanner, PosterCard, RowCard, Screen, SearchInput, SectionHeader, Text, space } from '../../design-system';
+import { AppHeader, Chip, ChipRail, EmptyState, ErrorState, HeroCard, IconButton, LoadingSkeleton, MiniCard, MiniCardGrid, OfflineBanner, PosterCard, RowCard, Screen, SearchInput, SectionHeader, Text, metaJoin, space } from '../../design-system';
 import { track } from '../../lib/analytics';
 import { toAppError } from '../../lib/errors';
 import { getSupabase } from '../../lib/supabase';
@@ -12,8 +12,8 @@ import type { DiscoverStackParamList, MainTabParamList } from '../../navigation/
 import { useMyProfile } from '../profile/api';
 import { fetchEventsPage } from '../events/api';
 import { toEventPoster } from '../events/labels';
-import { toOpportunityRow } from '../opportunities/labels';
-import { kindIcon } from '../teams/labels';
+import { OPPORTUNITY_ROW_LINES, toOpportunityRow } from '../opportunities/labels';
+import { teamIcon } from '../teams/labels';
 import { usePrefs } from '../onboarding/PrefsProvider';
 import { TEAM_PUBLIC_COLUMNS } from '../teams/api';
 import { pickFeatured } from './featured';
@@ -53,8 +53,12 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
   const preview = useQuery({ queryKey: ['discover', 'preview'], queryFn: fetchPreview });
 
   const items = events.data?.items ?? [];
-  const featured = submitted ? null : pickFeatured(items, new Date());
-  const listed = (submitted ? items : items.filter((e) => e.id !== featured?.id)).slice(0, 4);
+  // "Yaklaşan" is what can still be joined: events whose registration closed stay in the Etkinlikler list only (approved Q4a).
+  // A search is a result list, not "Yaklaşan", so it keeps every match.
+  const now = new Date();
+  const upcoming = submitted ? items : items.filter((e) => new Date(e.registration_closes_at).getTime() > now.getTime());
+  const featured = submitted ? null : pickFeatured(upcoming, now);
+  const listed = (submitted ? upcoming : upcoming.filter((e) => e.id !== featured?.id)).slice(0, 3);
   const openEvent = (id: string) => { track('discovery_item_opened', { kind: 'event', id }); navigation.navigate('EventDetail', { eventId: id }); };
   const tabs = navigation.getParent<BottomTabNavigationProp<MainTabParamList>>();
   // Straight to the detail inside the right tab; initial: false keeps that tab's list underneath, so Back returns to it.
@@ -69,15 +73,21 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
   const firstName = useMyProfile().data?.display_name?.split(' ')[0];
   const offline = events.isError && toAppError(events.error).code === 'network_unreachable' && !!events.data;
 
+  const filteredTopic = topic !== 'all' || !!submitted;
+  const p = submitted ? null : preview.data;
+  const hasRest = !!p && (p.opportunities.length > 0 || p.teams.length > 0);
+  // Every section hides when it has nothing; only when all of them are empty does one empty state stand in for the page.
+  const allEmpty = events.isSuccess && upcoming.length === 0 && !filteredTopic && preview.isSuccess && !hasRest;
+
   return (
     <Screen header={<><AppHeader brand right={<IconButton icon="ticket" accessibilityLabel="Katılımlarım" onPress={() => navigation.navigate('MyRegistrations')} />} />{offline && <OfflineBanner />}</>}
       refreshing={events.isRefetching} onRefresh={() => { void events.refetch(); void preview.refetch(); void interests.refetch(); }}>
       <Text variant="bodySmall" color="textSecondary">{firstName ? `Merhaba ${firstName}` : 'Merhaba'}</Text>
-      <Text variant="display" style={{ marginTop: space[1] }}>Bir fikrin varsa,{'\n'}bir yerin var.</Text>
-      <Text variant="body" color="textSecondary" style={{ marginTop: space[2], marginBottom: space[4] }}>Keşfet, birlikte üret, iz bırak.</Text>
+      <Text variant="display" style={{ marginTop: space[1], marginBottom: space[5] }}>Bir fikrin varsa,{'\n'}bir yerin var.</Text>
 
+      {/* 3b'ye bağlı: once the Search route exists this field only navigates to it (no in-place search). */}
       <SearchInput placeholder="Etkinlik ara" value={search} onChangeText={(t) => { setSearch(t); if (!t) setSubmitted(''); }} onSubmitEditing={() => setSubmitted(search)} />
-      <View style={{ marginTop: space[3], marginBottom: space[4] }}>
+      <View style={{ marginTop: space[3], marginBottom: space[5] }}>
         <ChipRail>
           {prefs.interestSlugs.length > 0 && <Chip label="Sana göre" icon="spark" selected={topic === 'mine'} onPress={() => setTopic('mine')} />}
           <Chip label="Tümü" selected={topic === 'all'} onPress={() => setTopic('all')} />
@@ -85,17 +95,23 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
         </ChipRail>
       </View>
 
-      {events.isPending ? <LoadingSkeleton variant="poster" />
+      {allEmpty ? (
+        <EmptyState icon="discover" title="Şu an yayında içerik yok" body="İlgi alanlarını genişlet; yeni etkinlik ve fırsatlar eklendikçe burada görünür." />
+      ) : events.isPending ? <LoadingSkeleton variant="poster" />
         : events.isError && !events.data ? <ErrorState error={toAppError(events.error)} onRetry={() => void events.refetch()} />
-          : items.length === 0 ? (
-            <EmptyState icon="discover" title={submitted ? `“${submitted}” için sonuç yok` : 'Bu alanda şu an etkinlik yok'}
-              body="Başka bir konuya bakabilir ya da tüm etkinlikleri görebilirsin." actionLabel="Tümünü göster"
-              onAction={() => { setTopic('all'); setSearch(''); setSubmitted(''); }} />
-          ) : (
+          : upcoming.length === 0 ? (filteredTopic && (
+            <>
+              <SectionHeader title={submitted ? 'Sonuçlar' : 'Yaklaşan etkinlikler'} />
+              <EmptyState icon="filter" title={submitted ? `“${submitted}” için sonuç yok` : 'Bu filtrelerle sonuç yok'}
+                body="Başka bir konuya bakabilir ya da tüm etkinlikleri görebilirsin." actionLabel="Filtreleri temizle"
+                onAction={() => { setTopic('all'); setSearch(''); setSubmitted(''); }} />
+            </>
+          )) : (
             <>
               {featured && (() => { const m = toEventPoster(featured); const line = m.fallback.line; return (
-                <HeroCard category={m.typeLabel} title={line} accent={line.split(' ').slice(-1)[0]} meta={`${m.dateLabel} · ${m.placeLabel} · ${m.feeLabel}`} cta="Detayları gör" onPress={() => openEvent(featured.id)} />
+                <HeroCard category={m.typeLabel} title={line} accent={line.split(' ').slice(-1)[0]} meta={metaJoin([m.dateLabel, m.placeLabel, m.feeLabel])} cta="Detayları gör" onPress={() => openEvent(featured.id)} />
               ); })()}
+              {/* No vitrin: the list moves up; nothing reserves the hero's space. */}
               <SectionHeader title={submitted ? 'Sonuçlar' : 'Yaklaşan etkinlikler'} actionLabel="Tümünü gör" onAction={() => navigation.getParent()?.navigate('EventsTab')} />
               <View style={{ gap: space[3] }}>
                 {listed.map((e) => <PosterCard key={e.id} {...toEventPoster(e)} onPress={() => openEvent(e.id)} />)}
@@ -103,24 +119,31 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
             </>
           )}
 
-      {!submitted && preview.data && preview.data.opportunities.length > 0 && (
+      {!allEmpty && !submitted && !events.isPending && preview.isPending && (
         <>
-          <SectionHeader title="Sıradaki adımın" actionLabel="Fırsatlar" onAction={() => navigation.getParent()?.navigate('OpportunitiesTab')} />
+          <SectionHeader title="Sıradaki adımın" />
+          <LoadingSkeleton variant="row" cards={2} rowLines={OPPORTUNITY_ROW_LINES} />
+        </>
+      )}
+      {!allEmpty && p && p.opportunities.length > 0 && (
+        <>
+          <SectionHeader title="Sıradaki adımın" actionLabel="Tümünü gör" onAction={() => navigation.getParent()?.navigate('OpportunitiesTab')} />
           <View style={{ gap: space[3] }}>
-            {preview.data.opportunities.map((o) => (
+            {p.opportunities.map((o) => (
               <RowCard key={o.id} {...toOpportunityRow(o)} trailing={{ kind: 'chevron' }} onPress={() => openOpportunity(o.id)} />
             ))}
           </View>
         </>
       )}
-      {!submitted && preview.data && preview.data.teams.length > 0 && (
+      {!allEmpty && p && p.teams.length > 0 && (
         <>
-          <SectionHeader title="Birlikte üretenler" actionLabel="Topluluk" onAction={() => navigation.getParent()?.navigate('CommunityTab')} />
+          <SectionHeader title="Birlikte üretenler" actionLabel="Tümünü gör" onAction={() => navigation.getParent()?.navigate('CommunityTab')} />
           <MiniCardGrid>
-            {preview.data.teams.slice(0, 2).map((t) => <MiniCard key={t.id} icon={kindIcon(t.kind)} title={t.name} body={t.tagline ?? undefined} onPress={() => openTeam(t.id)} />)}
+            {p.teams.slice(0, 2).map((t) => <MiniCard key={t.id} icon={teamIcon(t)} title={t.name} body={t.tagline ?? undefined} onPress={() => openTeam(t.id)} />)}
           </MiniCardGrid>
         </>
       )}
+      {/* Gelişim stays hidden until a course screen exists (approved Q4b); no course request either. */}
     </Screen>
   );
 }
