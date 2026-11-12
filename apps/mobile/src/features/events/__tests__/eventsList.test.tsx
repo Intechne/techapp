@@ -34,7 +34,8 @@ jest.mock('../../../lib/analytics', () => ({ track: jest.fn() }));
 
 const navigate = jest.fn();
 const popTo = jest.fn();
-beforeEach(() => { data.events = []; data.cities = []; queries.length = 0; navigate.mockClear(); popTo.mockClear(); });
+const dispatch = jest.fn();
+beforeEach(() => { data.events = []; data.cities = []; queries.length = 0; navigate.mockClear(); popTo.mockClear(); dispatch.mockClear(); });
 
 const metrics = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
 const wrap = (ui: React.ReactElement) => {
@@ -129,7 +130,8 @@ describe('filter params (route params are strings on web)', () => {
 
 describe('EventFiltersScreen (form sheet)', () => {
   async function renderSheet(params: EventListParams) {
-    const props = { navigation: { popTo, goBack: jest.fn() }, route: { key: 's', name: 'EventFilters', params } } as unknown as React.ComponentProps<typeof EventFiltersScreen>;
+    const navigation = { popTo, goBack: jest.fn(), dispatch, getState: () => ({ routes: [{ name: 'EventsList', key: 'list-1' }, { name: 'EventFilters', key: 's' }] }) };
+    const props = { navigation, route: { key: 's', name: 'EventFilters', params } } as unknown as React.ComponentProps<typeof EventFiltersScreen>;
     await render(wrap(<EventFiltersScreen {...props} />));
   }
   it('starts from the list filters and hands the edited set back to the list', async () => {
@@ -141,6 +143,16 @@ describe('EventFiltersScreen (form sheet)', () => {
     await fireEvent.press(screen.getByText('Yalnız kaydı açık olanlar'));
     await fireEvent.press(screen.getByRole('button', { name: 'Sonuçları göster' }));
     expect(popTo).toHaveBeenCalledWith('EventsList', { type: 'hackathon', city: 'Ankara', within: 'week', open: '1' });
+  });
+  it('each change is applied to the list behind the sheet at once (setParams on the list route, cleared keys included)', async () => {
+    await renderSheet({ type: 'hackathon', city: 'Ankara' });
+    await fireEvent.press(screen.getByRole('button', { name: '7 gün içinde' }));
+    const last = dispatch.mock.calls.at(-1)![0];
+    expect(last.source).toBe('list-1');
+    expect(last.type).toBe('SET_PARAMS');
+    expect(last.payload.params).toEqual({ type: 'hackathon', format: undefined, city: 'Ankara', within: 'week', open: undefined });
+    await fireEvent.press(screen.getByRole('button', { name: 'Temizle' }));
+    expect(dispatch.mock.calls.at(-1)![0].payload.params).toEqual({ type: undefined, format: undefined, city: undefined, within: undefined, open: undefined });
   });
   it('cities come from the published events, de-duplicated and sorted in Turkish order', async () => {
     data.cities = [{ city: 'İzmir' }, { city: 'Ankara' }, { city: 'Ankara' }, { city: 'Çanakkale' }];

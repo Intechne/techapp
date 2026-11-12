@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CommonActions } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Button, Checkbox, Chip, IconButton, Skeleton, Text, TextButton, colors, layout, radius, semantic, space } from '../../design-system';
 import type { EventsStackParamList } from '../../navigation/types';
 import { eventKeys, fetchEventCities } from './api';
-import { DEFAULT_LIST_FILTERS, FORMAT_FILTERS, WITHIN_FILTERS, readListFilters, toListParams, type EventListFilters } from './filters';
+import { CLEARED_LIST_PARAMS, DEFAULT_LIST_FILTERS, FORMAT_FILTERS, WITHIN_FILTERS, readListFilters, toListParams, type EventListFilters } from './filters';
 import { EVENT_TYPE_FILTERS } from './labels';
 
 const sem = semantic.light;
@@ -22,13 +23,21 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
 }
 
 /**
- * Etkinlikler filters as a native form sheet (presentation 'formSheet', detents 0.6 / 1). It edits a local draft that
- * starts from the list's filters and hands the whole set back with popTo; nothing is applied until "Sonuçları göster".
+ * Etkinlikler filters as a native form sheet (presentation 'formSheet', detents 0.6 / 1). It edits a draft that starts
+ * from the list's filters. Each change is also applied to the list behind the sheet (setParams on that route), so at the
+ * 60 % detent the results update in view and closing the sheet any way keeps them; "Sonuçları göster" hands the set back
+ * with popTo. Android lays the sheet out at its largest detent, so the footer is only in view at full height: Temizle and
+ * close live in the header, reachable at both detents.
  */
 export function EventFiltersScreen({ navigation, route }: NativeStackScreenProps<EventsStackParamList, 'EventFilters'>) {
   const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState<EventListFilters>(() => readListFilters(route.params));
-  const set = (patch: Partial<EventListFilters>) => setDraft((d) => ({ ...d, ...patch }));
+  const applyToList = (next: EventListFilters) => {
+    const list = navigation.getState?.()?.routes.find((r) => r.name === 'EventsList');
+    if (list) navigation.dispatch({ ...CommonActions.setParams({ ...CLEARED_LIST_PARAMS, ...toListParams(next) }), source: list.key });
+  };
+  const update = (next: EventListFilters) => { setDraft(next); applyToList(next); };
+  const set = (patch: Partial<EventListFilters>) => update({ ...draft, ...patch });
   const cities = useQuery({ queryKey: eventKeys.cities(), queryFn: fetchEventCities, staleTime: 5 * 60_000 });
   // A city chosen before (e.g. from a link) stays selectable even when the current list no longer has it.
   const cityOptions = [...new Set([...(draft.city ? [draft.city] : []), ...(cities.data ?? [])])].sort((a, b) => a.localeCompare(b, 'tr'));
@@ -37,6 +46,7 @@ export function EventFiltersScreen({ navigation, route }: NativeStackScreenProps
     <View style={styles.root}>
       <View style={styles.header}>
         <Text variant="section" style={{ flex: 1 }}>Filtrele</Text>
+        <TextButton label="Temizle" onPress={() => update(DEFAULT_LIST_FILTERS)} />
         <IconButton icon="close" accessibilityLabel="Kapat" onPress={navigation.goBack} style={{ marginRight: -space[2] }} />
       </View>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -60,9 +70,7 @@ export function EventFiltersScreen({ navigation, route }: NativeStackScreenProps
         </View>
       </ScrollView>
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, space[4]) }]}>
-        {/* One row so the 60 % detent keeps most of its height for the filters; Temizle only resets the draft. */}
-        <Button kind="secondary" label="Temizle" style={{ flex: 1 }} onPress={() => setDraft(DEFAULT_LIST_FILTERS)} />
-        <Button label="Sonuçları göster" style={{ flex: 2 }} onPress={() => navigation.popTo('EventsList', toListParams(draft))} />
+        <Button label="Sonuçları göster" onPress={() => navigation.popTo('EventsList', toListParams(draft))} />
       </View>
     </View>
   );
@@ -70,9 +78,9 @@ export function EventFiltersScreen({ navigation, route }: NativeStackScreenProps
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: sem.bg.surface },
-  header: { flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingHorizontal: layout.gutter, paddingTop: space[2] },
+  header: { flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: 56, paddingHorizontal: layout.gutter, paddingTop: space[2] },
   content: { paddingHorizontal: layout.gutter, paddingTop: space[2], paddingBottom: space[5], gap: space[6] },
   section: { gap: space[3] },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
-  footer: { flexDirection: 'row', paddingHorizontal: layout.gutter, paddingTop: space[3], gap: space[3], borderTopWidth: 1, borderTopColor: sem.border.default, backgroundColor: sem.bg.surface },
+  footer: { paddingHorizontal: layout.gutter, paddingTop: space[3], borderTopWidth: 1, borderTopColor: sem.border.default, backgroundColor: sem.bg.surface },
 });
