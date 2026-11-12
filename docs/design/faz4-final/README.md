@@ -62,3 +62,9 @@ Diğer kareler ilgili görevin ekran turundandır; sonradan yalnız test, belge 
 26. 18 yaş altı bilgi notu kaldırıldı: erişilemiyordu (`is_minor` yalnız kayıttan sonra gelir). Takip önerisi KNOWN-ISSUES'ta.
 
 **Sapma sayısı: 26** (yukarıdaki numaralı maddeler; çoğu 3b bağımlılığı veya onaylı karar sonucu). Kullanıcıya özellikle not düşülecekler: 5 (tarih filtresi ön ayarları), 11 (Rol dağılımı yok), 15 (bekleyen istek yerleşimi), 26 (18 yaş altı notu).
+
+> **Görüntü notu:** `04-kesfet.jpg` son hâl görüntüleri Task 5'te, Task 7'deki son tarih tonu değişikliğinden önce çekildi;
+> "Sıradaki adımın" satırlarındaki kırmızı "SON GÜN BUGÜN" etiketi koddaki güncel hâl değildir (güncel: apricot). Kod ve testler
+> günceldir; görüntü yenilemesi bir sonraki görsel turda yapılacak.
+> **OTP odağı:** RN 0.86'da `InteractionManager` erişimi çalışma zamanı uyarısı verdiği için odak 350 ms gecikmeli; iOS'ta doğrulanmadı.
+> Daha doğru sinyal native-stack `transitionEnd` olayıdır — Faz 5'e not edildi.
