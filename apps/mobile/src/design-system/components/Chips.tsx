@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { colors, fonts, layout, radius, space, tones } from '../tokens';
 import { Text } from '../Text';
 import { TechIcon, type TechIconName } from '../TechIcon';
@@ -58,9 +58,13 @@ export function VerificationBadge({ verified, by }: { verified: boolean; by?: st
     : <Tag tone="neutral" label="KENDİ BEYANI" />;
 }
 
+/** From this font scale the segments stack in one column: three equal tiles cannot hold a long word ("Deneyimler") at 200% without splitting it. */
+export const SEGMENTS_STACK_FONT_SCALE = 1.5;
+
 export function SegmentedControl<T extends string>({ options, value, onChange }: { options: readonly T[]; value: T; onChange: (v: T) => void }) {
+  const { fontScale } = useWindowDimensions();
   return (
-    <View style={styles.segmented} accessibilityRole="tablist">
+    <View testID="segmented" style={[styles.segmented, fontScale >= SEGMENTS_STACK_FONT_SCALE && styles.segmentedStacked]} accessibilityRole="tablist">
       {options.map((o) => (
         <Pressable key={o} accessibilityRole="tab" accessibilityState={{ selected: o === value }} onPress={() => onChange(o)}
           style={[styles.segment, o === value && styles.segmentActive]}>
@@ -84,4 +88,5 @@ const styles = StyleSheet.create({
   // A long label wraps between words onto a second line and the segment grows with it (all segments stretch to the tallest).
   segment: { flex: 1, minHeight: 40, minWidth: 0, borderRadius: radius.small, alignItems: 'center', justifyContent: 'center', paddingVertical: space[2], paddingHorizontal: space[1] },
   segmentActive: { backgroundColor: colors.surface },
+  segmentedStacked: { flexDirection: 'column' },
 });

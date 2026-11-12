@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
-  AppHeader, Avatar, Button, Card, Divider, EmptyState, ErrorState, LoadingSkeleton, MetadataRow, Modal, Notice, ResponsiveGrid, RowCard, Screen,
-  RegistrationStatus, SegmentedControl, SectionHeader, membershipStatusView, Tag, TechIcon, Text, colors, radius, space, tones, useToast,
+  AppHeader, Avatar, Button, Card, Divider, EmptyState, ErrorState, IconButton, LoadingSkeleton, MetadataRow, Modal, Notice, ResponsiveGrid, RowCard, Screen,
+  SegmentedControl, SectionHeader, TextButton, checkedInRegistrationView, formatCount, membershipStatusView, metaJoin, registrationStatusView,
+  Tag, TechIcon, Text, colors, radius, space, useToast, type RowLines, type TechIconName,
 } from '../../design-system';
 import { formatDate, formatDateTime } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
@@ -27,6 +28,29 @@ import { fetchMyTeams, teamKeys } from '../teams/api';
 import { teamIcon } from '../teams/labels';
 
 const SEGMENTS = ['Deneyimler', 'Katılımlar', 'Takımlar'] as const;
+/** A Yaklaşan row: two-line title, date, status under the text on phones (approved Q6). */
+export const UPCOMING_ROW_LINES: RowLines = { title: 2, secondary: 1, footnote: 'none', status: true };
+/** From this font scale the three counters stack (approved Q14): three columns of large text cut their own labels. */
+const COUNTERS_STACK_FONT_SCALE = 1.5;
+/** Android keeps "Karaosmanoğlu-Çağlayan" as one unbreakable token and splits inside the second part; a zero-width space after the hyphen gives the line a break point at it. */
+export const breakAfterHyphen = (name: string) => name.replace(/-(?=\p{L})/gu, '-\u200B');
+const EXPERIENCE_NOUN = { one: 'deneyim', other: 'deneyim' };
+const VERIFIED_NOUN = { one: 'doğrulanmış', other: 'doğrulanmış' };
+const ATTENDED_NOUN = { one: 'katılım', other: 'katılım' };
+const BENEFITS: readonly { icon: TechIconName; text: string }[] = [
+  { icon: 'event', text: 'Etkinliklere katıl' },
+  { icon: 'verified', text: 'Deneyimlerini doğrulat' },
+  { icon: 'share', text: 'Profilini paylaş' },
+];
+
+function Counter({ n, label, tone = 'ink' }: { n: number; label: string; tone?: 'ink' | 'moss' }) {
+  return (
+    <View style={styles.counter}>
+      <Text variant="section" color={tone}>{n}</Text>
+      <Text variant="caption" color="textSecondary" breakStrategy="words">{label}</Text>
+    </View>
+  );
+}
 
 function ExperienceCard({ item, onPress }: { item: CvExperience; onPress: () => void }) {
   const range = formatRange(item.started_on, item.ended_on);
@@ -36,7 +60,7 @@ function ExperienceCard({ item, onPress }: { item: CvExperience; onPress: () => 
         <ProvenanceBadge attestation={item.attestation} />
         {item.status === 'draft' ? <Tag tone="neutral" label="TASLAK" /> : item.visibility === 'private' ? <Tag tone="neutral" label="GİZLİ" /> : null}
       </View>
-      <Text variant="cardTitle">{item.title}</Text>
+      <Text variant="cardTitle" breakStrategy="words">{item.title}</Text>
       <MetadataRow icon={KIND_ICON[item.kind]}>{[KIND_LABEL[item.kind], item.role, item.organization_name].filter(Boolean).join(' · ')}</MetadataRow>
       {!!range && <MetadataRow icon="clock">{range}</MetadataRow>}
     </Card>
@@ -45,15 +69,18 @@ function ExperienceCard({ item, onPress }: { item: CvExperience; onPress: () => 
 
 export function ProfileScreen({ navigation, route }: NativeStackScreenProps<ProfileStackParamList, 'ProfileHome'>) {
   const { userId, session } = useSession();
+  const { fontScale } = useWindowDimensions();
   const account = useAccountState();
   const toast = useToast();
   const { update } = usePrefs();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [segment, setSegment] = useState<(typeof SEGMENTS)[number]>(route.params?.segment ?? 'Deneyimler');
-  // "Tüm takımların" on Topluluk lands here with the Takımlar segment selected.
+  // "Tüm takımların" on Topluluk lands here with the Takımlar segment selected. The param is applied once and cleared, so the
+  // same request works again after the user switched segments by hand.
   const wanted = route.params?.segment;
   const [seenWanted, setSeenWanted] = useState(wanted);
   if (wanted !== seenWanted) { setSeenWanted(wanted); if (wanted) setSegment(wanted); }
+  useEffect(() => { if (wanted) navigation.setParams({ segment: undefined }); }, [wanted, navigation]);
   // The CV lists active teams only; the viewer's own pending requests come from the same query Topluluk uses (filtered by user_id).
   const mine = useQuery({ queryKey: teamKeys.mine(userId), queryFn: () => fetchMyTeams(userId!), enabled: !!userId });
   const pendingTeams = (mine.data ?? []).filter((m) => m.status === 'pending');
@@ -68,8 +95,17 @@ export function ProfileScreen({ navigation, route }: NativeStackScreenProps<Prof
   if (!userId) {
     return (
       <Screen header={<AppHeader brand />}>
-        <EmptyState icon="profile" title="Yaptıkların seni anlatsın" body="Giriş yaptığında deneyimlerin, doğrulamaların ve katılımların burada tek bir profilde toplanır."
-          actionLabel="Giriş yap veya hesap oluştur" onAction={() => navigation.getParent()?.getParent()?.navigate('AuthEmail')} />
+        <Text variant="display" style={{ marginBottom: space[5] }}>Yaptıkların{'\n'}seni anlatsın.</Text>
+        <Text variant="body" color="textSecondary" style={{ marginBottom: space[5] }}>Giriş yaptığında deneyimlerin, doğrulamaların ve katılımların tek bir profilde toplanır.</Text>
+        <Card testID="guest-benefits" style={{ gap: space[4] }}>
+          {BENEFITS.map((b) => (
+            <View key={b.text} style={styles.benefit}>
+              <View style={styles.benefitIcon}><TechIcon name={b.icon} color={colors.primary} /></View>
+              <Text variant="cardTitle" breakStrategy="words" style={{ flex: 1 }}>{b.text}</Text>
+            </View>
+          ))}
+        </Card>
+        <Button style={{ marginTop: space[5] }} label="Giriş yap veya hesap oluştur" onPress={() => navigation.getParent()?.getParent()?.navigate('AuthEmail')} />
       </Screen>
     );
   }
@@ -78,27 +114,23 @@ export function ProfileScreen({ navigation, route }: NativeStackScreenProps<Prof
   const incomplete = account.data && !account.data.profile_complete;
 
   return (
-    <Screen wide header={<AppHeader brand />} refreshing={cv.isRefetching} onRefresh={() => { void cv.refetch(); void account.refetch(); void regs.refetch(); }}>
-      {cv.isPending ? <LoadingSkeleton cards={2} variant="row" /> : cv.isError ? <ErrorState error={toAppError(cv.error)} onRetry={() => void cv.refetch()} /> : (() => {
+    <Screen wide header={<AppHeader brand right={<IconButton icon="edit" accessibilityLabel="Profili düzenle" onPress={() => navigation.navigate('EditProfile')} />} />} refreshing={cv.isRefetching} onRefresh={() => { void cv.refetch(); void account.refetch(); void regs.refetch(); }}>
+      {cv.isPending ? <LoadingSkeleton cards={2} variant="row" rowLines={UPCOMING_ROW_LINES} /> : cv.isError ? <ErrorState error={toAppError(cv.error)} onRetry={() => void cv.refetch()} /> : (() => {
         const { profile, experiences, participations, volunteering, teams, share_token: shareToken } = cv.data;
         const stats = profileStats(cv.data, regs.data ?? [], new Date());
         const verifiedCount = stats.verified;
         const subtitle = [profile.city, profile.education_stage ? EDUCATION_LABEL[profile.education_stage] : null].filter(Boolean).join(' · ');
         return (
           <>
-            <View style={styles.cover}>
-              <View style={styles.coverArt} />
-              <Text variant="title" style={{ color: tones.iris.fg, maxWidth: '80%' }}>Yaptıkların{'\n'}seni anlatsın.</Text>
-            </View>
-            <View style={styles.identity}>
-              <View style={styles.avatarRing}><Avatar name={profile.display_name} size={72} /></View>
-              {/* The row is pulled up by space[7] so the avatar overlaps the cover; the text starts clear below the cover edge. */}
-              <View style={{ flex: 1, paddingTop: space[7] + space[2] }}>
-                <Text variant="section" accessibilityRole="header">{profile.display_name ?? 'Adını ekle'}</Text>
-                <Text variant="bodySmall" color="textSecondary">{profile.headline ?? session?.user.email ?? ''}</Text>
-                {!!subtitle && <Text variant="caption" color="textSecondary" style={{ marginTop: 2 }}>{subtitle}</Text>}
+            <Text variant="display" style={{ marginBottom: space[5] }}>Yaptıkların{'\n'}seni anlatsın.</Text>
+            {/* One card: the avatar never overlaps a cover. The edit action lives in the header bar, so the name gets the full width. */}
+            <Card testID="identity-card" style={styles.identity}>
+              <Avatar name={profile.display_name} size={56} />
+              <View style={styles.identityText}>
+                <Text variant="section" breakStrategy="words" accessibilityRole="header" accessibilityLabel={profile.display_name ?? undefined}>{breakAfterHyphen(profile.display_name ?? 'Adını ekle')}</Text>
+                {!!(profile.headline || subtitle) && <Text variant="bodySmall" color="textSecondary" breakStrategy="words">{metaJoin([profile.headline, subtitle])}</Text>}
               </View>
-            </View>
+            </Card>
             {!!profile.bio && <Text variant="body" color="textSecondary" style={{ marginTop: space[3] }}>{profile.bio}</Text>}
 
             {incomplete && (
@@ -106,51 +138,38 @@ export function ProfileScreen({ navigation, route }: NativeStackScreenProps<Prof
                 <Button style={{ marginTop: space[3] }} label="Profilimi tamamla" onPress={() => navigation.getParent()?.getParent()?.navigate('ProfileBootstrap')} /></View>
             )}
 
-            <View style={styles.stats} accessible accessibilityLabel={`${experiences.length} deneyim, ${verifiedCount} doğrulanmış, ${stats.attended} katıldığı etkinlik`}>
-              {([['Deneyim', experiences.length], ['Doğrulanmış', verifiedCount], ['Katılım', stats.attended]] as const).map(([label, n]) => (
-                <View key={label} style={{ flex: 1, alignItems: 'center' }}><Text variant="section" color={label === 'Doğrulanmış' ? 'moss' : 'ink'}>{n}</Text><Text variant="caption" color="textSecondary">{label}</Text></View>
-              ))}
+            <View testID="counters" style={[styles.stats, fontScale >= COUNTERS_STACK_FONT_SCALE && styles.statsStacked]} accessible
+              accessibilityLabel={`${formatCount(experiences.length, EXPERIENCE_NOUN)}, ${formatCount(verifiedCount, VERIFIED_NOUN)}, ${formatCount(stats.attended, ATTENDED_NOUN)}`.replace(/\u00A0/g, ' ')}>
+              <Counter n={experiences.length} label="Deneyim" />
+              <Counter n={verifiedCount} label="Doğrulanmış" tone="moss" />
+              <Counter n={stats.attended} label="Katılım" />
             </View>
 
             {stats.upcoming.length > 0 && (
-              <View style={{ marginBottom: space[5], gap: space[2] }}>
+              <View style={{ marginBottom: space[5], gap: space[3] }}>
                 <View style={styles.upcomingHead}>
-                  <Text variant="label">Yaklaşan</Text>
-                  {stats.upcoming.length > 3 && <Button kind="secondary" label="Tümünü gör" onPress={() => navigation.navigate('MyRegistrations')} />}
+                  <Text variant="section">Yaklaşan</Text>
+                  {stats.upcoming.length > 3 && <TextButton label="Tümünü gör" iconRight="arrow" onPress={() => navigation.navigate('MyRegistrations')} />}
                 </View>
-                {stats.upcoming.slice(0, 3).map((r) => {
-                  return (
-                    <Card key={r.id} onPress={() => navigation.navigate('RegistrationStatus', { registrationId: r.id })} style={{ gap: space[2] }}
-                      accessibilityLabel={`${r.event.title}, yaklaşan kayıt. Durumu aç`}>
-                      <RegistrationStatus status={r.status} checkedIn={r.checkedIn} />
-                      <Text variant="cardTitle">{r.event.title}</Text>
-                      <MetadataRow icon="event">{formatDateTime(r.event.starts_at)}</MetadataRow>
-                    </Card>
-                  );
-                })}
+                {/* The user's own registrations (user_id filter). A checked-in registration reads "GİRİŞ YAPILDI" when the CV already holds the check-in. */}
+                <ResponsiveGrid>{stats.upcoming.slice(0, 3).map((r) => (
+                  <RowCard key={r.id} leading={{ kind: 'icon', icon: 'ticket' }} title={r.event.title} secondary={formatDateTime(r.event.starts_at)}
+                    trailing={{ kind: 'status', view: r.checkedIn ? checkedInRegistrationView : registrationStatusView[r.status] }} isDemo={r.event.is_demo}
+                    onPress={() => navigation.navigate('RegistrationStatus', { registrationId: r.id })} />
+                ))}</ResponsiveGrid>
               </View>
             )}
 
-            <View style={{ flexDirection: 'row', gap: space[2], flexWrap: 'wrap' }}>
-              <Button style={{ flex: 1, minWidth: 140 }} icon="plus" label="Deneyim ekle" onPress={() => navigation.navigate('ExperienceEditor', {})} />
-              <Button style={{ flex: 1, minWidth: 140 }} kind="secondary" label="Profili düzenle" onPress={() => navigation.navigate('EditProfile')} />
-            </View>
-
-            <View style={{ marginTop: space[6], gap: space[2] }}>
-              <Text variant="label">Beceriler</Text>
-              {profile.skills.length === 0 ? <Text variant="bodySmall" color="textSecondary">Henüz beceri eklemedin. Profili düzenle’den ekleyebilirsin.</Text> : (
-                <View style={styles.tagRow}>{profile.skills.map((s) => <Tag key={s} tone="neutral" label={s} />)}</View>
-              )}
-              <Text variant="caption" color="textSecondary">Beceriler kendi beyanındır; bir kurum tarafından ölçülmüş ya da doğrulanmış değildir.</Text>
-            </View>
-
-            <View style={{ marginTop: space[5], maxWidth: 560 }}><CvShareCard token={shareToken} name={profile.display_name} /></View>
-
-            <View style={{ marginVertical: space[5] }}><SegmentedControl options={SEGMENTS} value={segment} onChange={setSegment} /></View>
+            <View style={{ marginBottom: space[4] }}><SegmentedControl options={SEGMENTS} value={segment} onChange={setSegment} /></View>
 
             {segment === 'Deneyimler' && (experiences.length === 0
               ? <EmptyState icon="spark" title="İlk deneyimini ekle" body="Bir proje, yarışma ya da gönüllü katkı. Önce kendi beyanın olarak görünür; istersen bir kurumdan doğrulama isteyebilirsin." actionLabel="Deneyim ekle" onAction={() => navigation.navigate('ExperienceEditor', {})} />
-              : <ResponsiveGrid>{experiences.map((x) => <ExperienceCard key={x.id} item={x} onPress={() => navigation.navigate('ExperienceDetail', { experienceId: x.id })} />)}</ResponsiveGrid>)}
+              : (
+                <View style={{ gap: space[3] }}>
+                  <ResponsiveGrid>{experiences.map((x) => <ExperienceCard key={x.id} item={x} onPress={() => navigation.navigate('ExperienceDetail', { experienceId: x.id })} />)}</ResponsiveGrid>
+                  <Button kind="secondary" icon="plus" label="Deneyim ekle" onPress={() => navigation.navigate('ExperienceEditor', {})} />
+                </View>
+              ))}
 
             {segment === 'Katılımlar' && (participations.length + volunteering.length === 0
               ? <EmptyState icon="ticket" title="Henüz doğrulanmış bir katılımın yok" body="Bir etkinlikte girişte katılım kartın okutulduğunda katılımın burada kendiliğinden görünür." />
@@ -194,25 +213,39 @@ export function ProfileScreen({ navigation, route }: NativeStackScreenProps<Prof
                   : <ResponsiveGrid>{teams.map((t) => (
                     <Card key={t.team_id} style={styles.teamRow}>
                       <View style={styles.teamIcon}><TechIcon name={t.kind === 'team' ? 'team' : 'community'} color={colors.primary} /></View>
-                      <View style={{ flex: 1 }}><Text variant="cardTitle">{t.name}</Text><Text variant="caption" color="textSecondary">{[t.title, TEAM_ROLE_LABEL[t.role], t.since ? `${formatDate(t.since)} tarihinden beri` : null].filter(Boolean).join(' · ')}</Text></View>
+                      <View style={{ flex: 1 }}><Text variant="cardTitle" breakStrategy="words">{t.name}</Text><Text variant="caption" color="textSecondary">{[t.title, TEAM_ROLE_LABEL[t.role], t.since ? `${formatDate(t.since)} tarihinden beri` : null].filter(Boolean).join(' · ')}</Text></View>
                     </Card>))}</ResponsiveGrid>}
               </>
             )}
 
-            <Divider />
+            <View style={{ marginTop: space[7], gap: space[2] }}>
+              <Text variant="section">Beceriler</Text>
+              {profile.skills.length === 0 ? <Text variant="bodySmall" color="textSecondary">Henüz beceri eklemedin. Profili düzenle’den ekleyebilirsin.</Text> : (
+                <View style={styles.tagRow}>{profile.skills.map((s) => <Tag key={s} tone="neutral" label={s} />)}</View>
+              )}
+              <Text variant="caption" color="textSecondary">Beceriler kendi beyanındır; bir kurum tarafından ölçülmüş ya da doğrulanmış değildir.</Text>
+            </View>
+
+            <View style={{ marginTop: space[5], maxWidth: 560 }}><CvShareCard token={shareToken} name={profile.display_name} /></View>
+
+            <View style={{ marginTop: space[7] }}>
             <ResponsiveGrid maxColumns={2}>
               <RowCard leading={{ kind: 'icon', icon: 'ticket' }} title="Katılımlarım" secondary="Kayıt durumların ve katılım kartların" trailing={{ kind: 'chevron' }} onPress={() => navigation.navigate('MyRegistrations')} />
               {canCheckIn && <RowCard leading={{ kind: 'icon', icon: 'verified' }} title="Giriş kontrolü" secondary="Düzenleyen ekip için katılımcı girişi" trailing={{ kind: 'chevron' }} onPress={() => navigation.navigate('CheckIn')} />}
             </ResponsiveGrid>
+            </View>
           </>
         );
       })()}
 
       <Divider />
+      <View testID="account-section">
       <Text variant="section">Hesap</Text>
+      {!!session?.user.email && <Text variant="caption" color="textSecondary" style={{ marginTop: space[1] }}>{`${session.user.email} ile giriş yaptın`}</Text>}
       <View style={{ gap: space[3], marginTop: space[3], maxWidth: 480 }}>
         <Button kind="secondary" label="Çıkış yap" loading={out.isPending} onPress={() => out.mutate()} />
         <Button kind="danger" label="Hesabımı sil" onPress={() => setConfirmDelete(true)} />
+      </View>
       </View>
 
       <Modal visible={confirmDelete} title="Hesabını silelim mi?" onClose={() => setConfirmDelete(false)}>
@@ -226,11 +259,13 @@ export function ProfileScreen({ navigation, route }: NativeStackScreenProps<Prof
 }
 
 const styles = StyleSheet.create({
-  cover: { backgroundColor: tones.iris.bg, borderRadius: radius.hero, minHeight: 132, padding: space[5], justifyContent: 'flex-start', overflow: 'hidden' },
-  coverArt: { position: 'absolute', right: -18, top: 18, width: 120, height: 120, borderWidth: 20, borderRadius: radius.card, borderColor: tones.iris.fg, opacity: 0.16, transform: [{ rotate: '-25deg' }] },
-  identity: { flexDirection: 'row', gap: space[3], marginTop: -space[7], paddingHorizontal: space[3] },
-  avatarRing: { borderRadius: radius.pill, borderWidth: 4, borderColor: colors.canvas, backgroundColor: colors.canvas },
+  identity: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  identityText: { flex: 1, minWidth: 0 },
   stats: { flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radius.card, borderWidth: 1, borderColor: colors.border, paddingVertical: space[4], marginVertical: space[5] },
+  statsStacked: { flexDirection: 'column', gap: space[3], paddingHorizontal: space[4] },
+  counter: { flex: 1, alignItems: 'center' },
+  benefit: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  benefitIcon: { width: 46, height: 46, borderRadius: radius.control, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
   upcomingHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
   teamRow: { flexDirection: 'row', alignItems: 'center', gap: space[3] },

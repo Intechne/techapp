@@ -33,12 +33,12 @@ jest.mock('../api', () => ({
     interests: [], experiences: [], participations: [], volunteering: [], teams: mockCvTeams, share_token: null } }),
 }));
 
-const navigate = jest.fn(); const parentNavigate = jest.fn();
+const navigate = jest.fn(); const parentNavigate = jest.fn(); const setParams = jest.fn();
 beforeEach(() => { rows = []; calls.length = 0; mockCvTeams = []; navigate.mockClear(); parentNavigate.mockClear(); });
 const metrics = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
 const open = async () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
-  const props = { navigation: { navigate, getParent: () => ({ navigate: parentNavigate, getParent: () => ({ navigate: jest.fn() }) }) }, route: { key: 'k', name: 'ProfileHome', params: { segment: 'Takımlar' } } } as unknown as React.ComponentProps<typeof ProfileScreen>;
+  const props = { navigation: { navigate, setParams, getParent: () => ({ navigate: parentNavigate, getParent: () => ({ navigate: jest.fn() }) }) }, route: { key: 'k', name: 'ProfileHome', params: { segment: 'Takımlar' } } } as unknown as React.ComponentProps<typeof ProfileScreen>;
   await render(<SafeAreaProvider initialMetrics={metrics}><QueryClientProvider client={client}><ProfileScreen {...props} /></QueryClientProvider></SafeAreaProvider>);
 };
 
