@@ -1,5 +1,29 @@
 > **V5 — 11 Kasım 2026 (dal `feat/v5-pilot-platform`).** Güncel durum bu bölümdedir. 7 Ekim ve daha eski bölümler **tarihsel kayıttır**; çelişen yerde bu bölüm geçerlidir. ✅ yalnız bugün ölçülen ya da kanıtı yazılı olan şey içindir.
 
+## Faz 4 — tasarım sistemi ve beş sekme (12–13 Kasım 2026, dal `feat/v5-product`)
+Plan: `docs/superpowers/plans/2026-11-12-techapp-v5-faz4-design-system-and-five-tabs.md`. Önizleme kapısı kullanıcı tarafından onaylandı (12 Kasım, “önerilerle onay”; `docs/design/faz4-preview/REVIEW.md`). Son görüntüler onaylı taslakla yan yana: `docs/design/faz4-final/` (README'de sapmalar). Bu dal pilot dalından ayrıdır; pilot yolu etkilenmedi.
+
+| Görev | Konu | Commit'ler |
+|---|---|---|
+| T1 | Token borcu, semantik katman, elevation, hardcode koruma testi, ikon anlamları | `92a47a3`, `d37c9cc` |
+| T2 | Kart ailesi (CardBase · PosterCard · RowCard · MiniCard · HeroCard), iskeletler | `25fad43`, `c4c5756`, `75ef0d6` |
+| T3 | En kötü durum verisi, yalnız yerelde açılan önizleme rotası, `check:no-dev-preview` | `75e9d78`, `d930736`, `dd76a4f` (CI) |
+| T4 | Önizleme kapısı (taslak dalı `feat/v5-design-preview` birleşmez) + onay | `13836de`, `3537074` |
+| T4b | Onaylı kart kararları (durum altta, tek satır poster başlığı, dar ekranda tek sütun, bölünmeyen adlar) | `b701f60` |
+| T5 | Keşfet | `1f3869c`, `2e4f150` |
+| T6 | Etkinlikler (filtre sheet'i), detay, kayıt, check-in | `d9d45d1`, `dab1907`, `3485c74`, `1765d7d` |
+| T7 | Fırsatlar, detay, başvuru, Son tarihler, Başvurularım | `035d411`, `fe0c304` |
+| T8 | Topluluk, takım profili, çalışma alanı | `a59190f`, `418d5a8` |
+| T9 | Profil | `157723f`, `575af50` |
+| T10 | Onboarding ve giriş | `8eb1e58`, `6a52504` |
+| T11 | Kapanış: HIG Doctor, küçük düzeltmeler, son görüntüler, belgeler | `9ca8768` + belge commit'i |
+
+**Ölçüm (T11):** `npm --prefix apps/mobile run verify` → typecheck temiz, lint 0, jest **634 geçti + 2 todo** (68 süit), konsol çıktısı temiz; `noHardcodedStyle` izin listesi boş; `check:no-dev-preview` OK; HIG Doctor `--fail-on serious` çıkış 0, 0 concern ([rapor](docs/audits/2026-11-13-hig-doctor.md)).
+
+**Yapılmayanlar (Faz 3b'ye bağlı satırlar, plan “Self-review”):** Arama ekranı ve arama alanından geçiş, bildirim zili/rozeti, detayda Kaydet ve Kaydedilenler/Bildirimler/Ayarlar girişleri, kurs ekranı (Gelişim bölümü gizli; “Bu etkinliğe hazırlan” yok), kurum profili sayfası, kurum logosu ve kapak görselleri (öncü karo hep ikon), takım profilinde Projeler/Etkinlikler. Rol dağılımı bölümü gizlilik nedeniyle yapılmadı (veri yalnız üyelere açık RPC'de). Açık bilinen sorunlar: `docs/KNOWN-ISSUES.md` “Faz 4 kapanışı”.
+
+**Doğrulandığı yerler:** web (Expo web, Playwright) 390×844 ve 320×640; Android emülatör (API 36.1, 411 dp) yazı ölçeği 1.0 ve 2.0, EAS development derlemesi. **Doğrulanmadı:** iOS (simülatör dahil), gerçek cihaz (Android veya iPhone), TalkBack/VoiceOver sesli tur, QR'ın gerçek cihazda taranması, iOS OTP odak zamanı.
+
 ## V5 — 11 Kasım 2026
 Dal `feat/v5-pilot-platform` (`feat/techapp-stabilization` @ `a0a97c5`'ten). Commit'ler: `97f9cea`, `b1f0cf3`, `fef8e5a` (Open Circuit v2 ikonları), `1815770` (test portu / expo-doctor / SDK 57 yamaları), `fe5a478` (HIG denetimi), sonra pilot görevleri ve final review düzeltmeleri (`89f0556`…`f0a03fd`). Dal `feat/v5-pilot-platform` fe5a478'e kadar GitHub'a itildi (yedek push, kullanıcı izniyle, Intechne hesabı üzerinden); sonraki commit'ler her görev incelemesinden sonra itilir.
 Pilot adayı: Cezeri Robot Ligi, Ümraniye, 27–29 Kasım 2026 — yalnız görevliler, Intechne ekibi ve az sayıda gönüllü test kullanıcısıyla kontrollü pilot; resmî takım kaydı TechApp dışında kalır. Hedef dondurma 21 Kasım; go/no-go 24 Kasım, kararı kullanıcı verir.

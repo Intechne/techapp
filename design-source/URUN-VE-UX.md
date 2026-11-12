@@ -125,6 +125,17 @@ Aralık dizisi: 4, 8, 12, 16, 20, 24, 32, 40, 48. Kontrol köşesi 14, kart 22, 
 
 Open Circuit v2 — 50 SVG (navigation / system / status / entities) + 32 dolu (aktif) durum; kurallar ve audit `ICON-SYSTEM.md`'de. 24 × 24 ızgara, 1.75 çizgi, round cap/join, imza öğesi düğüm (node). Navigasyonda daima görünür metin etiketi; aktif sekme dolu ikon.
 
+### Kart ailesi ve ekran kuralları (Faz 4)
+- **Kart ailesi**: tek taban `CardBase` (köşe `radius.card` 22, iç boşluk `space[4]`, liste aralığı `space[3]`) üzerinde `PosterCard` (etkinlik/kurs), `RowCard` (fırsat, takım, kayıt, başvuru, Yaklaşan), `MiniCard` + `MiniCardGrid` (Keşfet rayları), `HeroCard` (vitrin). Eski altı kart kaldırıldı. İskeletler aynı ölçüden türer (içerik gelince liste zıplamaz).
+- **Satır yapısı**: `RowCard` `RowLines` ile satır sayısını ve durum satırını bildirir; durum etiketi telefonda metnin **altında** (onaylı Q6). `footnoteTag` (son tarih, durum) tek satır; `DemoTag` (“ÖRNEK”) tek kaynaktan, etiket satırında. Takım dipnotu sırası: üye · kategori · şehir (sayı kesilmesin diye).
+- **Bölünmez metin**: `keepNumbersTogether` sayı ile birimi/ayı bölünmez boşlukla bağlar (“1 dk”, “12 Kasım”); adlar sözcük ortasından bölünmez (`breakStrategy="words"`; Android'de `simple`; tireden sonra sıfır genişlikli boşluk yalnız çizilen metinde, erişilebilirlik etiketi düz ad).
+- **Eyebrow kuralı (Q2)**: BÜYÜK HARF eyebrow yalnız kategori/durum içindir; kurum, takım, kişi ve şehir adı asla büyük harf olmaz; sekme köklerinde slogan eyebrow yoktur.
+- **Son tarih tonu**: ≤1 gün apricot (“SON GÜN BUGÜN”, “SON 1 GÜN”), ≤7 gün iris, daha uzağı etiketsiz (mutlak “Son başvuru” tarihi yeter). Gün hesabı Europe/Istanbul takvim günüdür. Kırmızı yalnız hata içindir.
+- **Çevrimdışı etiketi nötr** (ink zemin), apricot değil.
+- **Büyük yazı**: yazı ölçeği ≥1.5'te (tek eşik `LARGE_TEXT_FONT_SCALE`) sayaçlar, bölüm başlığı eylemi, CV kartı durumu ve tek sütun mini kartlar alt alta iner; segmentler yalnız en uzun sözcük segmente sığmıyorsa tek sütun olur (iki kısa etiket yan yana kalır). 360 dp altında mini kartlar tek sütun.
+- **Etkinlik detayı**: tek uyarı kutusu (en belirleyici neden + “Diğer nedenler”), pasif birincil düğme yok; uzun açıklama 8 satırdan sonra “Devamını oku”.
+- **Uygunsuz başvuru**: yaşa uymayan kullanıcıda başvuru ekranı yalnız gerekçeyi gösterir; paylaşılacak alan listesi, rıza kutusu ve gönder düğmesi yoktur (hiçbir şey gönderilmeyeceği için “kurum şunları görecek” demek yanıltıcı olurdu).
+
 Hareket: 160–220 ms, tek bir işlevi açıklayan geçişler; azaltılmış hareket tercihi. Otomatik oynayan carousel veya sürekli parlayan arka plan yok.
 
 ## İçerik ve operasyon

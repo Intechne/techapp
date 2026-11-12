@@ -88,4 +88,10 @@ Bir ikon yalnız aşağıdaki anlamda kullanılır; başka anlam gerekiyorsa yen
 | `error` / `warning` | hata / dikkat bildirimi (`Notice` danger / warning) | `shield` ve `clock` bu rollerden çıktı |
 | saat glifi rozet içinde | check-in sonucu | 24 px glif 40 px yuvarlak rozet içinde |
 
-Erişilebilirlik: `TechIcon` varsayılan olarak dekoratiftir ve SVG işaretlemesi `aria-hidden` taşır; `accessibilityLabel` verilen ikon **taşımaz** (testle korunur).
+Erişilebilirlik: `TechIcon` varsayılan olarak dekoratiftir ve sarmalayıcıda gizlenir (web `aria-hidden`, native `accessibilityElementsHidden`); `accessibilityLabel` verilen ikon `image` rolüyle açık kalır (testle korunur). SVG işaretlemesinde `aria-hidden` yoktur (react-native-svg web'de `ariaHidden` uyarısı üretir); işaretleme yalnız `role="presentation"` taşır.
+
+### Faz 4'te değişen ikon anlamları
+- **Yarışma türü fırsat** (`competition`): robot değil **rozet** (`badge`). `robot` yalnız robotik kategorisini anlatır; takım kartları `teamIcon` ile kategoriye göre seçer (robotik → robot, diğer takımlar takım, topluluklar topluluk). Eski `kindIcon` (takım → robot) kaldırıldı.
+- **Son tarih etiketi** `clock` ikonunu taşır; ≤1 gün apricot, ≤7 gün iris, sonrası etiketsiz.
+- **Çevrimdışı etiket** (`OfflineLabel`): `offline` ikonu, **nötr** ton (`OfflineBanner` ile aynı); apricot yalnız “yaklaşan son tarih”e ayrıldı.
+- **Hata / uyarı** `Notice`'ları `error` / `warning` ikonlarını taşır; `shield` yalnız veli onayı ve güvenlik/gizlilik, `clock` yalnız zaman.
