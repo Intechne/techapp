@@ -2,13 +2,14 @@ import React, { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Avatar, Button, Card, Chip, EmptyState, ErrorState, IconButton, Input, LoadingSkeleton, MetadataRow, Modal, Notice, ResponsiveGrid, Screen, SegmentedControl, Select, Tag, Text, TextButton, colors, space, useToast } from '../../design-system';
+import { AppHeader, Avatar, Button, Card, Chip, EmptyState, ErrorState, IconButton, Input, LoadingSkeleton, Modal, Notice, ResponsiveGrid, Screen, SegmentedControl, Select, Tag, Text, TextButton, colors, space, useToast } from '../../design-system';
 import { toAppError } from '../../lib/errors';
 import type { CommunityStackParamList } from '../../navigation/types';
 import { useSession } from '../auth/SessionProvider';
 import { decideJoin, fetchRoster, fetchTasks, fetchTeam, leaveTeam, removeMember, setMemberRole, setMemberTitle, setTaskStatus, teamKeys, type RosterEntry, type TeamTask } from './api';
-import { PRIORITY_LABEL, ROLE_LABEL, ROLE_OPTIONS, ROLE_TONE, TASK_ADVANCE_LABEL, TASK_STATUS_LABEL } from './labels';
-import { TASK_ORDER, canAdvanceTask, groupTasks, isOverdue, isoToDisplayDate, nextStatus, onlyMine, permissionsFor, type TeamRole } from './logic';
+import { ROLE_LABEL, ROLE_OPTIONS, ROLE_TONE, TASK_ADVANCE_LABEL, TASK_STATUS_LABEL } from './labels';
+import { TaskCard } from './TaskCard';
+import { TASK_ORDER, canAdvanceTask, groupTasks, isOverdue, nextStatus, onlyMine, permissionsFor, type TeamRole } from './logic';
 
 type Tab = 'Görevler' | 'Üyeler' | 'İstekler';
 
@@ -63,25 +64,11 @@ export function TeamWorkspaceScreen({ navigation, route }: NativeStackScreenProp
 
   const tabs: readonly Tab[] = perms.canManage ? ['Görevler', 'Üyeler', 'İstekler'] : ['Görevler', 'Üyeler'];
   const taskCard = (t: TeamTask) => {
-    const overdue = isOverdue(t); const label = TASK_ADVANCE_LABEL[t.status];
+    const label = TASK_ADVANCE_LABEL[t.status];
     return (
-      <Card key={t.id} style={{ gap: space[2] }}>
-        {t.priority !== 'normal' && <View style={{ flexDirection: 'row' }}><Tag label={PRIORITY_LABEL[t.priority]} tone={t.priority === 'high' ? 'apricot' : 'neutral'} /></View>}
-        <Text variant="cardTitle">{t.title}</Text>
-        <MetadataRow icon="profile">{t.assignee_id ? nameOf.get(t.assignee_id) ?? 'Eski üye' : 'Atanmadı'}</MetadataRow>
-        {!!t.due_date && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
-            <MetadataRow icon="clock">Son tarih: {isoToDisplayDate(t.due_date)}</MetadataRow>
-            {overdue && <Tag label="GECİKTİ" tone="danger" />}
-          </View>
-        )}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[2], flexWrap: 'wrap' }}>
-          {label && canAdvanceTask(t, userId, perms)
-            ? <TextButton label={label} iconRight="arrow" disabled={advance.isPending} onPress={() => advance.mutate(t)} accessibilityLabel={`${t.title}: ${label}`} />
-            : <View />}
-          {perms.canManage && <TextButton label="Düzenle" color={colors.textSecondary} onPress={() => navigation.navigate('TeamTaskEditor', { teamId, taskId: t.id })} accessibilityLabel={`${t.title}: düzenle`} />}
-        </View>
-      </Card>
+      <TaskCard key={t.id} task={t} assignee={t.assignee_id ? nameOf.get(t.assignee_id) ?? 'Eski üye' : 'Atanmadı'} overdue={isOverdue(t)}
+        advanceLabel={label && canAdvanceTask(t, userId, perms) ? label : undefined} advancing={advance.isPending} onAdvance={() => advance.mutate(t)}
+        onEdit={perms.canManage ? () => navigation.navigate('TeamTaskEditor', { teamId, taskId: t.id }) : undefined} />
     );
   };
 

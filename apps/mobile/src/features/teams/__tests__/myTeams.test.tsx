@@ -48,14 +48,15 @@ describe('Takımlarım only fetches the signed-in user’s own memberships', () 
     expect(mine.every((m) => m.user_id === MOCK_CAPTAIN)).toBe(true);
   });
 
-  it('a captain sees one card per own team, never one per teammate or applicant', async () => {
+  it('a captain gets one "Takımım" shortcut, never a card per teammate or applicant', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
     const metrics = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
     const props = { navigation: { navigate: jest.fn(), getParent: jest.fn() }, route: { key: 'k', name: 'CommunityHome' } } as unknown as React.ComponentProps<typeof CommunityScreen>;
     await render(<SafeAreaProvider initialMetrics={metrics}><QueryClientProvider client={client}><CommunityScreen {...props} /></QueryClientProvider></SafeAreaProvider>);
-    expect(await screen.findByText('Takımlarım')).toBeTruthy();
+    expect(await screen.findByText(/Takımım · Kaptan/)).toBeTruthy();
     expect(screen.getAllByText('Orbit Robotik')).toHaveLength(1);
-    expect(screen.getAllByText('Nova Robotik')).toHaveLength(1);
+    expect(screen.getByText(/\+1 takım daha/)).toBeTruthy(); // the second own team is counted, not listed
+    expect(screen.queryByText('Nova Robotik')).toBeNull();
     expect(screen.queryByText(/Kaptanın isteğini değerlendirmesi bekleniyor/)).toBeNull(); // the applicant's pending row
   });
 });

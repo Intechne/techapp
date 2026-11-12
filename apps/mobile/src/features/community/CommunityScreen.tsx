@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Button, EmptyState, ErrorState, LoadingSkeleton, ResponsiveGrid, RowCard, Screen, SectionHeader, SegmentedControl, Tag, Text, formatCount, membershipStatusView, metaJoin, space, type RowLines } from '../../design-system';
+import { AppHeader, Button, Card, EmptyState, ErrorState, LoadingSkeleton, ResponsiveGrid, RowCard, Screen, SegmentedControl, TechIcon, Text, cardLayout, formatCount, metaJoin, radius, semantic, space, type RowLines } from '../../design-system';
 import { toAppError } from '../../lib/errors';
 import type { CommunityStackParamList } from '../../navigation/types';
 import { useSession } from '../auth/SessionProvider';
 import { fetchMyTeams, fetchTeams, teamKeys } from '../teams/api';
-import { ROLE_LABEL, ROLE_TONE, kindIcon } from '../teams/labels';
+import { ROLE_NAME, teamIcon } from '../teams/labels';
 
-const SEGMENTS = ['Topluluklar', 'Takımlar'] as const;
+const SEGMENTS = ['Takımlar', 'Topluluklar'] as const;
 const MEMBER = { one: 'üye', other: 'üye' };
-/** Typical team row on a phone: one-line name, two-line tagline, kategori · şehir · üye footnote (skeleton shape). */
+/** Typical team row on a phone: one-line name, two-line tagline, üye · kategori · şehir footnote (skeleton shape). The count leads so a long category or city is what the 2-line clip cuts, never the number. */
 const TEAM_ROW_LINES: RowLines = { title: 1, secondary: 2, footnote: 'text' };
 
 export function CommunityScreen({ navigation }: NativeStackScreenProps<CommunityStackParamList, 'CommunityHome'>) {
@@ -21,6 +21,11 @@ export function CommunityScreen({ navigation }: NativeStackScreenProps<Community
   const list = useQuery({ queryKey: teamKeys.list(kind), queryFn: () => fetchTeams(kind) });
   const mine = useQuery({ queryKey: teamKeys.mine(userId), queryFn: () => fetchMyTeams(userId!), enabled: !!userId });
 
+  // "Takımım" is a shortcut into the Takım alanı, which only members can open: an active membership is the only thing that
+  // qualifies. A pending request lives on the team's profile and under Profil > Takımlar (approved, Q15).
+  const active = userId ? (mine.data ?? []).filter((m) => m.status === 'active') : [];
+  const myTeam = active[0];
+
   const createTeam = () => {
     if (!userId) { navigation.getParent()?.getParent()?.navigate('AuthEmail'); return; }
     navigation.navigate('CreateTeam');
@@ -28,20 +33,13 @@ export function CommunityScreen({ navigation }: NativeStackScreenProps<Community
 
   return (
     <Screen wide header={<AppHeader brand />} refreshing={list.isRefetching} onRefresh={() => { void list.refetch(); if (userId) void mine.refetch(); }}>
-      <Text variant="eyebrow" color="textSecondary">BİRLİKTE DAHA FAZLASI</Text>
-      <Text variant="display" style={{ marginTop: space[2], marginBottom: space[4] }}>Senin gibi{'\n'}merak edenler.</Text>
+      <Text variant="display" style={{ marginBottom: space[5] }}>Senin gibi{'\n'}merak edenler.</Text>
 
-      {!!userId && !!mine.data?.length && (
-        <View style={{ marginBottom: space[5] }}>
-          <SectionHeader title="Takımlarım" />
-          <ResponsiveGrid>
-            {mine.data.map((m) => (
-              <RowCard key={m.id} leading={{ kind: 'icon', icon: kindIcon(m.team.kind) }} title={m.team.name}
-                secondary={m.status === 'active' ? 'Görevler, üyeler ve istekler' : 'Kaptanın isteğini değerlendirmesi bekleniyor.'}
-                trailing={{ kind: 'status', view: m.status === 'active' ? { label: ROLE_LABEL[m.role], tone: ROLE_TONE[m.role] } : membershipStatusView.pending }}
-                onPress={() => (m.status === 'active' ? navigation.navigate('TeamWorkspace', { teamId: m.team_id }) : navigation.navigate('TeamDetail', { teamId: m.team_id }))} />
-            ))}
-          </ResponsiveGrid>
+      {!!myTeam && (
+        <View style={styles.shortcut}>
+          <RowCard leading={{ kind: 'icon', icon: teamIcon(myTeam.team) }} title={myTeam.team.name}
+            secondary={metaJoin(['Takımım', ROLE_NAME[myTeam.role], active.length > 1 ? `+${active.length - 1} takım daha` : null])}
+            trailing={{ kind: 'chevron' }} onPress={() => navigation.navigate('TeamWorkspace', { teamId: myTeam.team_id })} />
         </View>
       )}
 
@@ -52,20 +50,30 @@ export function CommunityScreen({ navigation }: NativeStackScreenProps<Community
             : (
               <ResponsiveGrid>
                 {list.data.map((t) => (
-                  <RowCard key={t.id} leading={{ kind: 'icon', icon: kindIcon(t.kind) }} title={t.name} secondary={t.tagline ?? undefined}
-                    footnote={metaJoin([t.category, t.city, formatCount(t.member_count, MEMBER)])} isDemo={t.is_demo}
+                  <RowCard key={t.id} leading={{ kind: 'icon', icon: teamIcon(t) }} title={t.name} secondary={t.tagline ?? undefined}
+                    footnote={metaJoin([formatCount(t.member_count, MEMBER), t.category, t.city])} isDemo={t.is_demo}
                     trailing={{ kind: 'chevron' }} onPress={() => navigation.navigate('TeamDetail', { teamId: t.id })} />
                 ))}
               </ResponsiveGrid>
             )}
       </View>
 
-      <View style={{ marginTop: space[6], gap: space[2] }}>
-        <Tag label="KENDİ EKİBİN" tone="moss" />
-        <Text variant="section">Bir fikrin ve iki arkadaşın mı var?</Text>
-        <Text variant="bodySmall" color="textSecondary">Takımını kur; görevleri paylaş, katılma isteklerini buradan yönet.</Text>
-        <Button kind="secondary" icon="plus" label="Takım kur" onPress={createTeam} style={{ marginTop: space[2] }} />
-      </View>
+      <Card style={styles.create}>
+        <View style={styles.createTile}><TechIcon name="plus" color={semantic.light.action.primary} /></View>
+        <View style={styles.createText}>
+          <Text variant="cardTitle" breakStrategy="words">Bir fikrin ve iki arkadaşın mı var?</Text>
+          <Text variant="bodySmall" color="textSecondary">Takımını kur; görevleri paylaş, katılma isteklerini buradan yönet.</Text>
+          <Button kind="secondary" label="Takım kur" onPress={createTeam} style={styles.createButton} />
+        </View>
+      </Card>
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  shortcut: { marginBottom: space[5] },
+  create: { marginTop: space[6], flexDirection: 'row', alignItems: 'flex-start', gap: space[3] },
+  createTile: { width: cardLayout.leadingTile, height: cardLayout.leadingTile, borderRadius: radius.control, backgroundColor: semantic.light.action.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  createText: { flex: 1, minWidth: 0, gap: space[1] },
+  createButton: { marginTop: space[3], alignSelf: 'flex-start' },
+});

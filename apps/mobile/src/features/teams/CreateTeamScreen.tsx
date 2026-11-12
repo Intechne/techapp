@@ -29,8 +29,7 @@ export function CreateTeamScreen({ navigation }: NativeStackScreenProps<Communit
 
   return (
     <Screen header={<AppHeader onBack={navigation.goBack} title="Takım kur" />} footer={<Button label="Takımı oluştur" loading={create.isPending} onPress={submit} />}>
-      <Text variant="eyebrow" color="textSecondary">YENİ BAŞLANGIÇ</Text>
-      <Text variant="display" style={{ marginTop: space[2] }}>Ekibine{'\n'}bir yer aç.</Text>
+      <Text variant="title">Ekibine bir yer aç.</Text>
       <Text variant="body" color="textSecondary" style={{ marginTop: space[3] }}>Kurduğun takımın kaptanı sen olursun. Rolleri sonradan paylaşabilirsin.</Text>
       <View style={{ gap: space[5], marginTop: space[6] }}>
         <Input label="Takım adı" value={name} onChangeText={setName} maxLength={80} error={nameError} placeholder="Örn. Nova Robotik" />

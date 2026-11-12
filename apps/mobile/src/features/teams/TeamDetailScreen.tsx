@@ -2,14 +2,16 @@ import React, { useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, BottomSheet, Button, Card, Divider, ErrorState, LoadingSkeleton, MetadataRow, Notice, Screen, Tag, Text, TextArea, space, useToast } from '../../design-system';
+import { AppHeader, BottomSheet, Button, Card, DemoTag, Divider, ErrorState, LoadingSkeleton, MetadataRow, Notice, Screen, StatusBadge, Tag, Text, TextArea, formatCount, membershipStatusView, space, useToast } from '../../design-system';
 import { toAppError } from '../../lib/errors';
 import type { CommunityStackParamList } from '../../navigation/types';
 import { useSession } from '../auth/SessionProvider';
 import { fetchMyMembership, fetchOpenPosts, fetchTeam, requestJoin, teamKeys, withdrawJoin } from './api';
-import { KIND_LABEL, kindIcon } from './labels';
+import { KIND_LABEL, teamIcon } from './labels';
 import { permissionsFor } from './logic';
 import { TeamCover } from './TeamCover';
+
+const MEMBER = { one: 'üye', other: 'üye' };
 
 export function TeamDetailScreen({ navigation, route }: NativeStackScreenProps<CommunityStackParamList, 'TeamDetail'>) {
   const { teamId } = route.params;
@@ -33,41 +35,45 @@ export function TeamDetailScreen({ navigation, route }: NativeStackScreenProps<C
 
   const footer = perms.isMember ? <Button label="Takım alanına git" iconRight="arrow" onPress={() => navigation.navigate('TeamWorkspace', { teamId })} />
     : m?.status === 'pending' ? <Button kind="secondary" label="İsteği geri çek" loading={withdraw.isPending} onPress={() => withdraw.mutate(m.id)} />
-      : !t.accepts_join_requests ? <Button label="Şu an yeni üye almıyor" disabled />
+      : !t.accepts_join_requests ? <Text variant="bodySmall" color="textSecondary" center>Şu an yeni üye almıyor.</Text>
         : <Button label="Katılma isteği gönder" loading={!!userId && membership.isPending} onPress={openJoin} />;
 
   return (
-    <Screen header={<AppHeader onBack={navigation.goBack} title={t.kind === 'team' ? 'Takım' : 'Topluluk'} />} footer={footer}
+    <Screen header={<AppHeader onBack={navigation.goBack} />} footer={footer}
       refreshing={team.isRefetching} onRefresh={() => { void team.refetch(); void posts.refetch(); if (userId) void membership.refetch(); }}>
-      <TeamCover label={[KIND_LABEL[t.kind], t.category?.toLocaleUpperCase('tr')].filter(Boolean).join(' · ')} name={t.name} tagline={t.tagline} icon={kindIcon(t.kind)} />
+      <TeamCover label={[KIND_LABEL[t.kind], t.category?.toLocaleUpperCase('tr')].filter(Boolean).join(' · ')} name={t.name} tagline={t.tagline} icon={teamIcon(t)} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginTop: space[4] }}>
-        {m?.status === 'pending' && <Tag label="İSTEĞİN BEKLİYOR" tone="apricot" icon="clock" />}
-        {perms.isMember && <Tag label="ÜYESİN" tone="moss" icon="check" />}
-        {t.is_demo && <Tag label="ÖRNEK İÇERİK" tone="neutral" />}
+        {m?.status === 'pending' && <StatusBadge view={membershipStatusView.pending} />}
+        {perms.isMember && <StatusBadge view={membershipStatusView.active} />}
+        {t.is_demo && <DemoTag />}
       </View>
       <View style={{ gap: space[3], marginTop: space[4] }}>
-        <MetadataRow icon="community" strong>{t.member_count} üye</MetadataRow>
+        <MetadataRow icon="community" strong>{formatCount(t.member_count, MEMBER)}</MetadataRow>
         {!!t.city && <MetadataRow icon="location" strong>{t.city}</MetadataRow>}
       </View>
       {withdraw.error && <View style={{ marginTop: space[4] }}><Notice tone="danger">{toAppError(withdraw.error).message}</Notice></View>}
       {m?.status === 'pending' && <View style={{ marginTop: space[4] }}><Notice tone="info">İsteğin kaptana ulaştı. Kabul edildiğinde takım alanı burada açılır.</Notice></View>}
 
-      {!!t.about && (<><Divider /><Text variant="section">Birlikte ne yapıyoruz?</Text><Text variant="body" color="textSecondary" style={{ marginTop: space[2] }}>{t.about}</Text></>)}
+      {!!t.about && (<><Divider /><Text variant="section">Hakkında</Text><Text variant="body" color="textSecondary" style={{ marginTop: space[2] }}>{t.about}</Text></>)}
 
-      <Divider />
-      <Text variant="section">Açık roller</Text>
-      <View style={{ gap: space[3], marginTop: space[3] }}>
-        {posts.isPending ? <LoadingSkeleton cards={1} /> : posts.isError ? <ErrorState error={toAppError(posts.error)} onRetry={() => void posts.refetch()} />
-          : posts.data.length === 0 ? <Text variant="bodySmall" color="textSecondary">Şu an ilan edilmiş açık rol yok. Yine de katılma isteği gönderebilirsin.</Text>
-            : posts.data.map((p) => (
-              <Card key={p.id} style={{ gap: space[2] }}>
-                {!!p.role_label && <Tag label={p.role_label.toLocaleUpperCase('tr')} />}
-                <Text variant="cardTitle">{p.title}</Text>
-                {!!p.description && <Text variant="bodySmall" color="textSecondary" numberOfLines={4}>{p.description}</Text>}
-                {p.skills.length > 0 && <Text variant="caption" color="textSecondary">{p.skills.join(' · ')}</Text>}
-              </Card>
-            ))}
-      </View>
+      {(posts.isError || !!posts.data?.length) && (
+        <>
+          <Divider />
+          <Text variant="section">Açık roller</Text>
+          <View style={{ gap: space[3], marginTop: space[3] }}>
+            {posts.isError ? <ErrorState error={toAppError(posts.error)} onRetry={() => void posts.refetch()} />
+              : posts.data?.map((p) => (
+                <Card key={p.id} style={{ gap: space[2] }}>
+                  {/* Free text written by the team: shown as typed (Q2), unlike a category it is never capitalised. */}
+                  {!!p.role_label && <View style={{ flexDirection: 'row' }}><Tag label={p.role_label} /></View>}
+                  <Text variant="cardTitle" breakStrategy="words">{p.title}</Text>
+                  {!!p.description && <Text variant="bodySmall" color="textSecondary" numberOfLines={4}>{p.description}</Text>}
+                  {p.skills.length > 0 && <Text variant="caption" color="textSecondary">{p.skills.join(' · ')}</Text>}
+                </Card>
+              ))}
+          </View>
+        </>
+      )}
 
       <BottomSheet visible={sheet} title="Katılma isteği" onClose={() => setSheet(false)}>
         <Text variant="bodySmall" color="textSecondary">İsteğin takımın kaptanına ve mentorlarına gider. Adın ve yazdığın not görünür; iletişim bilgilerin paylaşılmaz.</Text>

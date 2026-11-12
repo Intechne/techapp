@@ -54,8 +54,7 @@ function TaskForm({ teamId, taskId, initial, roster, header, navigation }: FormP
 
   return (
     <Screen header={header} footer={<Button label={taskId ? 'Değişiklikleri kaydet' : 'Görevi ekle'} loading={save.isPending} onPress={submit} />}>
-      <Text variant="eyebrow" color="textSecondary">TAKIM GÖREVİ</Text>
-      <Text variant="display" style={{ marginTop: space[2] }}>{taskId ? 'Görevi\ngüncelle.' : 'Kim, neyi,\nne zamana?'}</Text>
+      <Text variant="title">{taskId ? 'Görevi güncelle.' : 'Kim, neyi, ne zamana?'}</Text>
       <View style={{ gap: space[5], marginTop: space[6] }}>
         <Input label="Görev" value={title} onChangeText={setTitle} maxLength={140} error={errors.title} placeholder="Örn. Şasi çizimini tamamla" />
         <TextArea label="Açıklama (isteğe bağlı)" value={description} onChangeText={setDescription} maxLength={2000} />

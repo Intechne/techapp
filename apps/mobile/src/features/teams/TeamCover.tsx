@@ -8,7 +8,7 @@ export function TeamCover({ label, name, tagline, icon }: { label: string; name:
     <View style={styles.cover}>
       <View style={styles.art}><TechIcon name={icon} size={120} color={tones.ink.fg} /></View>
       <Tag label={label} tone="onDark" />
-      <Text variant="title" style={{ color: tones.ink.fg, marginTop: space[4] }}>{name}</Text>
+      <Text variant="title" breakStrategy="words" style={{ color: tones.ink.fg, marginTop: space[4] }}>{name}</Text>
       {!!tagline && <Text variant="bodySmall" style={{ color: tones.ink.fg, opacity: 0.85, marginTop: space[2], maxWidth: '85%' }}>{tagline}</Text>}
     </View>
   );
