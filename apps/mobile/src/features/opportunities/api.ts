@@ -3,14 +3,33 @@ import { parsePayload, toAppError } from '../../lib/errors';
 import { getSupabase } from '../../lib/supabase';
 import type { OpportunityRow, OpportunityType, Tables } from '../../lib/database.types';
 
-export type OpportunityWithOrg = OpportunityRow & { organization: { id: string; name: string; verification: string } | null };
-export type ApplicationRow = Tables<'applications'>;
-export type ApplicationWithOpportunity = ApplicationRow & { opportunity: Pick<OpportunityRow, 'id' | 'title' | 'type' | 'closes_at'> & { organization: { name: string } | null } };
-const SELECT = '*, organization:organizations(id, name, verification)';
+/**
+ * The opportunity columns the app reads — every field the list, detail, apply and Son tarihler screens use.
+ * Never `*`: opportunities also carry created_by / approved_by (staff auth uids), slug and bookkeeping timestamps the
+ * client has no use for. `OpportunityPublicRow` is derived from the same list, so reading a column that is not
+ * fetched is a type error.
+ */
+export const OPPORTUNITY_PUBLIC_FIELDS = [
+  'id', 'title', 'summary', 'description', 'type', 'tone', 'city', 'is_remote', 'audience_note', 'reward_note', 'skills',
+  'min_age', 'max_age', 'guardian_required_under', 'opens_at', 'closes_at', 'shared_fields', 'apply_url', 'team_based', 'is_demo',
+] as const satisfies readonly (keyof OpportunityRow)[];
+export type OpportunityPublicRow = Pick<OpportunityRow, (typeof OPPORTUNITY_PUBLIC_FIELDS)[number]>;
+export const OPPORTUNITY_PUBLIC_COLUMNS = OPPORTUNITY_PUBLIC_FIELDS.join(', ');
 
-export async function fetchOpportunities(type: OpportunityType | 'all', includeClosed = false): Promise<OpportunityWithOrg[]> {
-  let q = getSupabase().from('opportunities').select(SELECT).eq('status', 'published').order('closes_at').limit(100);
-  if (!includeClosed) q = q.gte('closes_at', new Date().toISOString());
+/** What a row card needs (type, place, deadline, reward): Keşfet's three-row feed. A subset of the public list, so one source. */
+export const OPPORTUNITY_CARD_FIELDS = ['id', 'title', 'type', 'closes_at', 'is_remote', 'city', 'audience_note', 'reward_note', 'is_demo'] as const satisfies readonly (typeof OPPORTUNITY_PUBLIC_FIELDS)[number][];
+export type OpportunityCardRow = Pick<OpportunityRow, (typeof OPPORTUNITY_CARD_FIELDS)[number]>;
+export const OPPORTUNITY_CARD_COLUMNS = OPPORTUNITY_CARD_FIELDS.join(', ');
+
+export type OpportunityWithOrg = OpportunityPublicRow & { organization: { id: string; name: string; verification: string } | null };
+export type ApplicationRow = Tables<'applications'>;
+/** The nested opportunity is an explicit short list too (the application row itself is the user's own). */
+export type ApplicationWithOpportunity = ApplicationRow & { opportunity: Pick<OpportunityRow, 'id' | 'title' | 'type' | 'closes_at'> & { organization: { name: string } | null } };
+const SELECT = `${OPPORTUNITY_PUBLIC_COLUMNS}, organization:organizations(id, name, verification)`;
+
+/** Open calls only: a deadline in the past is never listed. `now` is read per fetch and stays out of the query key. */
+export async function fetchOpportunities(type: OpportunityType | 'all'): Promise<OpportunityWithOrg[]> {
+  let q = getSupabase().from('opportunities').select(SELECT).eq('status', 'published').gte('closes_at', new Date().toISOString()).order('closes_at').limit(100);
   if (type !== 'all') q = q.eq('type', type);
   const { data, error } = await q.overrideTypes<OpportunityWithOrg[], { merge: false }>();
   if (error) throw toAppError(error);
@@ -86,7 +105,7 @@ export async function setFollowed(userId: string, opportunityId: string, follow:
 }
 
 export const opportunityKeys = {
-  list: (type: string, closed: boolean) => ['opportunities', 'list', type, closed] as const,
+  list: (type: string) => ['opportunities', 'list', type] as const,
   detail: (id: string) => ['opportunities', 'detail', id] as const,
   preview: (id: string, userId: string | null) => ['opportunities', 'preview', id, userId] as const,
   myApplications: (userId: string | null) => ['applications', 'mine', userId] as const,

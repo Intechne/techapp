@@ -16,7 +16,7 @@ const FOLLOW_LABELS = { save: 'Son tarihi takip et', unsave: 'Takipten çıkar' 
 
 export function OpportunitiesScreen({ navigation }: NativeStackScreenProps<OpportunitiesStackParamList, 'OpportunitiesHome'>) {
   const [type, setType] = useState<OpportunityType | 'all'>('all');
-  const q = useQuery({ queryKey: opportunityKeys.list(type, false), queryFn: () => fetchOpportunities(type) });
+  const q = useQuery({ queryKey: opportunityKeys.list(type), queryFn: () => fetchOpportunities(type) });
   const follow = useFollowedOpportunities();
   const open = (id: string) => { track('opportunity_opened', { opportunity_id: id }); navigation.navigate('OpportunityDetail', { opportunityId: id }); };
 

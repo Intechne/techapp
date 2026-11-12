@@ -16,7 +16,7 @@ const weekdayFmt = new Intl.DateTimeFormat('tr-TR', { weekday: 'short', timeZone
 /** Deadline calendar: every open call ordered by its closing date, grouped by month. */
 export function DeadlinesScreen({ navigation }: NativeStackScreenProps<OpportunitiesStackParamList, 'Deadlines'>) {
   const [segment, setSegment] = useState<(typeof SEGMENTS)[number]>('Tüm son tarihler');
-  const q = useQuery({ queryKey: opportunityKeys.list('all', false), queryFn: () => fetchOpportunities('all') });
+  const q = useQuery({ queryKey: opportunityKeys.list('all'), queryFn: () => fetchOpportunities('all') });
   const follow = useFollowedOpportunities();
   const rows = useMemo(() => (q.data ?? []).filter((o) => segment === 'Tüm son tarihler' || follow.ids.has(o.id)), [q.data, segment, follow.ids]);
   const groups = useMemo(() => groupByMonth(rows), [rows]);

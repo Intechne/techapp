@@ -7,11 +7,12 @@ import { AppHeader, Chip, ChipRail, EmptyState, ErrorState, HeroCard, IconButton
 import { track } from '../../lib/analytics';
 import { toAppError } from '../../lib/errors';
 import { getSupabase } from '../../lib/supabase';
-import type { InterestRow, OpportunityRow, TeamRow } from '../../lib/database.types';
+import type { InterestRow, TeamRow } from '../../lib/database.types';
 import type { DiscoverStackParamList, MainTabParamList } from '../../navigation/types';
 import { useMyProfile } from '../profile/api';
 import { fetchEventsPage } from '../events/api';
 import { isRegistrationClosed, toEventPoster } from '../events/labels';
+import { OPPORTUNITY_CARD_COLUMNS, type OpportunityCardRow } from '../opportunities/api';
 import { OPPORTUNITY_ROW_LINES, toOpportunityRow } from '../opportunities/labels';
 import { teamIcon } from '../teams/labels';
 import { usePrefs } from '../onboarding/PrefsProvider';
@@ -23,16 +24,11 @@ async function fetchInterests(): Promise<InterestRow[]> {
   if (error) throw toAppError(error);
   return data;
 }
-/**
- * Public columns of an opportunity card (type, place, deadline, reward). Not `*`: the table also holds created_by and
- * approved_by (internal user ids), which a feed has no business receiving.
- */
-export const OPPORTUNITY_PREVIEW_COLUMNS = 'id, title, type, closes_at, is_remote, city, audience_note, reward_note, is_demo';
-type OpportunityPreview = Pick<OpportunityRow, 'id' | 'title' | 'type' | 'closes_at' | 'is_remote' | 'city' | 'audience_note' | 'reward_note' | 'is_demo'>;
+type OpportunityPreview = OpportunityCardRow;
 async function fetchPreview(): Promise<{ opportunities: OpportunityPreview[]; teams: TeamRow[] }> {
   const supabase = getSupabase();
   const [o, t] = await Promise.all([
-    supabase.from('opportunities').select(OPPORTUNITY_PREVIEW_COLUMNS).eq('status', 'published').gte('closes_at', new Date().toISOString()).order('closes_at').limit(3),
+    supabase.from('opportunities').select(OPPORTUNITY_CARD_COLUMNS).eq('status', 'published').gte('closes_at', new Date().toISOString()).order('closes_at').limit(3),
     supabase.from('teams').select(TEAM_PUBLIC_COLUMNS).order('member_count', { ascending: false }).limit(3),
   ]);
   if (o.error) throw toAppError(o.error);
