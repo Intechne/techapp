@@ -1,6 +1,7 @@
 import type { PosterCardProps, StatusView, TechIconName } from '../../design-system';
 import { formatDateRange } from '../../lib/dates';
 import type { EventFormat, EventRow, EventType } from '../../lib/database.types';
+import type { EventPublicRow } from './api';
 
 export const EVENT_TYPE_LABEL: Record<EventType, string> = {
   hackathon: 'HACKATHON', competition: 'YARIŞMA', workshop: 'ATÖLYE', conference: 'KONFERANS',
@@ -18,7 +19,7 @@ export const EVENT_TYPE_FILTERS: readonly { value: EventType | 'all'; label: str
 ];
 const FORMAT_LABEL: Record<EventFormat, string> = { in_person: 'Yüz yüze', online: 'Çevrim içi', hybrid: 'Hibrit' };
 
-export type EventWithOrg = EventRow & { organization: { id: string; name: string; verification: string } | null };
+export type EventWithOrg = EventPublicRow & { organization: { id: string; name: string; verification: string } | null };
 
 export const placeLabel = (e: Pick<EventRow, 'format' | 'city'>) =>
   e.format === 'online' ? FORMAT_LABEL.online : [e.city, FORMAT_LABEL[e.format]].filter(Boolean).join(' · ');
