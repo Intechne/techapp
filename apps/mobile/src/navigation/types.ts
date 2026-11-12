@@ -30,7 +30,8 @@ export type CommunityStackParamList = {
   CreateTeam: undefined;
 };
 export type ProfileStackParamList = SharedEventParamList & {
-  ProfileHome: undefined;
+  /** `segment`: open the profile with that segment selected (Topluluk > "Tüm takımların"). */
+  ProfileHome: { segment?: 'Deneyimler' | 'Katılımlar' | 'Takımlar' } | undefined;
   CheckIn: undefined;
   EditProfile: undefined;
   ExperienceEditor: { experienceId?: string };

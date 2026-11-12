@@ -4,7 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   AppHeader, Avatar, Button, Card, Divider, EmptyState, ErrorState, LoadingSkeleton, MetadataRow, Modal, Notice, ResponsiveGrid, RowCard, Screen,
-  RegistrationStatus, SegmentedControl, Tag, TechIcon, Text, colors, radius, space, tones, useToast,
+  RegistrationStatus, SegmentedControl, SectionHeader, membershipStatusView, Tag, TechIcon, Text, colors, radius, space, tones, useToast,
 } from '../../design-system';
 import { formatDate, formatDateTime } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
@@ -23,6 +23,8 @@ import { formatRange } from './logic';
 import { CvShareCard } from './CvShareCard';
 import { ProvenanceBadge } from './ProvenanceBadge';
 import { CHECKIN_ROLES } from '../checkin/api';
+import { fetchMyTeams, teamKeys } from '../teams/api';
+import { teamIcon } from '../teams/labels';
 
 const SEGMENTS = ['Deneyimler', 'Katılımlar', 'Takımlar'] as const;
 
@@ -41,13 +43,20 @@ function ExperienceCard({ item, onPress }: { item: CvExperience; onPress: () => 
   );
 }
 
-export function ProfileScreen({ navigation }: NativeStackScreenProps<ProfileStackParamList, 'ProfileHome'>) {
+export function ProfileScreen({ navigation, route }: NativeStackScreenProps<ProfileStackParamList, 'ProfileHome'>) {
   const { userId, session } = useSession();
   const account = useAccountState();
   const toast = useToast();
   const { update } = usePrefs();
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [segment, setSegment] = useState<(typeof SEGMENTS)[number]>('Deneyimler');
+  const [segment, setSegment] = useState<(typeof SEGMENTS)[number]>(route.params?.segment ?? 'Deneyimler');
+  // "Tüm takımların" on Topluluk lands here with the Takımlar segment selected.
+  const wanted = route.params?.segment;
+  const [seenWanted, setSeenWanted] = useState(wanted);
+  if (wanted !== seenWanted) { setSeenWanted(wanted); if (wanted) setSegment(wanted); }
+  // The CV lists active teams only; the viewer's own pending requests come from the same query Topluluk uses (filtered by user_id).
+  const mine = useQuery({ queryKey: teamKeys.mine(userId), queryFn: () => fetchMyTeams(userId!), enabled: !!userId });
+  const pendingTeams = (mine.data ?? []).filter((m) => m.status === 'pending');
 
   const cv = useMyCv();
   // Same key as Katılımlarım, so the cache is shared and nothing extra is fetched when both are visited.
@@ -167,13 +176,28 @@ export function ProfileScreen({ navigation }: NativeStackScreenProps<ProfileStac
                 </View>
               ))}
 
-            {segment === 'Takımlar' && (teams.length === 0
-              ? <EmptyState icon="community" title="Henüz bir takımda değilsin" body="Topluluk sekmesinden bir takıma katılma isteği gönderebilir ya da kendi takımını kurabilirsin." actionLabel="Takımlara göz at" onAction={() => navigation.getParent()?.navigate('CommunityTab')} />
-              : <ResponsiveGrid>{teams.map((t) => (
-                <Card key={t.team_id} style={styles.teamRow}>
-                  <View style={styles.teamIcon}><TechIcon name={t.kind === 'team' ? 'team' : 'community'} color={colors.primary} /></View>
-                  <View style={{ flex: 1 }}><Text variant="cardTitle">{t.name}</Text><Text variant="caption" color="textSecondary">{[t.title, TEAM_ROLE_LABEL[t.role], t.since ? `${formatDate(t.since)} tarihinden beri` : null].filter(Boolean).join(' · ')}</Text></View>
-                </Card>))}</ResponsiveGrid>)}
+            {segment === 'Takımlar' && (
+              <>
+                {/* Own group above the active list: a request is waiting on someone else, so it reads as a to-do, not as membership. */}
+                {pendingTeams.length > 0 && (
+                  <View style={{ marginBottom: space[5] }}>
+                    <SectionHeader title="Bekleyen istekler" />
+                    <ResponsiveGrid>{pendingTeams.map((m) => (
+                      <RowCard key={m.id} leading={{ kind: 'icon', icon: teamIcon(m.team) }} title={m.team.name}
+                        trailing={{ kind: 'status', view: membershipStatusView.pending }} isDemo={m.team.is_demo}
+                        onPress={() => navigation.getParent()?.navigate('CommunityTab', { screen: 'TeamDetail', params: { teamId: m.team_id } })} />
+                    ))}</ResponsiveGrid>
+                  </View>
+                )}
+                {teams.length === 0
+                  ? pendingTeams.length === 0 && <EmptyState icon="community" title="Henüz bir takımda değilsin" body="Topluluk sekmesinden bir takıma katılma isteği gönderebilir ya da kendi takımını kurabilirsin." actionLabel="Takımlara göz at" onAction={() => navigation.getParent()?.navigate('CommunityTab')} />
+                  : <ResponsiveGrid>{teams.map((t) => (
+                    <Card key={t.team_id} style={styles.teamRow}>
+                      <View style={styles.teamIcon}><TechIcon name={t.kind === 'team' ? 'team' : 'community'} color={colors.primary} /></View>
+                      <View style={{ flex: 1 }}><Text variant="cardTitle">{t.name}</Text><Text variant="caption" color="textSecondary">{[t.title, TEAM_ROLE_LABEL[t.role], t.since ? `${formatDate(t.since)} tarihinden beri` : null].filter(Boolean).join(' · ')}</Text></View>
+                    </Card>))}</ResponsiveGrid>}
+              </>
+            )}
 
             <Divider />
             <ResponsiveGrid maxColumns={2}>

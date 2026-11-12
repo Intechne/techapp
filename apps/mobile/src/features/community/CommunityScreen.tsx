@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Button, Card, EmptyState, ErrorState, LoadingSkeleton, ResponsiveGrid, RowCard, Screen, SegmentedControl, TechIcon, Text, cardLayout, formatCount, metaJoin, radius, semantic, space, type RowLines } from '../../design-system';
+import { AppHeader, Button, Card, EmptyState, ErrorState, LoadingSkeleton, ResponsiveGrid, RowCard, Screen, SegmentedControl, TechIcon, Text, TextButton, cardLayout, formatCount, metaJoin, radius, semantic, space, type RowLines } from '../../design-system';
 import { toAppError } from '../../lib/errors';
 import type { CommunityStackParamList } from '../../navigation/types';
 import { useSession } from '../auth/SessionProvider';
@@ -22,7 +22,8 @@ export function CommunityScreen({ navigation }: NativeStackScreenProps<Community
   const mine = useQuery({ queryKey: teamKeys.mine(userId), queryFn: () => fetchMyTeams(userId!), enabled: !!userId });
 
   // "Takımım" is a shortcut into the Takım alanı, which only members can open: an active membership is the only thing that
-  // qualifies. A pending request lives on the team's profile and under Profil > Takımlar (approved, Q15).
+  // qualifies. A pending request is not shown here; it lives on the team's profile and in Profil > Takımlar > "Bekleyen istekler" (Q15).
+  // `active[0]` is the most recently joined team (fetchMyTeams orders by created_at desc).
   const active = userId ? (mine.data ?? []).filter((m) => m.status === 'active') : [];
   const myTeam = active[0];
 
@@ -40,6 +41,12 @@ export function CommunityScreen({ navigation }: NativeStackScreenProps<Community
           <RowCard leading={{ kind: 'icon', icon: teamIcon(myTeam.team) }} title={myTeam.team.name}
             secondary={metaJoin(['Takımım', ROLE_NAME[myTeam.role], active.length > 1 ? `+${active.length - 1} takım daha` : null])}
             trailing={{ kind: 'chevron' }} onPress={() => navigation.navigate('TeamWorkspace', { teamId: myTeam.team_id })} />
+          {active.length > 1 && (
+            <View style={styles.allTeams}>
+              <TextButton label={`Tüm takımların (${active.length})`} iconRight="arrow"
+                onPress={() => navigation.getParent()?.navigate('ProfileTab', { screen: 'ProfileHome', params: { segment: 'Takımlar' } })} />
+            </View>
+          )}
         </View>
       )}
 
@@ -72,6 +79,7 @@ export function CommunityScreen({ navigation }: NativeStackScreenProps<Community
 
 const styles = StyleSheet.create({
   shortcut: { marginBottom: space[5] },
+  allTeams: { alignSelf: 'flex-start', marginTop: space[2] },
   create: { marginTop: space[6], flexDirection: 'row', alignItems: 'flex-start', gap: space[3] },
   createTile: { width: cardLayout.leadingTile, height: cardLayout.leadingTile, borderRadius: radius.control, backgroundColor: semantic.light.action.primarySoft, alignItems: 'center', justifyContent: 'center' },
   createText: { flex: 1, minWidth: 0, gap: space[1] },

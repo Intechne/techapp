@@ -37,16 +37,17 @@ jest.mock('../../teams/api', () => ({
 jest.mock('../../auth/SessionProvider', () => ({ useSession: () => ({ userId: mockUser }) }));
 
 const navigate = jest.fn();
+const parentNavigate = jest.fn();
 beforeEach(() => {
   mockTeams = []; mockMine = []; mockMembership = null; mockPosts = []; mockTeam = team('t1', 'Orbit Robotik'); mockUser = 'u1';
-  mockRoster = []; mockTasks = []; navigate.mockClear(); mockFetchMyTeams.mockClear();
+  mockRoster = []; mockTasks = []; navigate.mockClear(); parentNavigate.mockClear(); mockFetchMyTeams.mockClear();
 });
 const metrics = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
 const wrap = (ui: React.ReactElement) => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   return <SafeAreaProvider initialMetrics={metrics}><QueryClientProvider client={client}>{ui}</QueryClientProvider></SafeAreaProvider>;
 };
-const nav = { navigate, goBack: jest.fn(), replace: jest.fn(), popTo: jest.fn(), getParent: () => ({ getParent: () => ({ navigate: jest.fn() }) }) };
+const nav = { navigate, goBack: jest.fn(), replace: jest.fn(), popTo: jest.fn(), getParent: () => ({ navigate: parentNavigate, getParent: () => ({ navigate: jest.fn() }) }) };
 const props = <T,>(name: string, params?: object) => ({ navigation: nav, route: { key: 'k', name, params } }) as unknown as T;
 const home = () => render(wrap(<CommunityScreen {...props<React.ComponentProps<typeof CommunityScreen>>('CommunityHome')} />));
 const detail = () => render(wrap(<TeamDetailScreen {...props<React.ComponentProps<typeof TeamDetailScreen>>('TeamDetail', { teamId: 't1' })} />));
@@ -62,7 +63,7 @@ describe('Topluluk ana — Takımım kısayolu', () => {
     expect(navigate).toHaveBeenCalledWith('TeamWorkspace', { teamId: 't1' });
   });
 
-  it('a pending request alone is not on the home screen (it lives on the team profile and Profil > Takımlar)', async () => {
+  it('a pending request alone is not on the home screen (it shows on the team profile and under Profil > Takımlar > Bekleyen istekler)', async () => {
     const nova = team('t2', 'Nova Robotik');
     mockMine = [mine('m2', nova, 'member', 'pending')];
     await home();
@@ -77,8 +78,17 @@ describe('Topluluk ana — Takımım kısayolu', () => {
     mockMine = [mine('m1', team('t1', 'Orbit Robotik'), 'member', 'active'), mine('m3', team('t3', 'Delta Takımı'), 'member', 'active'), mine('m2', team('t2', 'Nova Robotik'), 'member', 'pending')];
     await home();
     expect(await screen.findByText(/\+1 takım daha/)).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: /Tüm takımların \(2\)/ }));
+    expect(parentNavigate).toHaveBeenCalledWith('ProfileTab', { screen: 'ProfileHome', params: { segment: 'Takımlar' } });
     expect(screen.queryByText('Nova Robotik')).toBeNull();
     expect(screen.queryByText('Takımlarım')).toBeNull();
+  });
+
+  it('a single active team gets no "Tüm takımların" link', async () => {
+    mockMine = [mine('m1', team('t1', 'Orbit Robotik'), 'member', 'active')];
+    await home();
+    await screen.findByText(/Takımım/);
+    expect(screen.queryByText(/Tüm takımların/)).toBeNull();
   });
 
   it('guest: no memberships are fetched and no shortcut shows', async () => {
