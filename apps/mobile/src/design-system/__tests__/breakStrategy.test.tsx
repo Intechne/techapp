@@ -50,6 +50,8 @@ describe('SegmentedControl labels', () => {
 describe('Tag', () => {
   it('keeps a number with its unit', async () => {
     await render(<Tag label="1 dk" />);
-    expect(screen.getByText('1 dk')).toBeTruthy();
+    // Default normalizer collapses NBSP into a space, so compare the raw rendered string.
+    expect(screen.getByText('1\u00A0dk', { normalizer: (s) => s })).toBeTruthy();
+    expect(screen.queryByText('1 dk', { normalizer: (s) => s })).toBeNull();
   });
 });
