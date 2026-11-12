@@ -7,7 +7,9 @@ const EVENT_SELECT = '*, organization:organizations(id, name, verification)';
 export const PAGE_SIZE = 10;
 
 export interface EventCursor { startsAt: string; id: string }
-export interface EventFilters { type: EventType | 'all'; onlineOnly: boolean; topicInterestIds?: number[]; search?: string }
+export interface EventFilters { type: EventType | 'all'; onlineOnly: boolean; topicInterestIds?: number[]; search?: string;
+  /** Keşfet only: skip events whose registration already closed, server-side, so a 10-row page is not eaten by them. */
+  registrationOpenOnly?: boolean }
 export interface EventsPage { items: EventWithOrg[]; nextCursor: EventCursor | null }
 
 /** Keyset (cursor) pagination on (starts_at, id): stable under inserts, no OFFSET scans. One query, organiser embedded. */
@@ -16,6 +18,7 @@ export async function fetchEventsPage(filters: EventFilters, cursor: EventCursor
     .gte('ends_at', new Date().toISOString())
     .order('starts_at', { ascending: true }).order('id', { ascending: true }).limit(PAGE_SIZE + 1);
   if (filters.type !== 'all') query = query.eq('type', filters.type);
+  if (filters.registrationOpenOnly) query = query.gt('registration_closes_at', new Date().toISOString());
   if (filters.onlineOnly) query = query.in('format', ['online', 'hybrid']);
   if (filters.topicInterestIds?.length) query = query.in('topic_interest_id', filters.topicInterestIds);
   if (filters.search?.trim()) {

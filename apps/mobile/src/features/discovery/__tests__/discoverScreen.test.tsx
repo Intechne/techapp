@@ -19,31 +19,41 @@ const opportunity = (id: string, title: string) => ({
 });
 const team = (id: string, name: string) => ({ id, name, kind: 'team', category: 'Robotik', tagline: 'Birlikte üretiyoruz', city: 'İstanbul', member_count: 4, is_demo: false });
 
-const data: { events: unknown[]; opportunities: unknown[]; teams: unknown[]; interests: unknown[]; pending: boolean; pendingTables: string[] } = {
-  events: [], opportunities: [], teams: [], interests: [], pending: false, pendingTables: [],
+const data: { events: unknown[]; opportunities: unknown[]; teams: unknown[]; interests: unknown[]; pending: boolean; pendingTables: string[]; errorTables: string[] } = {
+  events: [], opportunities: [], teams: [], interests: [], pending: false, pendingTables: [], errorTables: [],
 };
 const calls: { table: string }[] = [];
+const queryCalls: { table: string; method: string; args: unknown[] }[] = [];
 
 function mockBuilder(table: string) {
   calls.push({ table });
   const b: Record<string, unknown> = {};
-  for (const m of ['select', 'eq', 'gte', 'in', 'or', 'order', 'limit', 'overrideTypes']) b[m] = () => b;
+  const gts: [string, string][] = [];
+  for (const m of ['select', 'eq', 'gt', 'gte', 'in', 'or', 'order', 'limit', 'overrideTypes']) b[m] = (...args: unknown[]) => { queryCalls.push({ table, method: m, args }); if (m === 'gt') gts.push([String(args[0]), String(args[1])]); return b; };
   b.then = (resolve: (v: unknown) => unknown) => {
+    if (data.errorTables.includes(table)) return Promise.resolve({ data: null, error: { message: 'Failed to fetch', code: '' } }).then(resolve);
     if (data.pending || data.pendingTables.includes(table)) return new Promise(() => {}).then(resolve);
-    const rows = (data as unknown as Record<string, unknown[]>)[table] ?? [];
+    // Like the server: honours `gt` filters, and an events page is 10 rows (PAGE_SIZE) + 1.
+    let rows = (data as unknown as Record<string, Record<string, string>[]>)[table] ?? [];
+    for (const [col, v] of gts) rows = rows.filter((r) => Date.parse(r[col]!) > Date.parse(v));
+    if (table === 'events') rows = rows.slice(0, 11);
     return Promise.resolve({ data: rows, error: null }).then(resolve);
   };
   return b;
 }
 jest.mock('../../../lib/supabase', () => ({ getSupabase: () => ({ from: (t: string) => mockBuilder(t) }) }));
 
+let mockPrefs: { interestSlugs: string[] } = { interestSlugs: [] };
+jest.mock('../../onboarding/PrefsProvider', () => ({ usePrefs: () => ({ prefs: mockPrefs }) }));
 let mockProfile: { display_name: string } | undefined;
 jest.mock('../../../lib/analytics', () => ({ track: jest.fn() }));
 jest.mock('../../profile/api', () => ({ useMyProfile: () => ({ data: mockProfile }) }));
 
 beforeEach(() => {
-  Object.assign(data, { events: [], opportunities: [], teams: [], interests: [], pending: false, pendingTables: [] });
+  Object.assign(data, { events: [], opportunities: [], teams: [], interests: [], pending: false, pendingTables: [], errorTables: [] });
   calls.length = 0;
+  queryCalls.length = 0;
+  mockPrefs = { interestSlugs: [] };
   mockProfile = undefined;
 });
 
@@ -217,6 +227,98 @@ describe('Keşfet ana — selam, arama, yükleniyor', () => {
     expect(await screen.findAllByLabelText('Yükleniyor')).toHaveLength(1);
     const all = rendered();
     expect(all.indexOf('Sıradaki adımın')).toBeGreaterThan(all.indexOf('Yaklaşan etkinlikler'));
+  });
+
+  it('a failed events query shows an error with retry, never the empty-content message', async () => {
+    data.errorTables = ['events'];
+    await renderScreen();
+    expect(await screen.findByText('Bağlantı yok gibi görünüyor')).toBeTruthy();
+    expect(screen.getByText('Tekrar dene')).toBeTruthy();
+    expect(screen.queryByText('Şu an yayında içerik yok')).toBeNull();
+  });
+});
+
+describe('Keşfet ana — ikincil sorgu hataları', () => {
+  it('preview failed and there are no events → one ErrorState with retry, not a blank page', async () => {
+    data.errorTables = ['opportunities', 'teams'];
+    await renderScreen();
+    expect(await screen.findByText('Bağlantı yok gibi görünüyor')).toBeTruthy();
+    expect(screen.getAllByText('Tekrar dene')).toHaveLength(1);
+    expect(screen.queryByText('Şu an yayında içerik yok')).toBeNull();
+  });
+
+  it('preview failed but events exist → events stay, the failed sections show an inline error with retry', async () => {
+    data.events = [event('e1', 'Etkinlik'), event('e2', 'Etkinlik iki')];
+    data.errorTables = ['opportunities', 'teams'];
+    await renderScreen();
+    expect(await screen.findByText('Fırsatlar ve takımlar yüklenemedi')).toBeTruthy();
+    expect(screen.getByText('Yaklaşan etkinlikler')).toBeTruthy();
+    expect(screen.getByText('Tekrar dene')).toBeTruthy();
+    expect(screen.queryByText('Bağlantı yok gibi görünüyor')).toBeNull();
+  });
+
+  it('interests failing while the topic is "mine" shows an error with retry, not an endless skeleton', async () => {
+    mockPrefs = { interestSlugs: ['robotik'] };
+    data.errorTables = ['interests'];
+    await renderScreen();
+    expect(await screen.findByText('Bağlantı yok gibi görünüyor')).toBeTruthy();
+    expect(screen.getByText('Tekrar dene')).toBeTruthy();
+    expect(screen.queryByLabelText('Yükleniyor')).toBeNull();
+  });
+});
+
+describe('Keşfet ana — sunucuda kaydı açık filtresi ve sütunlar', () => {
+  it('asks the server for events whose registration has not closed', async () => {
+    data.events = [event('e1', 'Etkinlik')];
+    await renderScreen();
+    await screen.findByText('Yaklaşan etkinlikler');
+    const gt = queryCalls.find((c) => c.table === 'events' && c.method === 'gt');
+    expect(gt?.args[0]).toBe('registration_closes_at');
+    expect(Date.parse(gt?.args[1] as string)).toBeGreaterThan(Date.now() - 60_000);
+  });
+
+  it('8 closed + 4 open events: Yaklaşan still shows the vitrin and 3 open events', async () => {
+    // The server already dropped the closed ones; the client rule must agree even if it did not.
+    const closed = Array.from({ length: 8 }, (_, i) => event(`c${i}`, `Kapalı ${i}`, { registration_closes_at: iso(-1 - i) }));
+    const open = ['a', 'b', 'c', 'd'].map((k) => event(`o${k}`, `Açık ${k}`));
+    data.events = [...closed, ...open];
+    await renderScreen();
+    await screen.findByText('Yaklaşan etkinlikler');
+    expect(screen.getAllByLabelText(/Açık a\b/)).toHaveLength(1);
+    for (const k of ['b', 'c', 'd']) expect(screen.getAllByText(`Açık ${k}`).length).toBeGreaterThan(0);
+    expect(screen.queryAllByText(/Kapalı \d/)).toHaveLength(0);
+  });
+
+  it('the opportunity feed selects explicit public columns, never created_by / approved_by', async () => {
+    data.opportunities = [opportunity('o1', 'Yaz stajı')];
+    await renderScreen();
+    await screen.findByText('Sıradaki adımın');
+    const sel = queryCalls.find((c) => c.table === 'opportunities' && c.method === 'select');
+    expect(sel?.args[0]).not.toBe('*');
+    expect(String(sel?.args[0])).not.toMatch(/created_by|approved_by/);
+  });
+});
+
+describe('Keşfet ana — filtre ve arama', () => {
+  it('with a topic filter and no events: the filtered-empty copy, never the all-empty page, other sections stay', async () => {
+    mockPrefs = { interestSlugs: ['robotik'] };
+    data.interests = [{ id: 1, slug: 'robotik', label_tr: 'Robotik', sort_order: 1 }];
+    data.opportunities = [opportunity('o1', 'Yaz stajı')];
+    await renderScreen();
+    expect(await screen.findByText('Bu filtrelerle sonuç yok')).toBeTruthy();
+    expect(screen.getByText('Filtreleri temizle')).toBeTruthy();
+    expect(screen.queryByText('Şu an yayında içerik yok')).toBeNull();
+    expect(screen.getByText('Sıradaki adımın')).toBeTruthy();
+  });
+
+  it('search results have no "Tümünü gör" (the Etkinlikler tab takes no search param)', async () => {
+    data.events = [event('e1', 'Robot atölyesi')];
+    await renderScreen();
+    await screen.findByText('Yaklaşan etkinlikler');
+    await fireEvent.changeText(screen.getByPlaceholderText('Etkinlik ara'), 'robot');
+    await fireEvent(screen.getByPlaceholderText('Etkinlik ara'), 'submitEditing');
+    expect(await screen.findByText('Sonuçlar')).toBeTruthy();
+    expect(screen.queryByText('Tümünü gör')).toBeNull();
   });
 
   // 3b'ye bağlı, atlandı: the Search screen and notification bell are Faz 3b modules (not merged). Until a `Search`

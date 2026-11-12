@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Chip, ChipRail, EmptyState, ErrorState, HeroCard, IconButton, LoadingSkeleton, MiniCard, MiniCardGrid, OfflineBanner, PosterCard, RowCard, Screen, SearchInput, SectionHeader, Text, metaJoin, space } from '../../design-system';
+import { AppHeader, Chip, ChipRail, EmptyState, ErrorState, HeroCard, IconButton, LoadingSkeleton, MiniCard, MiniCardGrid, Notice, OfflineBanner, PosterCard, RowCard, Screen, SearchInput, SectionHeader, Text, TextButton, metaJoin, space } from '../../design-system';
 import { track } from '../../lib/analytics';
 import { toAppError } from '../../lib/errors';
 import { getSupabase } from '../../lib/supabase';
@@ -11,7 +11,7 @@ import type { InterestRow, OpportunityRow, TeamRow } from '../../lib/database.ty
 import type { DiscoverStackParamList, MainTabParamList } from '../../navigation/types';
 import { useMyProfile } from '../profile/api';
 import { fetchEventsPage } from '../events/api';
-import { toEventPoster } from '../events/labels';
+import { isRegistrationClosed, toEventPoster } from '../events/labels';
 import { OPPORTUNITY_ROW_LINES, toOpportunityRow } from '../opportunities/labels';
 import { teamIcon } from '../teams/labels';
 import { usePrefs } from '../onboarding/PrefsProvider';
@@ -23,15 +23,21 @@ async function fetchInterests(): Promise<InterestRow[]> {
   if (error) throw toAppError(error);
   return data;
 }
-async function fetchPreview(): Promise<{ opportunities: OpportunityRow[]; teams: TeamRow[] }> {
+/**
+ * Public columns of an opportunity card (type, place, deadline, reward). Not `*`: the table also holds created_by and
+ * approved_by (internal user ids), which a feed has no business receiving.
+ */
+export const OPPORTUNITY_PREVIEW_COLUMNS = 'id, title, type, closes_at, is_remote, city, audience_note, reward_note, is_demo';
+type OpportunityPreview = Pick<OpportunityRow, 'id' | 'title' | 'type' | 'closes_at' | 'is_remote' | 'city' | 'audience_note' | 'reward_note' | 'is_demo'>;
+async function fetchPreview(): Promise<{ opportunities: OpportunityPreview[]; teams: TeamRow[] }> {
   const supabase = getSupabase();
   const [o, t] = await Promise.all([
-    supabase.from('opportunities').select('*').eq('status', 'published').gte('closes_at', new Date().toISOString()).order('closes_at').limit(3),
+    supabase.from('opportunities').select(OPPORTUNITY_PREVIEW_COLUMNS).eq('status', 'published').gte('closes_at', new Date().toISOString()).order('closes_at').limit(3),
     supabase.from('teams').select(TEAM_PUBLIC_COLUMNS).order('member_count', { ascending: false }).limit(3),
   ]);
   if (o.error) throw toAppError(o.error);
   if (t.error) throw toAppError(t.error);
-  return { opportunities: o.data, teams: t.data };
+  return { opportunities: o.data as unknown as OpportunityPreview[], teams: t.data };
 }
 
 export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverStackParamList, 'DiscoverHome'>) {
@@ -48,7 +54,7 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
     return all.filter((i) => slugs.includes(i.slug)).map((i) => i.id);
   }, [topic, interests.data, prefs.interestSlugs]);
 
-  const filters = useMemo(() => ({ type: 'all' as const, onlineOnly: false, topicInterestIds: topicIds, search: submitted }), [topicIds, submitted]);
+  const filters = useMemo(() => ({ type: 'all' as const, onlineOnly: false, topicInterestIds: topicIds, search: submitted, registrationOpenOnly: !submitted }), [topicIds, submitted]);
   const events = useQuery({ queryKey: ['discover', 'events', filters], queryFn: () => fetchEventsPage(filters, null), enabled: topic === 'all' || interests.isSuccess });
   const preview = useQuery({ queryKey: ['discover', 'preview'], queryFn: fetchPreview });
 
@@ -56,7 +62,7 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
   // "Yaklaşan" is what can still be joined: events whose registration closed stay in the Etkinlikler list only (approved Q4a).
   // A search is a result list, not "Yaklaşan", so it keeps every match.
   const now = new Date();
-  const upcoming = submitted ? items : items.filter((e) => new Date(e.registration_closes_at).getTime() > now.getTime());
+  const upcoming = submitted ? items : items.filter((e) => !isRegistrationClosed(e, now.getTime()));
   const featured = submitted ? null : pickFeatured(upcoming, now);
   const listed = (submitted ? upcoming : upcoming.filter((e) => e.id !== featured?.id)).slice(0, 3);
   const openEvent = (id: string) => { track('discovery_item_opened', { kind: 'event', id }); navigation.navigate('EventDetail', { eventId: id }); };
@@ -79,6 +85,11 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
   // Every section hides when it has nothing; only when all of them are empty does one empty state stand in for the page.
   const allEmpty = events.isSuccess && upcoming.length === 0 && !filteredTopic && preview.isSuccess && !hasRest;
 
+  // Nothing else on the page could render, and the secondary query is what failed: say so instead of showing a blank page.
+  const previewFailedAlone = preview.isError && events.isSuccess && upcoming.length === 0 && !filteredTopic;
+  const previewFailedInline = preview.isError && !submitted && !previewFailedAlone;
+  const interestsFailed = topic !== 'all' && interests.isError;
+
   return (
     <Screen header={<><AppHeader brand right={<IconButton icon="ticket" accessibilityLabel="Katılımlarım" onPress={() => navigation.navigate('MyRegistrations')} />} />{offline && <OfflineBanner />}</>}
       refreshing={events.isRefetching} onRefresh={() => { void events.refetch(); void preview.refetch(); void interests.refetch(); }}>
@@ -97,7 +108,9 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
 
       {allEmpty ? (
         <EmptyState icon="discover" title="Şu an yayında içerik yok" body="İlgi alanlarını genişlet; yeni etkinlik ve fırsatlar eklendikçe burada görünür." />
-      ) : events.isPending ? <LoadingSkeleton variant="poster" />
+      ) : interestsFailed ? <ErrorState error={toAppError(interests.error)} onRetry={() => void interests.refetch()} />
+        : previewFailedAlone ? <ErrorState error={toAppError(preview.error)} onRetry={() => void preview.refetch()} />
+        : events.isPending ? <LoadingSkeleton variant="poster" />
         : events.isError && !events.data ? <ErrorState error={toAppError(events.error)} onRetry={() => void events.refetch()} />
           : upcoming.length === 0 ? (filteredTopic && (
             <>
@@ -112,13 +125,19 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
                 <HeroCard category={m.typeLabel} title={line} accent={line.split(' ').slice(-1)[0]} meta={metaJoin([m.dateLabel, m.placeLabel, m.feeLabel])} cta="Detayları gör" onPress={() => openEvent(featured.id)} />
               ); })()}
               {/* No vitrin: the list moves up; nothing reserves the hero's space. */}
-              <SectionHeader title={submitted ? 'Sonuçlar' : 'Yaklaşan etkinlikler'} actionLabel="Tümünü gör" onAction={() => navigation.getParent()?.navigate('EventsTab')} />
+              <SectionHeader title={submitted ? 'Sonuçlar' : 'Yaklaşan etkinlikler'} {...(submitted ? {} : { actionLabel: 'Tümünü gör', onAction: () => navigation.getParent()?.navigate('EventsTab') })} />
               <View style={{ gap: space[3] }}>
                 {listed.map((e) => <PosterCard key={e.id} {...toEventPoster(e)} onPress={() => openEvent(e.id)} />)}
               </View>
             </>
           )}
 
+      {previewFailedInline && !interestsFailed && (
+        <View style={{ marginTop: space[7], gap: space[2], alignItems: 'flex-start' }}>
+          <Notice tone="warning" title="Fırsatlar ve takımlar yüklenemedi">{toAppError(preview.error).message}</Notice>
+          <TextButton label="Tekrar dene" onPress={() => void preview.refetch()} />
+        </View>
+      )}
       {!allEmpty && !submitted && !events.isPending && preview.isPending && (
         <>
           <SectionHeader title="Sıradaki adımın" />
