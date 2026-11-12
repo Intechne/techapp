@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { colors, fonts, layout, radius, space, tones } from '../tokens';
 import { Text } from '../Text';
 import { TechIcon, type TechIconName } from '../TechIcon';
+import { keepNumbersTogether } from './cards/label';
 
 interface ChipProps { label: string; selected?: boolean; icon?: TechIconName; onPress?: () => void }
 
@@ -44,7 +45,7 @@ export function Tag({ label, tone = 'iris', icon }: { label: string; tone?: TagT
   return (
     <View style={[styles.tag, { backgroundColor: t.bg }]}>
       {icon && <View style={styles.tagIcon}><TechIcon name={icon} size={14} color={t.fg} /></View>}
-      <Text variant="caption" style={{ flexShrink: 1, minWidth: 0, color: t.fg, fontFamily: fonts.bodyBold, letterSpacing: 0.4 }}>{label}</Text>
+      <Text variant="caption" breakStrategy="words" style={{ flexShrink: 1, minWidth: 0, color: t.fg, fontFamily: fonts.bodyBold, letterSpacing: 0.4 }}>{keepNumbersTogether(label)}</Text>
     </View>
   );
 }
@@ -63,7 +64,7 @@ export function SegmentedControl<T extends string>({ options, value, onChange }:
       {options.map((o) => (
         <Pressable key={o} accessibilityRole="tab" accessibilityState={{ selected: o === value }} onPress={() => onChange(o)}
           style={[styles.segment, o === value && styles.segmentActive]}>
-          <Text variant="label" color={o === value ? 'ink' : 'textSecondary'}>{o}</Text>
+          <Text variant="label" center breakStrategy="words" color={o === value ? 'ink' : 'textSecondary'}>{o}</Text>
         </Pressable>
       ))}
     </View>
@@ -80,6 +81,7 @@ const styles = StyleSheet.create({
   /** A wrapping label must never squeeze the glyph (a long status in a narrow slot). */
   tagIcon: { flexShrink: 0 },
   segmented: { flexDirection: 'row', gap: 4, backgroundColor: colors.surfaceSunken, borderRadius: radius.control, padding: 4 },
-  segment: { flex: 1, minHeight: 40, borderRadius: radius.small, alignItems: 'center', justifyContent: 'center' },
+  // A long label wraps between words onto a second line and the segment grows with it (all segments stretch to the tallest).
+  segment: { flex: 1, minHeight: 40, minWidth: 0, borderRadius: radius.small, alignItems: 'center', justifyContent: 'center', paddingVertical: space[2], paddingHorizontal: space[1] },
   segmentActive: { backgroundColor: colors.surface },
 });

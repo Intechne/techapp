@@ -84,7 +84,7 @@ function Cover({ fallback }: Pick<PosterCardProps, 'cover' | 'fallback'>) {
   );
 }
 
-/** Event / course card: 16:10 cover → status row (type, availability, ÖRNEK, save) → title (≤3 lines, two reserved) → two meta lines. */
+/** Event / course card: 16:10 cover → status row (type, availability, ÖRNEK, save) → title (≤3 lines, one reserved) → two meta lines. */
 export const PosterCard = React.memo(function PosterCard(p: PosterCardProps) {
   // Everything visible is spoken, in reading order after the title: type, date, place, audience, fee, availability, demo.
   const label = cardLabel([p.title, spoken(p.typeLabel), p.dateLabel, p.placeLabel, p.audienceLabel, p.feeLabel, spoken(p.availability?.label), p.isDemo ? DEMO_SPOKEN : null]);
@@ -106,7 +106,7 @@ export const PosterCard = React.memo(function PosterCard(p: PosterCardProps) {
           {p.availability && <Tag label={keepTogether(p.availability.label)} tone={p.availability.tone} icon={p.availability.icon} />}
           {p.isDemo && <DemoTag />}
         </View>
-        <Text variant="cardTitle" numberOfLines={3} style={styles.title}>{p.title}</Text>
+        <Text variant="cardTitle" breakStrategy="words" numberOfLines={3} style={styles.title}>{p.title}</Text>
         <Text testID="poster-meta" variant="caption" numberOfLines={2} style={styles.metaStrong}>{keepNumbersTogether(metaJoin([p.dateLabel, p.placeLabel]))}</Text>
         {!!second && <Text testID="poster-meta" variant="caption" color={sem.text.secondary} numberOfLines={2} style={styles.metaSecond}>{keepNumbersTogether(second)}</Text>}
       </View>
@@ -114,7 +114,7 @@ export const PosterCard = React.memo(function PosterCard(p: PosterCardProps) {
   );
 });
 
-/** Loading state of PosterCard: same cover box, same body box (two title lines reserved), bars sitting in the real line boxes. */
+/** Loading state of PosterCard: same cover box, same body box (one title line reserved), bars sitting in the real line boxes. */
 export function PosterCardSkeleton() {
   return (
     <CardSkeletonFrame testID="poster-skeleton">
@@ -123,7 +123,6 @@ export function PosterCardSkeleton() {
         <View style={styles.status}><SkeletonLine lineHeight={cardLayout.statusRow} width="28%" barHeight={type.eyebrow.lineHeight} /></View>
         <View style={styles.title}>
           <SkeletonLine lineHeight={type.cardTitle.lineHeight} width="82%" />
-          <SkeletonLine lineHeight={type.cardTitle.lineHeight} width="48%" />
         </View>
         <View style={styles.metaStrong}><SkeletonLine lineHeight={type.caption.lineHeight} width="64%" /></View>
         <View style={styles.metaSecond}><SkeletonLine lineHeight={type.caption.lineHeight} width="46%" /></View>

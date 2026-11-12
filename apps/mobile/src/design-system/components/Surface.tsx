@@ -25,7 +25,8 @@ export function Card({ onPress, padded = true, style, children, ...rest }: CardP
 }
 
 interface HeroCardProps {
-  eyebrow: string;
+  /** Category or status only ("HACKATHON", "ÖNE ÇIKAN"), set in capitals. Names and places (city, organiser) go in `meta`; they are never eyebrows. */
+  category: string;
   title: string;
   /** Words rendered in lime inside the title. */
   accent?: string;
@@ -63,7 +64,7 @@ export function HeroOrbit({ cardWidth, fontScale }: { cardWidth: number; fontSca
 }
 
 /** Campaign hero: the one place where a full Iris colour block is allowed. */
-export function HeroCard({ eyebrow, title, accent, meta, cta, onPress }: HeroCardProps) {
+export function HeroCard({ category, title, accent, meta, cta, onPress }: HeroCardProps) {
   const [width, setWidth] = useState(0);
   const { fontScale } = useWindowDimensions();
   const parts = accent && title.includes(accent) ? title.split(accent) : [title];
@@ -72,8 +73,8 @@ export function HeroCard({ eyebrow, title, accent, meta, cta, onPress }: HeroCar
       onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
       style={({ pressed }) => [styles.hero, pressed && { backgroundColor: sem.action.primaryPressed }]}>
       <HeroOrbit cardWidth={width} fontScale={fontScale} />
-      <View style={styles.heroRule}><View style={styles.rule} /><Text variant="eyebrow" color="white">{eyebrow}</Text></View>
-      <Text variant="title" color="white" numberOfLines={HERO_TITLE_LINES} accessibilityRole="text" style={{ marginTop: space[6], maxWidth: '78%' }}>
+      <View style={styles.heroRule}><View style={styles.rule} /><Text variant="eyebrow" color="white">{category}</Text></View>
+      <Text variant="title" color="white" breakStrategy="words" numberOfLines={HERO_TITLE_LINES} accessibilityRole="text" style={{ marginTop: space[6], maxWidth: '78%' }}>
         {parts[0]}{accent && parts.length > 1 && <Text variant="title" color="lime" accessibilityRole="text">{accent}</Text>}{parts[1]}
       </Text>
       {meta && <Text variant="caption" color="white" numberOfLines={HERO_META_LINES} style={{ marginTop: space[3], opacity: 0.85 }}>{meta}</Text>}

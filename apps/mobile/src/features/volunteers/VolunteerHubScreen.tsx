@@ -38,8 +38,9 @@ export function VolunteerHubScreen({ navigation, route }: NativeStackScreenProps
   return (
     <Screen wide header={header} refreshing={brief.isRefetching} onRefresh={() => void brief.refetch()}>
       <View style={styles.hero}>
-        <Text variant="eyebrow" style={{ color: tones.moss.fg }}>GÖNÜLLÜ EKİP{event.organizer ? ` · ${event.organizer.toLocaleUpperCase('tr')}` : ''}</Text>
+        <Text variant="eyebrow" style={{ color: tones.moss.fg }}>GÖNÜLLÜ EKİP</Text>
         <Text variant="title" style={{ color: tones.moss.fg, marginTop: space[2] }}>{event.title}</Text>
+        {!!event.organizer && <Text variant="caption" style={{ color: tones.moss.fg, marginTop: space[1] }}>{event.organizer}</Text>}
         <View style={styles.duty}><Text variant="caption" color="textSecondary">GÖREVİN</Text><Text variant="cardTitle">{duty ?? 'Henüz belirtilmedi'}</Text>
           {!duty && <Text variant="caption" color="textSecondary">Düzenleyen ekip görevini etkinlikten önce bildirecek.</Text>}</View>
       </View>

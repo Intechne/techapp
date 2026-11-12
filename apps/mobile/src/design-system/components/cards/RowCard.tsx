@@ -10,12 +10,9 @@ import { BookmarkButton } from './BookmarkButton';
 import { DEMO_SPOKEN, DemoTag } from './DemoTag';
 import { useLayout } from '../../useLayout';
 import { cardLabel, clipForSpeech, keepNumbersTogether, keepTogether, spoken } from './label';
-import { cardLayout, cardMetrics, rowCardHeight, type RowLines } from './metrics';
+import { STACK_STATUS_BELOW, cardLayout, cardMetrics, rowCardHeight, type RowLines } from './metrics';
 
 const sem = semantic.light;
-
-/** Window width (dp) under which a trailing status moves below the text. */
-const STACK_STATUS_BELOW = 360;
 
 export type RowCardLeading =
   | { kind: 'icon'; icon: TechIconName }
@@ -47,7 +44,7 @@ function LeadingTile({ leading }: { leading: RowCardLeading }) {
 
 /**
  * Opportunity, team, organisation, registration, application, notification, search result.
- * 46 px tile → title (≤2 lines) + secondary (≤2 lines) + footnote row ([tag] text) → one trailing element.
+ * 46 px tile → title (≤2 lines) + secondary (≤2 lines) + footnote row ([tag] text) + status line (phones) → one trailing element.
  * Footnote: the tag (deadline) on its own tag row, the footnote text below — stacked, so the height is predictable.
  * ÖRNEK (family rule) joins a tag-only row — PosterCard's status row, RowCard's footnote tag row — or, when the card
  * has none, gets its own last line; it never sits beside wrapping text. Numbers never break away from their unit.
@@ -55,7 +52,8 @@ function LeadingTile({ leading }: { leading: RowCardLeading }) {
 export const RowCard = React.memo(function RowCard({ leading, title, secondary, footnote, footnoteTag, trailing, isDemo, onPress }: RowCardProps) {
   const { width } = useLayout();
   const status = trailing?.kind === 'status' ? trailing.view : undefined;
-  // 320 px phones: a status in the trailing slot leaves the text ~80 px and breaks its words, so it moves under the text.
+  // Phones (< 600 dp): a status in the trailing slot takes up to 42% of the row and squeezes the title, so it always sits
+  // under the text and the title gets the full width (approved Q6). Tablets keep it trailing.
   const stacked = !!status && width < STACK_STATUS_BELOW;
   const label = cardLabel([title, clipForSpeech(secondary), spoken(footnoteTag?.label), footnote, spoken(status?.label), isDemo ? DEMO_SPOKEN : null]);
   const bookmark = trailing?.kind === 'bookmark'
@@ -66,7 +64,7 @@ export const RowCard = React.memo(function RowCard({ leading, title, secondary, 
       <View testID="row-body" style={[styles.body, !!bookmark && styles.bodyWithSave]}>
         <LeadingTile leading={leading} />
         <View style={styles.text}>
-          <Text variant="cardTitle" numberOfLines={2}>{title}</Text>
+          <Text variant="cardTitle" breakStrategy="words" numberOfLines={2}>{title}</Text>
           {!!secondary && <Text testID="row-secondary" variant="bodySmall" color={sem.text.secondary} numberOfLines={2} style={styles.secondary}>{keepNumbersTogether(secondary)}</Text>}
           {(!!footnote || !!footnoteTag) && (
             <View testID="row-foot" style={styles.foot}>
@@ -79,8 +77,13 @@ export const RowCard = React.memo(function RowCard({ leading, title, secondary, 
               {!!footnote && <Text testID="row-footnote" variant="caption" color={sem.text.secondary} numberOfLines={2} style={styles.footnote}>{keepNumbersTogether(footnote)}</Text>}
             </View>
           )}
-          {stacked && status && <View style={styles.demoLine}><Tag label={keepNumbersTogether(status.label)} tone={status.tone} icon={status.icon} /></View>}
-          {isDemo && !footnoteTag && <View style={styles.demoLine}><DemoTag /></View>}
+          {stacked && status && (
+            <View testID="row-status" style={styles.statusLine}>
+              <Tag label={keepNumbersTogether(status.label)} tone={status.tone} icon={status.icon} />
+              {isDemo && !footnoteTag && <DemoTag />}
+            </View>
+          )}
+          {isDemo && !footnoteTag && !(stacked && status) && <View style={styles.demoLine}><DemoTag /></View>}
         </View>
         {trailing?.kind === 'chevron' && <View style={styles.chevron}><TechIcon name="chevron" size={18} color={sem.text.secondary} /></View>}
         {status && !stacked && <View style={styles.status}><Tag label={keepNumbersTogether(status.label)} tone={status.tone} icon={status.icon} /></View>}
@@ -99,9 +102,11 @@ const SECONDARY_BARS = ['92%', '64%'] as const;
  * the real line boxes, and the same gaps. Its height is `rowCardHeight(lines)`.
  */
 export function RowCardSkeleton({ lines = DEFAULT_ROW_LINES }: { lines?: RowLines }) {
+  const { width } = useLayout();
+  const statusLine = !!lines.status && width < STACK_STATUS_BELOW;
   return (
     <CardSkeletonFrame testID="row-skeleton">
-      <View testID="row-body" style={[styles.body, { minHeight: rowCardHeight(lines) }]}>
+      <View testID="row-body" style={[styles.body, { minHeight: rowCardHeight(lines, width) }]}>
         <View style={[styles.tile, { backgroundColor: sem.bg.sunken }]} />
         <View style={styles.text}>
           {TITLE_BARS.slice(0, lines.title).map((w) => <SkeletonLine key={w} lineHeight={type.cardTitle.lineHeight} width={w} />)}
@@ -116,7 +121,8 @@ export function RowCardSkeleton({ lines = DEFAULT_ROW_LINES }: { lines?: RowLine
               <SkeletonLine lineHeight={type.caption.lineHeight} width="56%" />
             </View>
           )}
-          {lines.demo && lines.footnote !== 'tag' && <View style={styles.demoLine}><SkeletonLine lineHeight={cardLayout.demoTag} width="24%" barHeight={cardLayout.demoTag} /></View>}
+          {statusLine && <View style={styles.statusLine}><SkeletonLine lineHeight={cardLayout.tag} width="36%" barHeight={cardLayout.tag} /></View>}
+          {lines.demo && lines.footnote !== 'tag' && !statusLine && <View style={styles.demoLine}><SkeletonLine lineHeight={cardLayout.demoTag} width="24%" barHeight={cardLayout.demoTag} /></View>}
         </View>
       </View>
     </CardSkeletonFrame>
@@ -139,6 +145,7 @@ const styles = StyleSheet.create({
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space[2] },
   footnote: { fontVariant: ['tabular-nums'] },
   demoLine: { flexDirection: 'row', marginTop: cardLayout.footGap },
+  statusLine: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space[2], marginTop: cardLayout.footGap },
   chevron: { alignSelf: 'center' },
   status: { alignSelf: 'center', maxWidth: '42%' },
   bookmarkLayer: {

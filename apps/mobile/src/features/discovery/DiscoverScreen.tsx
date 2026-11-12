@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Chip, ChipRail, EmptyState, ErrorState, HeroCard, IconButton, LoadingSkeleton, MiniCard, OfflineBanner, PosterCard, RowCard, Screen, SearchInput, SectionHeader, Text, space } from '../../design-system';
+import { AppHeader, Chip, ChipRail, EmptyState, ErrorState, HeroCard, IconButton, LoadingSkeleton, MiniCard, MiniCardGrid, OfflineBanner, PosterCard, RowCard, Screen, SearchInput, SectionHeader, Text, space } from '../../design-system';
 import { track } from '../../lib/analytics';
 import { toAppError } from '../../lib/errors';
 import { getSupabase } from '../../lib/supabase';
@@ -94,7 +94,7 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
           ) : (
             <>
               {featured && (() => { const m = toEventPoster(featured); const line = m.fallback.line; return (
-                <HeroCard eyebrow={m.typeLabel} title={line} accent={line.split(' ').slice(-1)[0]} meta={`${m.dateLabel} · ${m.placeLabel} · ${m.feeLabel}`} cta="Detayları gör" onPress={() => openEvent(featured.id)} />
+                <HeroCard category={m.typeLabel} title={line} accent={line.split(' ').slice(-1)[0]} meta={`${m.dateLabel} · ${m.placeLabel} · ${m.feeLabel}`} cta="Detayları gör" onPress={() => openEvent(featured.id)} />
               ); })()}
               <SectionHeader title={submitted ? 'Sonuçlar' : 'Yaklaşan etkinlikler'} actionLabel="Tümünü gör" onAction={() => navigation.getParent()?.navigate('EventsTab')} />
               <View style={{ gap: space[3] }}>
@@ -116,9 +116,9 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
       {!submitted && preview.data && preview.data.teams.length > 0 && (
         <>
           <SectionHeader title="Birlikte üretenler" actionLabel="Topluluk" onAction={() => navigation.getParent()?.navigate('CommunityTab')} />
-          <View style={{ flexDirection: 'row', gap: space[3] }}>
+          <MiniCardGrid>
             {preview.data.teams.slice(0, 2).map((t) => <MiniCard key={t.id} icon={kindIcon(t.kind)} title={t.name} body={t.tagline ?? undefined} onPress={() => openTeam(t.id)} />)}
-          </View>
+          </MiniCardGrid>
         </>
       )}
     </Screen>

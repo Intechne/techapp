@@ -13,7 +13,7 @@ describe('heroAccessibilityLabel', () => {
     expect(heroAccessibilityLabel('Başla…', '')).toBe('Başla');
   });
   it('is the button label of the card', async () => {
-    await render(<HeroCard eyebrow="HACKATHON" title="Üretenler anlatıyor." meta="21 Kasım" cta="Detayları gör" />);
+    await render(<HeroCard category="HACKATHON" title="Üretenler anlatıyor." meta="21 Kasım" cta="Detayları gör" />);
     expect(screen.getByRole('button', { name: 'Üretenler anlatıyor. 21 Kasım' })).toBeTruthy();
   });
 });

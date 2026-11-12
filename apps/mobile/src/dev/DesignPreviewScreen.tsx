@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
-  AppHeader, Chip, ChipRail, EmptyState, ErrorState, HeroCard, LoadingSkeleton, MiniCard, OfflineBanner, PosterCard, RowCard,
+  AppHeader, Chip, ChipRail, EmptyState, ErrorState, HeroCard, LoadingSkeleton, MiniCard, MiniCardGrid, OfflineBanner, PosterCard, RowCard,
   Screen, SectionHeader, SegmentedControl, space, Text, useLayout,
 } from '../design-system';
 import { makeError } from '../lib/errors';
@@ -61,14 +61,9 @@ export function DesignPreviewScreen() {
         })}
       </View>
       <SectionHeader title="Mini kart" />
-      <View style={styles.list}>
-        {Array.from({ length: Math.ceil(set.minis.length / 2) }, (_, i) => set.minis.slice(i * 2, i * 2 + 2)).map((pair) => (
-          <View key={pair[0]!.id} style={styles.pair}>
-            {pair.map((m) => <View key={m.id} style={styles.cell}><MiniCard icon={m.icon} title={m.title} body={m.body} onPress={noop} /></View>)}
-            {pair.length === 1 && <View style={styles.cell} />}
-          </View>
-        ))}
-      </View>
+      <MiniCardGrid>
+        {set.minis.map((m) => <MiniCard key={m.id} icon={m.icon} title={m.title} body={m.body} onPress={noop} />)}
+      </MiniCardGrid>
       <SectionHeader title="Vitrin kartı" />
       <HeroCard {...set.hero} onPress={noop} />
     </>
@@ -126,7 +121,5 @@ const styles = StyleSheet.create({
   controls: { gap: space[2], paddingBottom: space[2] },
   body: { gap: space[3], paddingBottom: space[9] },
   list: { gap: space[3] },
-  pair: { flexDirection: 'row', gap: space[3], alignItems: 'stretch' },
-  cell: { flex: 1, minWidth: 0 },
   bleed: { marginHorizontal: -space[5] },
 });

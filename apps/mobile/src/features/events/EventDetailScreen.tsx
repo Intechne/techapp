@@ -56,7 +56,7 @@ export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<
   return (
     <Screen header={<AppHeader onBack={navigation.goBack} title="Etkinlik" />} footer={footer}
       refreshing={event.isRefetching} onRefresh={() => { void event.refetch(); void eligibility.refetch(); }}>
-      <Poster large tone={e.tone} icon={EVENT_TYPE_ICON[e.type]} brand={`${e.organization?.name ?? 'TechApp'} · ${EVENT_TYPE_LABEL[e.type]}`} line={e.poster_line ?? e.title} />
+      <Poster large tone={e.tone} icon={EVENT_TYPE_ICON[e.type]} typeLabel={EVENT_TYPE_LABEL[e.type]} line={e.poster_line ?? e.title} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginTop: space[4] }}>
         <Tag label={EVENT_TYPE_LABEL[e.type]} />
         {avail && <Tag label={avail.label} tone={avail.tone} />}

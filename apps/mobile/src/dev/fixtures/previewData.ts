@@ -14,7 +14,7 @@ type NoHandlers<T> = Omit<T, 'onPress' | 'onToggleSave' | 'trailing'>;
 export type PosterSpec = NoHandlers<PosterCardProps> & { id: string; bookmark?: boolean };
 export type RowSpec = NoHandlers<RowCardProps> & { id: string; trailing?: { kind: 'chevron' } | { kind: 'status'; view: StatusView } | { kind: 'bookmark' } };
 export type MiniSpec = Omit<MiniCardProps, 'onPress'> & { id: string };
-export interface PreviewSet { marker?: string; posters: PosterSpec[]; rows: RowSpec[]; minis: MiniSpec[]; hero: { eyebrow: string; title: string; accent?: string; meta?: string; cta?: string } }
+export interface PreviewSet { marker?: string; posters: PosterSpec[]; rows: RowSpec[]; minis: MiniSpec[]; hero: { category: string; title: string; accent?: string; meta?: string; cta?: string } }
 
 const open: StatusView = { label: 'KAYIT AÇIK', tone: 'moss', icon: 'check' };
 const full: StatusView = { label: 'KONTENJAN DOLDU', tone: 'danger', icon: 'warning' };
@@ -39,7 +39,7 @@ const demo: PreviewSet = {
     { id: 'm1', icon: 'robot', title: 'Nova Robotik Takımı', body: 'Yazılım ve elektronik takım arkadaşı arıyor.' },
     { id: 'm2', icon: 'learn', title: 'Robotiğe İlk Adım', body: 'Bir robot nasıl düşünür?' },
   ],
-  hero: { eyebrow: 'ÖNE ÇIKAN', title: 'Bir fikrin varsa, bir yerin var.', accent: 'bir yerin var.', meta: '12 etkinlik · 8 fırsat', cta: 'Keşfet' },
+  hero: { category: 'ÖNE ÇIKAN', title: 'Bir fikrin varsa, bir yerin var.', accent: 'bir yerin var.', meta: '12 etkinlik · 8 fırsat', cta: 'Keşfet' },
 };
 
 const worst: PreviewSet = {
@@ -67,7 +67,7 @@ const worst: PreviewSet = {
     { id: 'm3', icon: 'robot', title: worstCase.names.unbreakable, body: worstCase.names.unbreakable },
     { id: 'm4', icon: 'learn', title: worstCase.names.emoji },
   ],
-  hero: { eyebrow: 'ÖNE ÇIKAN · KAHRAMANMARAŞ', title: 'Şehit Öğretmen Ayşe Çağlayan Mesleki ve Teknik Anadolu Lisesi Robotik Takımı', accent: 'Robotik Takımı', meta: worstCase.organization, cta: 'Hemen incele' },
+  hero: { category: 'ÖNE ÇIKAN', title: 'Şehit Öğretmen Ayşe Çağlayan Mesleki ve Teknik Anadolu Lisesi Robotik Takımı', accent: 'Robotik Takımı', meta: `Kahramanmaraş · ${worstCase.organization}`, cta: 'Hemen incele' },
 };
 
 export const previewData: Record<PreviewData, PreviewSet> = { demo, worst };

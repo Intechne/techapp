@@ -90,8 +90,7 @@ describe('cardMetrics', () => {
     expect(rowCardHeight({ title: 2, secondary: 2, footnote: 'tag' })).toBe(space[4] * 2 + 23 * 2 + 2 + 21 * 2 + 8 + 26 + 4 + 16);
     expect(rowCardHeight({ title: 2, secondary: 2, footnote: 'tag', demo: true })).toBe(rowCardHeight({ title: 2, secondary: 2, footnote: 'tag' }));
     expect(rowCardHeight({ title: 1, secondary: 1, footnote: 'text', demo: true })).toBe(space[4] * 2 + 23 + 2 + 21 + 8 + 16 + 8 + 22);
-    // pad + status row + gap + one title line + gap + two meta lines (+ gap) + pad
-    // pad + status row + gap + TWO reserved title lines + gap + two meta lines (+ gap) + pad
-    expect(cardMetrics.poster.bodyMinHeight).toBe(space[4] + 28 + space[3] + type.cardTitle.lineHeight * 2 + space[2] + type.caption.lineHeight * 2 + space[1] + space[4]);
+    // pad + status row + gap + ONE reserved title line (Q8) + gap + two meta lines (+ gap) + pad
+    expect(cardMetrics.poster.bodyMinHeight).toBe(space[4] + 28 + space[3] + type.cardTitle.lineHeight + space[2] + type.caption.lineHeight * 2 + space[1] + space[4]);
   });
 });

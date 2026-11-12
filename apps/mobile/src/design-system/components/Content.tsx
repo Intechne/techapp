@@ -8,16 +8,16 @@ import { CircuitArt, circuitArtHeight } from './cards/PosterCard';
 
 /**
  * Detail-screen poster: the same Open Circuit fallback art as PosterCard (type badge + one circuit trace) on the tone
- * ground, with the brand line and the poster line set at the bottom. `brand` is shown as written: organisation names are
- * never upper-cased here, only the category part arrives in capitals.
+ * ground, with the type label (a category, set in capitals) and the poster line at the bottom. The organiser is not on
+ * the poster (approved Q2): a name never becomes an eyebrow; the detail screen's organiser row carries it.
  */
-export function Poster({ tone, icon, brand, line, large }: { tone: Tone; icon: TechIconName; brand: string; line: string; large?: boolean }) {
+export function Poster({ tone, icon, typeLabel, line, large }: { tone: Tone; icon: TechIconName; typeLabel: string; line: string; large?: boolean }) {
   const t = tones[tone];
   const inset = large ? space[5] : space[4];
   return (
     <View style={[styles.poster, { backgroundColor: t.bg, minHeight: large ? 196 : 148, padding: inset, paddingTop: inset + circuitArtHeight + space[3] }, large && { borderRadius: radius.card }]}>
       <CircuitArt tone={tone} icon={icon} seed={line} inset={inset} />
-      <Text variant="eyebrow" style={{ color: t.fg }} numberOfLines={2}>{brand}</Text>
+      <Text variant="eyebrow" style={{ color: t.fg }} numberOfLines={1}>{typeLabel}</Text>
       <Text variant={large ? 'title' : 'section'} style={{ color: t.fg, maxWidth: '86%', marginTop: space[2] }} numberOfLines={3}>{line}</Text>
     </View>
   );

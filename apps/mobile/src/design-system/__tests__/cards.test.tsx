@@ -2,12 +2,17 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import {
-  BookmarkButton, MiniCard, Poster, PosterCard, PosterCardSkeleton, RowCard, RowCardSkeleton, cardLayout, cardMetrics, layout,
-  rowCardHeight, type PosterCardProps, type RowCardProps, type RowLines,
+  BookmarkButton, MiniCard, MiniCardGrid, Poster, miniColumns, keepNumbersTogether, POSTER_RESERVED_TITLE_LINES, PosterCard, PosterCardSkeleton, RowCard, RowCardSkeleton, cardLayout, cardMetrics, layout,
+  rowCardHeight, type, type PosterCardProps, type RowCardProps, type RowLines,
 } from '..';
 import { worstCase, worstCaseTitles } from '../../dev/fixtures/worstCase';
 
 let mockWidth = 390;
+let mockFontScale = 1;
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+  __esModule: true,
+  default: () => ({ width: mockWidth, height: 844, scale: 2, fontScale: mockFontScale }),
+}));
 jest.mock('../useLayout', () => {
   const actual = jest.requireActual('../useLayout');
   return { ...actual, useLayout: () => ({ ...actual.useLayout(), width: mockWidth }) };
@@ -70,20 +75,27 @@ describe('PosterCard', () => {
 
 describe('RowCard status placement', () => {
   const view = { label: 'BAŞVURUN İNCELENİYOR', tone: 'iris' as const };
-  const card = () => <RowCard leading={{ kind: 'icon', icon: 'opportunity' }} title="Başvurum" trailing={{ kind: 'status', view }} onPress={jest.fn()} />;
+  const card = (isDemo = false) => <RowCard leading={{ kind: 'icon', icon: 'opportunity' }} title="Başvurum" trailing={{ kind: 'status', view }} isDemo={isDemo} onPress={jest.fn()} />;
 
-  it('keeps a status in the trailing slot on regular phones', async () => {
-    mockWidth = 390;
+  it.each([320, 390, 599])('sits under the text on a %i dp phone; the title gets the full width', async (w) => {
+    mockWidth = w;
     await render(card());
-    expect(screen.getByTestId('row-body').children.length).toBe(3); // tile, text column, trailing status
-    expect(screen.getAllByText(/İNCELENİYOR/u)).toHaveLength(1);
+    expect(screen.getByTestId('row-body').children.length).toBe(2); // tile, text column; no trailing status sibling
+    expect(within(screen.getByTestId('row-status')).getAllByText(/İNCELENİYOR/u)).toHaveLength(1);
   });
 
-  it('moves it under the text on 320 dp phones instead of squeezing its words', async () => {
-    mockWidth = 320;
+  it('stays in the trailing slot from 600 dp (tablets)', async () => {
+    mockWidth = 600;
     await render(card());
-    expect(screen.getByTestId('row-body').children.length).toBe(2); // no trailing status sibling
-    expect(screen.getAllByText(/İNCELENİYOR/u)).toHaveLength(1);
+    expect(screen.getByTestId('row-body').children.length).toBe(3); // tile, text column, trailing status
+    expect(screen.queryByTestId('row-status')).toBeNull();
+  });
+
+  it('ÖRNEK joins the status row instead of adding a line', async () => {
+    mockWidth = 390;
+    await render(card(true));
+    expect(within(screen.getByTestId('row-status')).getByText('ÖRNEK')).toBeTruthy();
+    expect(screen.getAllByText('ÖRNEK')).toHaveLength(1);
   });
 });
 
@@ -216,12 +228,92 @@ describe('row height model (skeleton vs content)', () => {
   });
 });
 
+describe('row height model with a stacked status', () => {
+  const lines: RowLines = { title: 1, secondary: 1, footnote: 'text', status: true };
+  const view = { label: 'BAŞVURUN İNCELENİYOR', tone: 'iris' as const };
+
+  it.each([{ demo: false }, { demo: true }])('skeleton and content agree on phones (%p)', async ({ demo }) => {
+    mockWidth = 390;
+    await render(<>
+      <RowCard leading={{ kind: 'icon', icon: 'badge' }} title="Başlık" secondary="İkincil" footnote="Dipnot" trailing={{ kind: 'status', view }} isDemo={demo} />
+      <RowCardSkeleton lines={{ ...lines, demo }} />
+    </>);
+    const [body, skel] = screen.getAllByTestId('row-body', { includeHiddenElements: true });
+    const title = flat(screen.getByText('Başlık')), secondary = flat(screen.getByTestId('row-secondary'));
+    const foot = flat(screen.getByTestId('row-foot')), status = flat(screen.getByTestId('row-status'));
+    const text = (title.lineHeight as number) + (secondary.marginTop as number) + (secondary.lineHeight as number)
+      + (foot.marginTop as number) + (flat(screen.getByTestId('row-footnote')).lineHeight as number)
+      + (status.marginTop as number) + cardLayout.tag;
+    const fromContent = (flat(body!).padding as number) * 2 + Math.max(cardLayout.leadingTile, text);
+    expect(rowCardHeight({ ...lines, demo }, 390)).toBe(fromContent);
+    expect(flat(skel!).minHeight).toBe(fromContent);
+  });
+
+  it('adds no status line on tablets, where the status stays trailing', async () => {
+    expect(rowCardHeight(lines, 700)).toBe(rowCardHeight({ ...lines, status: false }, 700));
+    expect(rowCardHeight(lines, 390)).toBe(rowCardHeight({ ...lines, status: false }, 390) + cardLayout.footGap + cardLayout.tag);
+    mockWidth = 700;
+    await render(<RowCardSkeleton lines={lines} />);
+    expect(flat(screen.getByTestId('row-body', { includeHiddenElements: true })).minHeight).toBe(rowCardHeight(lines, 700));
+  });
+});
+
+describe('PosterCard title reservation', () => {
+  it('reserves one title line and its skeleton draws one title bar', async () => {
+    expect(POSTER_RESERVED_TITLE_LINES).toBe(1);
+    expect(cardMetrics.poster.bodyMinHeight).toBe(
+      cardLayout.pad * 2 + cardLayout.statusRow + cardLayout.titleGap + type.cardTitle.lineHeight + cardLayout.metaGap + type.caption.lineHeight * 2 + cardLayout.metaLineGap);
+    await render(<PosterCardSkeleton />);
+    const body = screen.getByTestId('poster-body', { includeHiddenElements: true });
+    expect(flat(body).minHeight).toBe(cardMetrics.poster.bodyMinHeight);
+    // status, title (1 bar), meta, meta
+    expect(body.children).toHaveLength(4);
+    expect((body.children[1] as unknown as { children: unknown[] }).children).toHaveLength(1);
+  });
+});
+
 describe('MiniCard', () => {
   it.each(worstCaseTitles)('renders %p at the fixed minimum height', async (title) => {
     await render(<MiniCard icon="robot" title={title} body={worstCase.description.long} onPress={jest.fn()} />);
     const card = screen.getByRole('button');
     expect((card.props.accessibilityLabel as string).startsWith(title)).toBe(true);
     expect(flat(screen.getByTestId('mini-body')).minHeight).toBe(cardMetrics.mini.minHeight);
+  });
+});
+
+describe('MiniCardGrid', () => {
+  const minis = [1, 2, 3].map((i) => <MiniCard key={i} icon="team" title={`Takım ${i}`} />);
+  afterEach(() => { mockWidth = 390; mockFontScale = 1; });
+
+  it.each([
+    [390, 1, 2], [360, 1, 2], [359, 1, 1], [320, 1, 1], [390, 1.49, 2], [390, 1.5, 1], [390, 2, 1], [820, 1, 2],
+  ])('width %i, font scale %s → %i column(s)', (w, f, cols) => {
+    expect(miniColumns(w, f)).toBe(cols);
+  });
+
+  it('two per row at 390 dp, an odd last card keeps half width', async () => {
+    await render(<MiniCardGrid>{minis}</MiniCardGrid>);
+    const rows = screen.getAllByTestId('mini-row');
+    expect(rows.map((r) => r.children.length)).toEqual([2, 2]); // 3rd card + an empty half cell
+  });
+
+  it('one full-width card per row below 360 dp', async () => {
+    mockWidth = 320;
+    await render(<MiniCardGrid>{minis}</MiniCardGrid>);
+    expect(screen.getAllByTestId('mini-row').map((r) => r.children.length)).toEqual([1, 1, 1]);
+  });
+
+  it('one per row at font scale 1.5 even on a wide phone', async () => {
+    mockFontScale = 1.5;
+    await render(<MiniCardGrid>{minis}</MiniCardGrid>);
+    expect(screen.getAllByTestId('mini-row')).toHaveLength(3);
+  });
+});
+
+describe('numbers with short units', () => {
+  it('"1 dk" / "20 dk" never split between number and unit', () => {
+    expect(keepNumbersTogether('Süre: 1 dk')).toBe('Süre: 1\u00A0dk');
+    expect(keepNumbersTogether('Video · 20 dk · Başlangıç')).toContain('20\u00A0dk');
   });
 });
 
@@ -242,9 +334,12 @@ describe('BookmarkButton', () => {
 });
 
 describe('Poster (detail)', () => {
-  it('keeps the organisation name as written inside the eyebrow', async () => {
-    await render(<Poster large tone="moss" icon="code" brand={`${worstCase.organization} · HACKATHON`} line="Bir fikir." />);
-    expect(screen.getByText(`${worstCase.organization} · HACKATHON`)).toBeTruthy();
+  it('carries the category only; there is no organisation prop to upper-case', async () => {
+    await render(<Poster large tone="moss" icon="code" typeLabel="HACKATHON" line="Bir fikir." />);
+    expect(screen.getByText('HACKATHON')).toBeTruthy();
+    // @ts-expect-error organisation names are not an eyebrow
+    const bad = <Poster large tone="moss" icon="code" brand={worstCase.organization} line="x" />;
+    expect(bad).toBeTruthy();
   });
 });
 

@@ -32,8 +32,18 @@ export const cardLayout = {
   node: 8,
 } as const;
 
-/** Poster titles run up to three lines; the body reserves two, the common case for Turkish event names on a phone. */
-export const POSTER_RESERVED_TITLE_LINES = 2;
+/**
+ * Poster titles run up to three lines; the body reserves one. A vertical list does not need equal card heights, and a
+ * reserved second line reads as missing content under short titles (approved at the Faz 4 preview gate, Q8).
+ */
+export const POSTER_RESERVED_TITLE_LINES = 1;
+
+/** Window width (dp) under which a RowCard status tag sits under the text instead of beside it (phones; approved Q6). */
+export const STACK_STATUS_BELOW = 600;
+
+/** Window width (dp) under which MiniCards go one per row (approved Q13); also at font scale ≥ MINI_SINGLE_COLUMN_FONT_SCALE. */
+export const MINI_SINGLE_COLUMN_BELOW = 360;
+export const MINI_SINGLE_COLUMN_FONT_SCALE = 1.5;
 
 const posterBodyMinHeight =
   cardLayout.pad * 2 + cardLayout.statusRow + cardLayout.titleGap + type.cardTitle.lineHeight * POSTER_RESERVED_TITLE_LINES
@@ -46,6 +56,8 @@ export interface RowLines {
   /** `tag`: a status-tag row (deadline) above the footnote text; `text`: footnote text only; `none`: no footnote. */
   footnote: 'none' | 'text' | 'tag';
   demo?: boolean;
+  /** Rows carry a status (trailing slot). On phones it sits on its own line under the text, so the planned height includes it. */
+  status?: boolean;
 }
 
 /**
@@ -53,18 +65,20 @@ export interface RowLines {
  * lay out with. Text wrapping itself is only known at layout time (and grows with the system font scale), so this is
  * the planned height for a list's typical row, not a promise for every row.
  */
-export function rowCardHeight(lines: RowLines): number {
+export function rowCardHeight(lines: RowLines, width: number = 390): number {
+  const statusLine = !!lines.status && width < STACK_STATUS_BELOW;
   const text = type.cardTitle.lineHeight * lines.title
     + (lines.secondary ? cardLayout.secondaryGap + type.bodySmall.lineHeight * lines.secondary : 0)
     + (lines.footnote === 'none' ? 0 : cardLayout.footGap + type.caption.lineHeight + (lines.footnote === 'tag' ? cardLayout.tag + cardLayout.footTagGap : 0))
-    // ÖRNEK rides in the footnote tag row when there is one; otherwise it takes its own line.
-    + (lines.demo && lines.footnote !== 'tag' ? cardLayout.footGap + cardLayout.demoTag : 0);
+    // A stacked status is a tag-only row of its own; ÖRNEK joins it. Otherwise ÖRNEK rides in the footnote tag row, or takes its own line.
+    + (statusLine ? cardLayout.footGap + cardLayout.tag : 0)
+    + (lines.demo && lines.footnote !== 'tag' && !statusLine ? cardLayout.footGap + cardLayout.demoTag : 0);
   return cardLayout.pad * 2 + Math.max(cardLayout.leadingTile, text);
 }
 
 /**
- * - poster: cover is 16:10 whether it shows a photo or the fallback; the body's minimum reserves two title lines
- *   (a third line grows the card downward).
+ * - poster: cover is 16:10 whether it shows a photo or the fallback; the body's minimum reserves one title line
+ *   (longer titles grow the card downward).
  * - row: padding around the 46 px leading tile.
  * - mini: fixed minimum so two cards side by side line up.
  */

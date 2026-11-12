@@ -44,7 +44,7 @@ export function OpportunityDetailScreen({ navigation, route }: NativeStackScreen
   return (
     <Screen header={<AppHeader onBack={navigation.goBack} title={type.label} right={follow.requiresAuth ? undefined : <IconButton icon="bookmark" filled={follow.ids.has(o.id)} color={follow.ids.has(o.id) ? colors.primary : colors.ink} accessibilityLabel={follow.ids.has(o.id) ? 'Takipten çıkar' : 'Son tarihi takip et'} onPress={() => follow.toggle(o.id)} />} />}
       footer={footer} refreshing={q.isRefetching} onRefresh={() => { void q.refetch(); void mine.refetch(); }}>
-      <Poster large tone={o.tone as 'iris' | 'moss' | 'apricot' | 'ink'} icon={type.icon} brand={`${o.organization?.name ?? 'TechApp'} · ${type.label.toLocaleUpperCase('tr')}`} line={o.reward_note ?? o.title} />
+      <Poster large tone={o.tone as 'iris' | 'moss' | 'apricot' | 'ink'} icon={type.icon} typeLabel={type.label.toLocaleUpperCase('tr')} line={o.reward_note ?? o.title} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginTop: space[4] }}>
         <Tag label={type.label.toLocaleUpperCase('tr')} /><Tag label={deadline.label.toLocaleUpperCase('tr')} tone={urgencyTone(deadline.urgency)} icon="clock" />
         {o.team_based && <Tag label="TAKIM BAŞVURUSU" tone="neutral" icon="community" />}{o.is_demo && <Tag label="ÖRNEK İÇERİK" tone="neutral" />}
