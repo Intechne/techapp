@@ -43,22 +43,27 @@ export function OpportunityApplyScreen({ navigation, route }: NativeStackScreenP
       {ineligible && <Notice tone="warning" title="Bu fırsata başvuramıyorsun">{ineligible}</Notice>}
       <Text variant="title" style={ineligible ? { marginTop: space[4] } : undefined}>{opportunity.data.title}</Text>
 
-      <Text variant="section" style={{ marginTop: space[6] }}>{preview.data.organization ?? 'Kurum'} şunları görecek</Text>
-      <Card style={{ marginTop: space[3], gap: space[3] }}>
-        {preview.data.shared_fields.map((field) => (
-          <View key={field} style={{ gap: 2 }}>
-            <Text variant="caption" color="textSecondary">{SHARED_FIELD_LABEL[field] ?? field}</Text>
-            <Text variant="bodySmall">{formatSharedValue(field, preview.data.snapshot[field])}</Text>
-          </View>))}
-      </Card>
-      <Text variant="caption" color="textSecondary" style={{ marginTop: space[2] }}>Boş görünen alanları profilinden doldurabilirsin. Gönderdikten sonra profilini değiştirsen de bu başvuruda gönderdiğin bilgiler aynı kalır.</Text>
+      {/* Ineligible: nothing can be sent, so nothing is listed as shared and there is no consent to give — the reason above is the whole screen. */}
+      {!ineligible && (
+        <>
+          <Text variant="section" style={{ marginTop: space[6] }}>{preview.data.organization ?? 'Kurum'} şunları görecek</Text>
+          <Card style={{ marginTop: space[3], gap: space[3] }}>
+            {preview.data.shared_fields.map((field) => (
+              <View key={field} style={{ gap: 2 }}>
+                <Text variant="caption" color="textSecondary">{SHARED_FIELD_LABEL[field] ?? field}</Text>
+                <Text variant="bodySmall">{formatSharedValue(field, preview.data.snapshot[field])}</Text>
+              </View>))}
+          </Card>
+          <Text variant="caption" color="textSecondary" style={{ marginTop: space[2] }}>Boş görünen alanları profilinden doldurabilirsin. Gönderdikten sonra profilini değiştirsen de bu başvuruda gönderdiğin bilgiler aynı kalır.</Text>
 
-      <View style={{ gap: space[4], marginTop: space[5] }}>
-        <TextArea label="Neden başvuruyorsun? (isteğe bağlı)" value={motivation} onChangeText={setMotivation} maxLength={2000} help={`${motivation.length} / 2000`} />
-        <Checkbox checked={accepted} onChange={(v) => { setAccepted(v); setShowError(false); }} label="Yukarıdaki bilgilerimin bu başvuru için kurumla paylaşılmasını kabul ediyorum."
-          error={showError ? 'Devam etmek için bu kutuyu işaretlemen gerekiyor.' : undefined} />
-        {submit.error && <Notice tone="danger" title="Başvurun gönderilmedi">{toAppError(submit.error).message}</Notice>}
-      </View>
+          <View style={{ gap: space[4], marginTop: space[5] }}>
+            <TextArea label="Neden başvuruyorsun? (isteğe bağlı)" value={motivation} onChangeText={setMotivation} maxLength={2000} help={`${motivation.length} / 2000`} />
+            <Checkbox checked={accepted} onChange={(v) => { setAccepted(v); setShowError(false); }} label="Yukarıdaki bilgilerimin bu başvuru için kurumla paylaşılmasını kabul ediyorum."
+              error={showError ? 'Devam etmek için bu kutuyu işaretlemen gerekiyor.' : undefined} />
+            {submit.error && <Notice tone="danger" title="Başvurun gönderilmedi">{toAppError(submit.error).message}</Notice>}
+          </View>
+        </>
+      )}
     </Screen>
   );
 }

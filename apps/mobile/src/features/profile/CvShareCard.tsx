@@ -1,6 +1,6 @@
 import React from 'react';
 import { Platform, Share, View, useWindowDimensions } from 'react-native';
-import { Button, Card, Notice, Tag, Text, TextButton, colors, space, useToast } from '../../design-system';
+import { Button, Card, Notice, Tag, LARGE_TEXT_FONT_SCALE, Text, TextButton, colors, space, useToast } from '../../design-system';
 import { toAppError } from '../../lib/errors';
 import { useSetCvSharing } from './api';
 import { cvShareUrl } from './logic';
@@ -24,8 +24,8 @@ export function CvShareCard({ token, name }: { token: string | null; name: strin
   return (
     <Card style={{ gap: space[3] }}>
       {/* At large text the status tag drops under the title: a half-width title column splits "bağlantın" mid-word. */}
-      <View style={fontScale >= 1.5 ? { gap: space[2], alignItems: 'flex-start' } : { flexDirection: 'row', alignItems: 'center', gap: space[2], flexWrap: 'wrap' }}>
-        <Text variant="cardTitle" breakStrategy="words" style={fontScale >= 1.5 ? undefined : { flex: 1 }}>Dijital CV bağlantın</Text>
+      <View style={fontScale >= LARGE_TEXT_FONT_SCALE ? { gap: space[2], alignItems: 'flex-start' } : { flexDirection: 'row', alignItems: 'center', gap: space[2], flexWrap: 'wrap' }}>
+        <Text variant="cardTitle" breakStrategy="words" style={fontScale >= LARGE_TEXT_FONT_SCALE ? undefined : { flex: 1 }}>Dijital CV bağlantın</Text>
         <Tag tone={url ? 'moss' : 'neutral'} label={url ? 'PAYLAŞIM AÇIK' : 'PAYLAŞIM KAPALI'} />
       </View>
       {url ? (

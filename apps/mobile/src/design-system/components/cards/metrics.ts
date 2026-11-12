@@ -1,4 +1,4 @@
-import { space, type } from '../../tokens';
+import { LARGE_TEXT_FONT_SCALE, space, type } from '../../tokens';
 
 /**
  * Card geometry, shared by every card and its skeleton so loading → content never shifts.
@@ -43,7 +43,7 @@ export const STACK_STATUS_BELOW = 600;
 
 /** Window width (dp) under which MiniCards go one per row (approved Q13); also at font scale ≥ MINI_SINGLE_COLUMN_FONT_SCALE. */
 export const MINI_SINGLE_COLUMN_BELOW = 360;
-export const MINI_SINGLE_COLUMN_FONT_SCALE = 1.5;
+export const MINI_SINGLE_COLUMN_FONT_SCALE = LARGE_TEXT_FONT_SCALE;
 
 const posterBodyMinHeight =
   cardLayout.pad * 2 + cardLayout.statusRow + cardLayout.titleGap + type.cardTitle.lineHeight * POSTER_RESERVED_TITLE_LINES

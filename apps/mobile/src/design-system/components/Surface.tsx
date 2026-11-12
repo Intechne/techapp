@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, View, useWindowDimensions, type StyleProp, type ViewProps, type ViewStyle } from 'react-native';
-import { colors, radius, semantic, space } from '../tokens';
+import { LARGE_TEXT_FONT_SCALE, colors, radius, semantic, space } from '../tokens';
 import { Text } from '../Text';
 import { TechIcon, type TechIconName } from '../TechIcon';
 import { TextButton } from './Button';
@@ -93,7 +93,7 @@ export function Divider({ spacing = space[5] }: { spacing?: number }) {
 
 /** Below this window width, or from this font scale, the action drops under the title instead of squeezing it (approved D1). */
 export const SECTION_STACK_BELOW = 360;
-export const SECTION_STACK_FONT_SCALE = 1.5;
+export const SECTION_STACK_FONT_SCALE = LARGE_TEXT_FONT_SCALE;
 
 export function SectionHeader({ title, actionLabel, onAction }: { title: string; actionLabel?: string; onAction?: () => void }) {
   const { width, fontScale } = useWindowDimensions();

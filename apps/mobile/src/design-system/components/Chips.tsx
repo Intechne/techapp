@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { colors, fonts, layout, radius, space, tones } from '../tokens';
+import { LARGE_TEXT_FONT_SCALE, colors, fonts, layout, radius, space, tones, type as typeScale } from '../tokens';
 import { Text } from '../Text';
 import { TechIcon, type TechIconName } from '../TechIcon';
 import { keepNumbersTogether } from './cards/label';
@@ -58,13 +58,28 @@ export function VerificationBadge({ verified, by }: { verified: boolean; by?: st
     : <Tag tone="neutral" label="KENDİ BEYANI" />;
 }
 
-/** From this font scale the segments stack in one column: three equal tiles cannot hold a long word ("Deneyimler") at 200% without splitting it. */
-export const SEGMENTS_STACK_FONT_SCALE = 1.5;
+/** Average glyph advance of the semibold 14 pt label, as a fraction of the font size (Turkish text, measured on the shipped font). */
+const SEGMENT_GLYPH_EM = 0.58;
+/** Segment chrome: container padding 4 + 4, gap 4 between segments, segment horizontal padding 4 + 4. */
+const SEGMENT_CHROME = { container: 8, gap: 4, padding: 8 } as const;
+
+/**
+ * Stacked (one column) only when it is needed: at large text (>= LARGE_TEXT_FONT_SCALE) AND the longest word of any label
+ * no longer fits its equal-width segment. A long word ("Deneyimler" in three tiles, or any word on a 320 dp window) would
+ * split mid-word; two short labels ("Takımlar" / "Topluluklar") keep fitting side by side, and so do tablets.
+ */
+export function segmentsShouldStack(options: readonly string[], width: number, fontScale: number): boolean {
+  if (fontScale < LARGE_TEXT_FONT_SCALE || options.length < 2) return false;
+  const inner = width - 2 * layout.gutter - SEGMENT_CHROME.container - SEGMENT_CHROME.gap * (options.length - 1);
+  const segment = inner / options.length - SEGMENT_CHROME.padding;
+  const longestWord = Math.max(...options.flatMap((o) => o.split(/\s+/)).map((w) => w.length));
+  return longestWord * typeScale.label.fontSize * SEGMENT_GLYPH_EM * fontScale > segment;
+}
 
 export function SegmentedControl<T extends string>({ options, value, onChange }: { options: readonly T[]; value: T; onChange: (v: T) => void }) {
-  const { fontScale } = useWindowDimensions();
+  const { fontScale, width } = useWindowDimensions();
   return (
-    <View testID="segmented" style={[styles.segmented, fontScale >= SEGMENTS_STACK_FONT_SCALE && styles.segmentedStacked]} accessibilityRole="tablist">
+    <View testID="segmented" style={[styles.segmented, segmentsShouldStack(options, width, fontScale) && styles.segmentedStacked]} accessibilityRole="tablist">
       {options.map((o) => (
         <Pressable key={o} accessibilityRole="tab" accessibilityState={{ selected: o === value }} onPress={() => onChange(o)}
           style={[styles.segment, o === value && styles.segmentActive]}>

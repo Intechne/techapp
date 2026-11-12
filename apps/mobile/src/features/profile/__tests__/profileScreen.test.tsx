@@ -109,7 +109,11 @@ describe('breakAfterHyphen', () => {
   it('the spoken name stays the plain name (no invisible characters)', async () => {
     (mockCv.profile as { display_name: string }).display_name = LONG;
     await open();
-    expect(within(screen.getByTestId('identity-card')).getByLabelText(LONG)).toBeTruthy();
+    const name = within(screen.getByTestId('identity-card')).getByLabelText(LONG);
+    expect(name.props.accessibilityLabel).toBe(LONG);
+    expect(name.props.accessibilityLabel).not.toContain('\u200B');
+    // The drawn text carries the break point after the hyphen (raw string: the default normalizer would hide it).
+    expect(within(screen.getByTestId('identity-card')).getByText('Ayşegül Nur Karaosmanoğlu-\u200BÇağlayan', { normalizer: (t) => t })).toBe(name);
   });
 });
 

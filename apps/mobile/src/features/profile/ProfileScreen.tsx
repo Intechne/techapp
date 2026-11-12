@@ -5,7 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   AppHeader, Avatar, Button, Card, Divider, EmptyState, ErrorState, IconButton, LoadingSkeleton, MetadataRow, Modal, Notice, ResponsiveGrid, RowCard, Screen,
   SegmentedControl, SectionHeader, TextButton, checkedInRegistrationView, formatCount, membershipStatusView, metaJoin, registrationStatusView,
-  Tag, TechIcon, Text, colors, radius, space, useToast, type RowLines, type TechIconName,
+  LARGE_TEXT_FONT_SCALE, Tag, TechIcon, Text, colors, radius, space, useToast, type RowLines, type TechIconName,
 } from '../../design-system';
 import { formatDate, formatDateTime } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
@@ -31,7 +31,7 @@ const SEGMENTS = ['Deneyimler', 'Katılımlar', 'Takımlar'] as const;
 /** A Yaklaşan row: two-line title, date, status under the text on phones (approved Q6). */
 export const UPCOMING_ROW_LINES: RowLines = { title: 2, secondary: 1, footnote: 'none', status: true };
 /** From this font scale the three counters stack (approved Q14): three columns of large text cut their own labels. */
-const COUNTERS_STACK_FONT_SCALE = 1.5;
+const COUNTERS_STACK_FONT_SCALE = LARGE_TEXT_FONT_SCALE;
 /** Android keeps "Karaosmanoğlu-Çağlayan" as one unbreakable token and splits inside the second part; a zero-width space after the hyphen gives the line a break point at it. */
 export const breakAfterHyphen = (name: string) => name.replace(/-(?=\p{L})/gu, '-\u200B');
 const EXPERIENCE_NOUN = { one: 'deneyim', other: 'deneyim' };
@@ -95,9 +95,9 @@ export function ProfileScreen({ navigation, route }: NativeStackScreenProps<Prof
   if (!userId) {
     return (
       <Screen header={<AppHeader brand />}>
-        <Text variant="display" style={{ marginBottom: space[5] }}>Yaptıkların{'\n'}seni anlatsın.</Text>
-        <Text variant="body" color="textSecondary" style={{ marginBottom: space[5] }}>Giriş yaptığında deneyimlerin, doğrulamaların ve katılımların tek bir profilde toplanır.</Text>
-        <Card testID="guest-benefits" style={{ gap: space[4] }}>
+        <Text variant="display" style={{ marginTop: space[4], marginBottom: space[6] }}>Yaptıkların{'\n'}seni anlatsın.</Text>
+        <Text variant="body" color="textSecondary" style={{ marginBottom: space[7] }}>Giriş yaptığında deneyimlerin, doğrulamaların ve katılımların tek bir profilde toplanır.</Text>
+        <Card testID="guest-benefits" style={{ gap: space[5], paddingVertical: space[6] }}>
           {BENEFITS.map((b) => (
             <View key={b.text} style={styles.benefit}>
               <View style={styles.benefitIcon}><TechIcon name={b.icon} color={colors.primary} /></View>
@@ -105,7 +105,7 @@ export function ProfileScreen({ navigation, route }: NativeStackScreenProps<Prof
             </View>
           ))}
         </Card>
-        <Button style={{ marginTop: space[5] }} label="Giriş yap veya hesap oluştur" onPress={() => navigation.getParent()?.getParent()?.navigate('AuthEmail')} />
+        <Button style={{ marginTop: space[7] }} label="Giriş yap veya hesap oluştur" onPress={() => navigation.getParent()?.getParent()?.navigate('AuthEmail')} />
       </Screen>
     );
   }

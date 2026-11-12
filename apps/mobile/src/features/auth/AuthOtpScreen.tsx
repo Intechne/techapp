@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, InteractionManager, TextInput, View } from 'react-native';
+import { AccessibilityInfo, TextInput, View } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppHeader, Button, Input, Notice, Screen, Text, TextButton, codeField, colors, fonts, space } from '../../design-system';
@@ -12,6 +12,8 @@ import { otpFlow } from './otpFlow';
 import { accountStateKey, useAccountState, useSession } from './SessionProvider';
 
 const RESEND_SECONDS = 60;
+
+export const FOCUS_AFTER_PUSH_MS = 350;
 
 export function AuthOtpScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'AuthOtp'>) {
   // Snapshot once per mount: clearing the module memory (success, back-out) must not re-trigger the redirect below.
@@ -33,12 +35,13 @@ export function AuthOtpScreen({ navigation }: NativeStackScreenProps<RootStackPa
   // Runs after the native-stack push has settled; a failed screen-reader query counts as "off".
   useEffect(() => {
     let live = true;
-    let task: { cancel: () => void } | null = null;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     AccessibilityInfo.isScreenReaderEnabled().catch(() => false).then((on) => {
       if (!live || on) return;
-      task = InteractionManager.runAfterInteractions(() => { if (live) field.current?.focus(); });
+      // InteractionManager is deprecated in RN 0.86; a short timer covers the native-stack push (~350 ms).
+      timer = setTimeout(() => { if (live) field.current?.focus(); }, FOCUS_AFTER_PUSH_MS);
     });
-    return () => { live = false; task?.cancel(); };
+    return () => { live = false; clearTimeout(timer); };
   }, []);
 
   useEffect(() => {

@@ -18,10 +18,11 @@ interface Props {
 
 /** The single icon API. Open Circuit v2: 24×24 grid, 1.75 stroke, round caps/joins. Decorative by default. */
 export function TechIcon({ name, size = 24, color = colors.ink, filled = false, accessibilityLabel }: Props) {
+  // The markup carries role="presentation" (the glyph itself is never the accessible node); the wrapper props below decide hidden vs labelled image.
   // No aria-hidden in the markup: react-native-svg camelCases it to `ariaHidden` on the DOM <svg> (React warning). The wrapper props below hide decorative icons.
   const xml = useMemo(
     () =>
-      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${((filled && iconFillPaths[name]) || iconPaths[name]).replaceAll('currentColor', color)}</svg>`,
+      `<svg xmlns="http://www.w3.org/2000/svg" role="presentation" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${((filled && iconFillPaths[name]) || iconPaths[name]).replaceAll('currentColor', color)}</svg>`,
     [name, color, filled],
   );
   // Labelled icons stay exposed as images. Decorative ones are hidden from screen readers on every target:

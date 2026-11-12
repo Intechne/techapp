@@ -12,6 +12,15 @@ import { DeadlinesScreen } from '../DeadlinesScreen';
 import { MyApplicationsScreen } from '../MyApplicationsScreen';
 
 const DAY = 86_400_000;
+// The clock is fixed (only Date; timers stay real): every "n days out" assertion is independent of the time of day the suite runs.
+const NOW = new Date('2026-11-12T09:00:00Z'); // Thursday 12:00 in Istanbul
+beforeAll(() => {
+  jest.useFakeTimers({
+    now: NOW,
+    doNotFake: ['hrtime', 'nextTick', 'performance', 'queueMicrotask', 'requestAnimationFrame', 'cancelAnimationFrame', 'requestIdleCallback', 'cancelIdleCallback', 'setImmediate', 'clearImmediate', 'setInterval', 'clearInterval', 'setTimeout', 'clearTimeout'],
+  });
+});
+afterAll(() => { jest.useRealTimers(); });
 const iso = (d: number) => new Date(Date.now() + d * DAY).toISOString();
 const opp = (id: string, title: string, over: Record<string, unknown> = {}) => ({
   id, title, summary: 'Kısa özet.', description: 'Uzun açıklama.', type: 'internship', tone: 'iris', city: null, is_remote: true,
@@ -68,7 +77,6 @@ describe('Fırsat türü ikonları', () => {
 });
 
 // ---- 2. remaining-day tones --------------------------------------------------------------------------------------
-const NOW = new Date('2026-11-12T09:00:00Z'); // Thursday 12:00 in Istanbul
 describe('kalan gün etiketi tonu (sınırlar)', () => {
   it.each([
     ['today', '2026-11-12T20:00:00Z', 'SON GÜN BUGÜN', 'apricot'],
@@ -109,7 +117,7 @@ describe('Fırsatlar listesi', () => {
     await render(wrap(<OpportunitiesScreen {...props<React.ComponentProps<typeof OpportunitiesScreen>>('OpportunitiesHome')} />));
     await screen.findByText('Yakın çağrı');
     const feet = screen.getAllByTestId('row-foot');
-    const tag = within(feet[0]!).getByText(/^SON\s[34]\sGÜN$/);
+    const tag = within(feet[0]!).getByText('SON 3 GÜN');
     expect(StyleSheet.flatten(tag.props.style).color).toBe(colors.primary);
     expect(within(feet[1]!).queryByText(/GÜN/)).toBeNull();
     expect(within(feet[1]!).getByText(/^Son başvuru:/)).toBeTruthy();
@@ -194,7 +202,7 @@ describe('Fırsat detayı — pasif birincil düğme yok', () => {
   it('the description is collapsible text (ReadMoreText) and the tag row carries the new tone, not danger', async () => {
     mockOpportunity = opp('o1', 'Yaz stajı', { closes_at: iso(0.2) });
     await renderDetail();
-    const tag = screen.getAllByText(/^SON\s(GÜN\sBUGÜN|1\sGÜN)$/)[0]!; // today or (after Istanbul midnight) 1 day: both apricot
+    const tag = screen.getAllByText('SON GÜN BUGÜN')[0]!; // 4.8 h after the fixed noon: still today in Istanbul
     expect(StyleSheet.flatten(tag.props.style).color).toBe(tones.apricot.fg);
     expect(StyleSheet.flatten(tag.props.style).color).not.toBe(colors.danger);
   });

@@ -3,7 +3,7 @@ import { AccessibilityInfo, StyleSheet, TextInput } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthOtpScreen } from '../AuthOtpScreen';
+import { AuthOtpScreen, FOCUS_AFTER_PUSH_MS } from '../AuthOtpScreen';
 import { StartupUnavailableScreen } from '../StartupUnavailableScreen';
 import { otpFlow } from '../otpFlow';
 import { noticeTones, radius } from '../../../design-system';
@@ -46,9 +46,9 @@ describe('AuthOtp field and error', () => {
     beforeEach(() => focus.mockClear());
     afterAll(() => { focus.mockRestore(); });
     const open = async () => { otpFlow.begin('ada@example.com'); return render(wrap(<AuthOtpScreen {...props()} />)); };
-    const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 30)); });
+    const settle = () => act(async () => { await new Promise((r) => setTimeout(r, FOCUS_AFTER_PUSH_MS + 30)); });
 
-    it('no autoFocus prop; reader off: focus is requested after interactions', async () => {
+    it('no autoFocus prop; reader off: focus is requested once the push has settled', async () => {
       reader(async () => false);
       await open();
       expect(screen.getByLabelText('Doğrulama kodu').props.autoFocus).toBeFalsy();
