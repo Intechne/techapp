@@ -1,5 +1,26 @@
 > **V5 — 11 Kasım 2026 (dal `feat/v5-pilot-platform`).** Güncel durum bu bölümdedir. 7 Ekim ve daha eski bölümler **tarihsel kayıttır**; çelişen yerde bu bölüm geçerlidir. ✅ yalnız bugün ölçülen ya da kanıtı yazılı olan şey içindir.
 
+## Faz 3b — çekirdek modüller (dal `feat/v5-product`, sürüyor)
+Plan: `docs/superpowers/plans/2026-11-12-techapp-v5-faz3b-core-modules.md`. Görev kaydı: `.superpowers/sdd/2026-11-12-techapp-v5-faz3b-core-modules/` (yerel).
+
+| Görev | Konu | Commit'ler | Staging |
+|---|---|---|---|
+| T1 | Pilot borçları (Katılım etiketi, yenileme, veli sorgusu, kart anahtarı) | `eedcb43`, `584c72a` | — (yalnız istemci) |
+| T2 | `teams.created_by` / `recruitment_posts.created_by` sütun gizliliği (`20261112000300`) | `d4254af` + belge düzeltmesi | ⏸ bekletildi (önce istemci) |
+| T3 | Kapak görselleri — sunucu (`20261113000100_covers`) | `79dd2b1` + fix round 1 | ⏸ bekletildi |
+
+**T3 — ne geldi (yalnız yerelde kanıtlı: `npm run db:test`, remote regresyonun yerel kuru koşusu; staging'de koşulmadı):**
+- `events`, `opportunities`, `teams`: `cover_path` + `cover_blurhash`; yol sözleşmesi `<tür>/<kurum ya da takım id>/<uuid>.webp` (+ istemci kuralı `-640` küçük kopya). Klasör = satırın kendi sahibi (CHECK).
+- Tek yazma yolu `public.set_cover(p_entity, p_entity_id, p_path, p_blurhash)`: kurum owner|admin|editor (etkinlik/fırsat), etkin kaptan (takım), platform admini; başka yazma trigger ile 403. `cover_path` kritik alan: yayındaki etkinlik/fırsatta kapak koyma, değiştirme **ve kaldırma** yeniden incelemeye düşürür; takım kapağı audit'e (yalnız id) yazılır.
+- `covers` bucket'ı: public URL ile servis, **yalnız `image/webp`**, ≤2 MB. Listeleme/okuma API'de yalnız klasör sahibine; yükleme/silme yalnız klasör sahibine; UPDATE yok; kullanımdaki dosya silinemez ve aynı adla yeniden yüklenemez.
+- İstemci şartları (T4 admin, T5 mobil): her görsel WebP'ye yeniden kodlanır (EXIF/GPS silinir); `upsert: false`, her görsel yeni uuid; önce iki dosya, sonra `set_cover`; başarılı değiştirme/kaldırmadan sonra eski dosya çifti Storage API ile silinir.
+- Kaldırma talebi (moderasyon, veli, kurum): iki adım zorunlu — `set_cover(…, null)` sonra iki dosyanın Storage API ile silinmesi. CDN ve istemci disk önbelleği görseli silindikten sonra bir süre daha gösterebilir.
+- Yetim dosyalar: kullanımda olmayan ve 24 saatten eski `covers` nesnelerini Storage API ile (SQL DELETE değil) silen zamanlanmış temizlik **henüz yok** → Faz 6 ops.
+
+**Bekletilen (Step 5, kullanıcı onayı gerekir):** staging `db push` + remote regresyon 22–22h — Cezeri pilotu (27–29 Kasım) bitene kadar yok. Yayın sırası: (1) sütun listeli istemci OTA/build → (2) `20261112000300` → (3) `20261113000100` → (4) remote regresyon + kalıntı kontrolü + public URL'nin curl ile kontrolü. `20261112000300`, `20261113000100`'den **önce** uygulanmalı: içindeki toplu `revoke select on public.teams` sütun düzeyi SELECT'leri de kaldırır, sonra uygulanırsa kapak sütunlarının grant'i düşer.
+
+**Notlar (karar bekleyen / sonraki görev):** askıya alınmış (`moderation_status = 'suspended'`) takımın kaptanı kapağı hâlâ değiştirebilir (takım herkese gizli); takım kapağında 18 yaş altı fotoğraf kuralı Task 5 ürün kararı; `team_projects.cover_path` (T6) bu sözleşmeye henüz bağlı değil.
+
 ## Faz 4 — tasarım sistemi ve beş sekme (12–13 Kasım 2026, dal `feat/v5-product`)
 Plan: `docs/superpowers/plans/2026-11-12-techapp-v5-faz4-design-system-and-five-tabs.md`. Önizleme kapısı kullanıcı tarafından onaylandı (12 Kasım, “önerilerle onay”; `docs/design/faz4-preview/REVIEW.md`). Son görüntüler onaylı taslakla yan yana: `docs/design/faz4-final/` (README'de sapmalar). Bu dal pilot dalından ayrıdır; pilot yolu etkilenmedi.
 

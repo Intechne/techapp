@@ -331,6 +331,27 @@ describe('cover columns are written only through set_cover', () => {
     expect(flagged).toEqual(['set_cover']);
     // pg_catalog.set_config is not in an exposed schema; the API roles have no SQL access beyond PostgREST.
   });
+
+  it('no public function runs dynamic SQL built from non-literal text (EXECUTE only with a literal string)', async () => {
+    // A public function with `execute format(...)` / `execute v_sql` could be steered into set_config or any statement.
+    const { rows } = await admin(`select p.proname, p.prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public' and p.prolang = (select oid from pg_language where lanname = 'plpgsql')`);
+    expect(rows.length).toBeGreaterThan(20);
+    const offenders: string[] = [];
+    for (const r of rows) {
+      const src = (r.prosrc as string).replace(/--[^\n]*/g, ''); // comments
+      for (const m of src.matchAll(/\bexecute\s+(\S)/gi)) {
+        if (m[1] !== "'" && m[1] !== '$') offenders.push(`${r.proname}: execute ${m[1]}…`);
+      }
+      for (const m of src.matchAll(/set_config\s*\(\s*([^,]*),/gi)) {
+        if (!/^'[a-z_.]+'$/.test(m[1]!.trim())) offenders.push(`${r.proname}: set_config(${m[1]!.trim()}, …)`);
+      }
+    }
+    expect(offenders).toEqual([]);
+    // the scanner itself catches the shapes it is meant to catch
+    const probe = `begin execute format('select %s', x); execute v_sql; perform set_config(p_name, 'on', true); execute 'select 1'; end`;
+    expect([...probe.matchAll(/\bexecute\s+(\S)/gi)].filter((m) => m[1] !== "'" && m[1] !== '$')).toHaveLength(2);
+  });
 });
 
 // ================================================================ grants
@@ -344,6 +365,23 @@ describe('set_cover · grants', () => {
         has_function_privilege('public', p.oid, 'execute') pub
       from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = 'set_cover'`)).rows;
     expect(p).toEqual([{ prosecdef: true, proconfig: ['search_path=""'], anon: false, auth: true, pub: false }]);
+  });
+
+  it('the new app.* helpers are not executable by anon/public; the two the storage policies call are granted to authenticated', async () => {
+    const { rows } = await admin(`select p.proname,
+        has_function_privilege('anon', p.oid, 'execute') anon, has_function_privilege('authenticated', p.oid, 'execute') auth,
+        exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a where a.grantee = 0 and a.privilege_type = 'EXECUTE') pub
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'app' and p.proname in ('cover_object_pattern', 'can_write_cover_folder', 'can_write_cover_object', 'cover_object_in_use', 'guard_cover_columns')
+      order by p.proname`);
+    expect(rows).toEqual([
+      { proname: 'can_write_cover_folder', anon: false, auth: false, pub: false },
+      { proname: 'can_write_cover_object', anon: false, auth: true, pub: false },
+      { proname: 'cover_object_in_use', anon: false, auth: true, pub: false },
+      { proname: 'cover_object_pattern', anon: false, auth: false, pub: false },
+      { proname: 'guard_cover_columns', anon: false, auth: false, pub: false },
+    ]);
+    await expect(asAnon((q) => q(`select app.cover_object_in_use('events/x/y.webp')`))).rejects.toThrow(PERMISSION_DENIED);
   });
 
   it('anyone reads the cover columns of published events / opportunities and public teams', async () => {
@@ -479,10 +517,10 @@ const put = (name: string) => `insert into storage.objects (bucket_id, name) val
 const RLS_DENIED = /row-level security/;
 
 describe('covers bucket · storage policies (stand-in storage schema, rolled back)', () => {
-  it('the bucket is public, webp/jpeg/png only, at most 2 MB', async () => {
+  it('the bucket is public, WebP only (clients re-encode, which strips EXIF/GPS), at most 2 MB', async () => {
     await withStorage(async (run) => {
       const b = (await run(null, `select public, file_size_limit, allowed_mime_types from storage.buckets where id = 'covers'`)).rows;
-      expect(b).toEqual([{ public: true, file_size_limit: '2097152', allowed_mime_types: ['image/webp', 'image/jpeg', 'image/png'] }]);
+      expect(b).toEqual([{ public: true, file_size_limit: '2097152', allowed_mime_types: ['image/webp'] }]);
     });
   });
 
@@ -517,14 +555,43 @@ describe('covers bucket · storage policies (stand-in storage schema, rolled bac
     });
   });
 
-  it('read: anyone (anon included) reads objects of the covers bucket, and only of that bucket', async () => {
-    const o = await twoOrgs();
+  it('list/select: only the folder\'s writers; anon and other organisations see nothing (public URLs bypass this, not testable in SQL)', async () => {
+    const o = await twoOrgs(); const t = await createTeam(); const pa = await platformAdmin(); const outsider = await createUser();
     await withStorage(async (run) => {
-      const name = `events/${o.orgA}/${randomUUID()}.webp`;
+      const a = `events/${o.orgA}/${randomUUID()}.webp`; const b = `events/${o.orgB}/${randomUUID()}.webp`;
+      const tm = `teams/${t.id}/${randomUUID()}.webp`;
       await run(null, `insert into storage.buckets (id, name) values ('other', 'other')`);
-      await run(null, put(name));
+      for (const n of [a, b, tm]) await run(null, put(n));
       await run(null, `insert into storage.objects (bucket_id, name) values ('other', 'x/y.webp')`);
-      expect((await run(anon, `select name from storage.objects`)).rows).toEqual([{ name }]);
+      const names = async (who: Who) => (await run(who, `select name from storage.objects order by name`)).rows.map((r) => r.name);
+      expect(await names(anon)).toEqual([]);
+      expect(await names(user(outsider))).toEqual([]);
+      expect(await names(user(o.staff))).toEqual([]);
+      expect(await names(user(t.mentor))).toEqual([]);
+      expect(await names(user(o.editor))).toEqual([a]);
+      expect(await names(user(o.editorB))).toEqual([b]);
+      expect(await names(user(o.both))).toEqual([a, b].sort());
+      expect(await names(user(t.captain))).toEqual([tm]);
+      expect(await names(user(pa))).toEqual([a, b, tm].sort());
+    });
+  });
+
+  it('a name that a row uses can never be uploaded again — even after its file disappeared', async () => {
+    const o = await twoOrgs(); const pa = await platformAdmin();
+    const event = await createEvent(o.orgA);
+    await withStorage(async (run) => {
+      const file = randomUUID(); const main = `events/${o.orgA}/${file}.webp`; const thumb = `events/${o.orgA}/${file}-640.webp`;
+      await run(user(o.editor), put(main)); await run(user(o.editor), put(thumb));
+      await run(user(pa), `select public.set_cover('events', '${event}', '${main}', null)`); // approved cover, stays published
+      // takedown without clearing the row first is refused, for the platform admin too
+      expect((await run(user(pa), `delete from storage.objects where name in ('${main}', '${thumb}')`)).rowCount).toBe(0);
+      // the files vanish anyway (storage-side removal, an interleaving with a concurrent bind, ops error …)
+      await run(null, `delete from storage.objects where name in ('${main}', '${thumb}')`);
+      // the owner cannot fill the approved path with a new image behind review's back — neither main nor thumbnail
+      await expect(run(user(o.editor), put(main))).rejects.toThrow(RLS_DENIED);
+      await expect(run(user(o.editor), put(thumb))).rejects.toThrow(RLS_DENIED);
+      await expect(run(user(pa), put(main))).rejects.toThrow(RLS_DENIED);
+      expect((await run(null, `select status from public.events where id = '${event}'`)).rows[0].status).toBe('published');
     });
   });
 
@@ -552,14 +619,24 @@ describe('covers bucket · storage policies (stand-in storage schema, rolled bac
     });
   });
 
-  it('a platform admin can take down an image that is in use (moderation)', async () => {
-    const o = await twoOrgs(); const pa = await platformAdmin();
-    const event = await createEvent(o.orgA, { status: 'draft' });
+  it('takedown (moderation / parent request) = set_cover(null) then delete both files; the row is cleared first', async () => {
+    const o = await twoOrgs(); const pa = await platformAdmin(); const t = await createTeam();
+    const event = await createEvent(o.orgA);
     await withStorage(async (run) => {
-      const file = randomUUID(); const main = `events/${o.orgA}/${file}.webp`;
-      await run(user(o.editor), put(main)); await run(user(o.editor), put(`events/${o.orgA}/${file}-640.webp`));
-      await run(user(o.editor), `select public.set_cover('events', '${event}', '${main}', null)`);
-      expect((await run(user(pa), `delete from storage.objects where name = '${main}'`)).rowCount).toBe(1);
+      const file = randomUUID(); const main = `events/${o.orgA}/${file}.webp`; const thumb = `events/${o.orgA}/${file}-640.webp`;
+      await run(user(o.editor), put(main)); await run(user(o.editor), put(thumb));
+      await run(user(pa), `select public.set_cover('events', '${event}', '${main}', null)`);
+      expect((await run(user(pa), `delete from storage.objects where name = '${main}'`)).rowCount).toBe(0); // still in use
+      await run(user(pa), `select public.set_cover('events', '${event}', null, null)`);
+      expect((await run(user(pa), `delete from storage.objects where name in ('${main}', '${thumb}')`)).rowCount).toBe(2);
+      expect((await run(null, `select status, cover_path from public.events where id = '${event}'`)).rows)
+        .toEqual([{ status: 'published', cover_path: null }]); // the approver's change is the review
+      // a team cover the same way (e.g. a parent asks for a photo to be removed)
+      const tf = randomUUID(); const tmain = `teams/${t.id}/${tf}.webp`;
+      await run(user(t.captain), put(tmain)); await run(user(t.captain), put(`teams/${t.id}/${tf}-640.webp`));
+      await run(user(t.captain), `select public.set_cover('teams', '${t.id}', '${tmain}', null)`);
+      await run(user(pa), `select public.set_cover('teams', '${t.id}', null, null)`);
+      expect((await run(user(pa), `delete from storage.objects where name in ('${tmain}', 'teams/${t.id}/${tf}-640.webp')`)).rowCount).toBe(2);
     });
   });
 

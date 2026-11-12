@@ -1,11 +1,12 @@
 -- TechApp · Faz 3b Task 3 (13 Kasım 2026) — cover images for events, opportunities and teams.
 --
--- Path contract (bucket `covers`, public read):
+-- Path contract (bucket `covers`; public bucket = objects are served by URL, but listing/select through the API is owner-only):
 --   events/<organization_id>/<uuid>.webp · opportunities/<organization_id>/<uuid>.webp · teams/<team_id>/<uuid>.webp
 -- The first segment is the entity kind, the second is the OWNER folder (organisation or team id). The uploader produces two
 -- files: the main image and a 640 px copy with the same name plus `-640` (`<uuid>-640.webp`). The thumbnail name is a client
 -- convention only: the database stores the main path; clients derive the thumbnail by replacing `.webp` with `-640.webp`.
--- No image transformation service (paid plan feature).
+-- No image transformation service (paid plan feature). The bucket accepts image/webp only: clients (T4 admin, T5 mobile)
+-- MUST re-encode every picture to WebP before upload, which also strips EXIF/GPS metadata from camera photos.
 --
 -- Who may write a folder (app.can_write_cover_folder — the same rule backs set_cover AND the storage policies):
 --   events / opportunities → owner | admin | editor of that organisation · teams → an ACTIVE captain of that team ·
@@ -26,11 +27,27 @@
 -- from the image). Teams have no publish state; a team cover change is audited (ids only).
 --
 -- Storage objects are immutable: no UPDATE policy (no overwrite or rename in place, so an approved image cannot be swapped
--- under the same path), and a file that a row currently uses (main or -640) cannot be deleted except by a platform admin.
+-- under the same path). A file that a row currently uses (main or -640) can be neither deleted NOR uploaded again — for
+-- anyone, platform admins included — so a bound path can never be (re)filled with a different image behind review's back.
 -- With storage present, set_cover requires both files to exist, so a path cannot be bound first and filled after approval.
+-- Listing / API select of `covers` objects is limited to the folder's writers; bound covers are still served by public URL.
 --
--- Deploy order: this file sorts after 20261112000300_hide_creator_columns (held from staging until the client-first rollout
--- after the pilot). It does not depend on it: the teams column grant below is harmless while table-level SELECT still exists.
+-- Takedown (moderation, a parent's request, an organisation's request): ALWAYS two steps —
+--   1. public.set_cover(<entity>, <id>, null) — clears the row (re-review / audit as usual; a platform admin's change is the
+--      review), after which the files are no longer in use;
+--   2. delete BOTH files (`<uuid>.webp`, `<uuid>-640.webp`) through the Storage API (never SQL DELETE on storage.objects).
+--   The delete policy enforces the order: a file in use cannot be deleted.
+--   CDN caveat: public URLs may be cached at the CDN / in clients (expo-image disk cache) for a while after the delete.
+--
+-- Orphan policy: the T4 (admin) and T5 (mobile) clients delete the old file pair through the Storage API after a successful
+-- replace or remove. Files left behind (failed uploads, crashes) are removed by a scheduled cleanup that is NOT built yet:
+-- an Edge Function on a schedule, using the Storage API (not SQL DELETE), deleting `covers` objects that are not in use
+-- (app.cover_object_in_use) and older than 24 h. Target: Faz 6 ops (no Faz 3b task fits).
+--
+-- Deploy order: 20261112000300_hide_creator_columns MUST be applied BEFORE this file (held from staging until the
+-- client-first rollout after the pilot). Its bulk `revoke select on public.teams from anon, authenticated` also revokes every
+-- column-level SELECT on teams — including the cover_path / cover_blurhash grant below — so applying this file first (e.g.
+-- out of order) would leave team covers unreadable. In file order (000300, then this) the grant survives.
 
 -- ================================================================ 1. columns
 alter table public.events
@@ -94,6 +111,11 @@ language sql stable security definer set search_path = '' as $$
       or exists (select 1 from public.teams t, p where t.cover_path = p.main);
 $$;
 
+-- Not callable by the API roles except where a storage policy needs it (policies run with the caller's privileges).
+revoke execute on function app.cover_object_pattern(), app.can_write_cover_folder(text, uuid),
+  app.can_write_cover_object(text), app.cover_object_in_use(text) from public, anon;
+grant execute on function app.can_write_cover_object(text), app.cover_object_in_use(text) to authenticated;
+
 -- ================================================================ 3. one write path
 create or replace function app.guard_cover_columns() returns trigger
 language plpgsql security definer set search_path = '' as $$
@@ -111,6 +133,7 @@ begin
   return null;
 end $$;
 -- "cover_guard" sorts before *_protect / *_rereview / *_status_machine / *_touch: a forbidden write fails first.
+revoke execute on function app.guard_cover_columns() from public, anon;
 create trigger events_cover_guard before insert or update on public.events
   for each row execute function app.guard_cover_columns();
 create trigger opportunities_cover_guard before insert or update on public.opportunities
@@ -216,26 +239,30 @@ begin
 
   execute $sql$
     insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types) values
-      ('covers', 'covers', true, 2097152, array['image/webp', 'image/jpeg', 'image/png'])
+      ('covers', 'covers', true, 2097152, array['image/webp'])
     on conflict (id) do update
       set public = true,
           file_size_limit = excluded.file_size_limit,
           allowed_mime_types = excluded.allowed_mime_types
   $sql$;
 
+  -- Select/list only for the folder's writers (needed for upload responses and owner listing). Anyone else reaches a bound
+  -- cover through the bucket's public URL, which does not go through these policies; nobody can enumerate the bucket.
   execute $sql$
-    create policy covers_public_select on storage.objects for select to anon, authenticated
-      using (bucket_id = 'covers')
+    create policy covers_owner_select on storage.objects for select to authenticated
+      using (bucket_id = 'covers' and app.can_write_cover_object(name))
   $sql$;
+  -- A name that a row uses cannot be uploaded again (after any deletion of it), so a bound path is never refilled.
   execute $sql$
     create policy covers_owner_insert on storage.objects for insert to authenticated
-      with check (bucket_id = 'covers' and app.can_write_cover_object(name))
+      with check (bucket_id = 'covers' and app.can_write_cover_object(name) and not app.cover_object_in_use(name))
   $sql$;
   -- No UPDATE policy on purpose: objects are immutable (upload with upsert = false; a new image = a new uuid).
+  -- Takedown = set_cover(..., null) first, then delete (see header). No exception for platform admins: the row is always
+  -- cleared before its files disappear.
   execute $sql$
     create policy covers_owner_delete on storage.objects for delete to authenticated
-      using (bucket_id = 'covers' and app.can_write_cover_object(name)
-             and (app.is_platform_admin() or not app.cover_object_in_use(name)))
+      using (bucket_id = 'covers' and app.can_write_cover_object(name) and not app.cover_object_in_use(name))
   $sql$;
 end $$;
 -- covers-storage:end

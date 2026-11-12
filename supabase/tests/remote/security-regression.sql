@@ -327,19 +327,24 @@ begin
   else
     v_cv_path := 'events/' || v_org || '/' || gen_random_uuid() || '.webp';
     insert into storage.objects (bucket_id, name) values ('covers', v_cv_path);
+    -- Listing is owner-only. Bound covers are served by the public bucket URL (/storage/v1/object/public/covers/…), which does
+    -- not go through these policies — that path is not testable in SQL (check it with curl after the push).
     begin
       v_n := pg_temp.t_val('anon', null, format(
         $q$select count(*)::text from storage.objects where bucket_id = 'covers' and name = %L$q$, v_cv_path))::int;
-      perform pg_temp.t_rec('22 anon reads an object of the public covers bucket', v_n = 1, 'rows=' || v_n);
+      v_text := pg_temp.t_val('authenticated', v_editor, format(
+        $q$select count(*)::text from storage.objects where bucket_id = 'covers' and name = %L$q$, v_cv_path));
+      perform pg_temp.t_rec('22 anon cannot list the covers bucket; the folder owner can', v_n = 0 and v_text = '1',
+                            'anon_rows=' || v_n || ' owner_rows=' || coalesce(v_text, 'null'));
     exception when others then
-      perform pg_temp.t_rec('22 anon reads an object of the public covers bucket', false, sqlstate || ' ' || sqlerrm);
+      perform pg_temp.t_rec('22 anon cannot list the covers bucket; the folder owner can', false, sqlstate || ' ' || sqlerrm);
     end;
     perform pg_temp.t_fail('22b org A editor cannot upload into org B''s covers folder', 'authenticated', v_editor,
       format($q$insert into storage.objects (bucket_id, name) values ('covers', %L)$q$, 'events/' || v_org_b || '/' || gen_random_uuid() || '.webp'),
       '^42501');
     select format('%s/%s/%s', b.public::text, b.file_size_limit, b.allowed_mime_types) into v_text from storage.buckets b where b.id = 'covers';
-    perform pg_temp.t_rec('22c covers bucket: public, 2 MB, webp/jpeg/png only',
-                          v_text = 'true/2097152/{image/webp,image/jpeg,image/png}', 'bucket=' || coalesce(v_text, 'missing'));
+    perform pg_temp.t_rec('22c covers bucket: public, 2 MB, image/webp only',
+                          v_text = 'true/2097152/{image/webp}', 'bucket=' || coalesce(v_text, 'missing'));
     -- control: own-folder upload of both sizes, then set_cover on a PUBLISHED event → back to review with a revision row
     begin
       v_cv_path := 'events/' || v_org || '/' || gen_random_uuid() || '.webp';
