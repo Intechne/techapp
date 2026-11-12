@@ -196,7 +196,12 @@ düzenleyen → Neler olacak → Program → Bilmen gerekenler → Gönüllü ol
 
 ## Onay
 
-- Tarih:
-- Onaylanan kontak sayfaları:
-- İstenen değişiklikler:
-- Sorulara verilen cevaplar (1–16):
+- Tarih: 12 Kasım 2026 — kullanıcı: "önerilerle onay"
+- Onaylanan kontak sayfaları: 01–11 (hepsi)
+- İstenen değişiklikler: yok (öneriler olduğu gibi)
+- Sorulara verilen cevaplar (1–16): her soruda yukarıdaki **Öneri** kabul edildi.
+- Onaydan bağımsız düzeltilecek kırıklar: 320 / Android 1.0'da uzun adın kelime ortasından bölünmesi; %200'de
+  etiketlerin bölünmesi ("Doğrulanmı/ş", "Deneyiml/er", "1 d/k") — Task 4b + Task 9.
+- Uygulama sırası: Task 4b (onaylı kararların kart ailesi / ortak bileşen kısmı) → Task 5–10, `feat/v5-product` dalında
+  task başına temiz commit'lerle (plandaki `feat/v5-design-system` adı yerine mevcut ürün dalı). `feat/v5-design-preview`
+  yalnız başvuru taslağıdır, birleştirilmez.
