@@ -88,6 +88,14 @@ const COPY: Record<string, string> = {
   recruitment_post_not_found: 'Bu ilan artık yayında değil.',
   recruitment_closed: 'Bu ilan şu an başvuru almıyor.',
   recruitment_application_not_pending: 'Bu başvuru artık karar beklemiyor.',
+  // covers (set_cover)
+  cover_forbidden: 'Kapağı yalnızca takımın kaptanı değiştirebilir.',
+  cover_path_forbidden: 'Bu görsel buraya bağlanamaz. Yeniden yükleyip dener misin?',
+  cover_path_invalid: 'Görsel yüklenemedi. Yeniden dener misin?',
+  cover_blurhash_invalid: 'Görsel hazırlanamadı. Başka bir görselle dener misin?',
+  cover_upload_missing: 'Görsel yüklemesi tamamlanmadı. Yeniden yükleyip dener misin?',
+  cover_entity_invalid: 'Bu içeriğe kapak eklenemiyor.',
+  cover_target_not_found: 'Kapak eklemek istediğin içerik bulunamadı.',
   // opportunities, experiences, learning
   opportunity_not_found: 'Bu fırsat artık yayında değil.',
   applications_not_open: 'Bu fırsatın başvuruları henüz açılmadı.',

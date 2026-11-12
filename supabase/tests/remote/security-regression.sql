@@ -99,6 +99,7 @@ declare
   v_reg uuid; v_reg2 uuid; v_req uuid; v_req2 uuid; j jsonb; v_text text; v_n int; i int; v_editor uuid; v_opp uuid;
   v_owner_a uuid; v_owner_b uuid; v_staff uuid; v_captain uuid; v_member uuid; v_team uuid; v_cap_m uuid; v_mem_m uuid;
   v_appl uuid; v_sc_event uuid; v_sc_user uuid; v_sc_reg uuid; v_sc_code text; v_post uuid;
+  v_cv_event uuid; v_cv_path text;
   v_out jsonb;
 begin
   -- ================================================================ CV
@@ -305,6 +306,58 @@ begin
   end;
   perform pg_temp.t_fail('21d signed-in non-member cannot select * from teams', 'authenticated', v_other,
     format('select * from public.teams where id = %L', v_team), '^42501');
+
+  -- 20261113000100: covers — public bucket, folder = owner (org / team), one write path (set_cover), re-review on change.
+  -- v_editor = editor of v_org (org A); v_owner_b = owner of v_org_b (org B).
+  v_cv_event := pg_temp.t_event(v_org);
+  perform pg_temp.t_fail('22d set_cover with another organisation''s folder → cover_path_forbidden', 'authenticated', v_editor,
+    format($q$select public.set_cover('events', %L, %L, null)$q$, v_cv_event, 'events/' || v_org_b || '/' || gen_random_uuid() || '.webp'),
+    '^PT403 cover_path_forbidden');
+  perform pg_temp.t_fail('22e direct update of events.cover_path → cover_write_forbidden', 'authenticated', v_editor,
+    format($q$update public.events set cover_path = %L where id = %L$q$, 'events/' || v_org || '/' || gen_random_uuid() || '.webp', v_cv_event),
+    '^PT403 cover_write_forbidden');
+  perform pg_temp.t_fail('22f org B owner cannot set the cover of an org A event', 'authenticated', v_owner_b,
+    format($q$select public.set_cover('events', %L, %L, null)$q$, v_cv_event, 'events/' || v_org || '/' || gen_random_uuid() || '.webp'),
+    '^PT403 cover_forbidden');
+  perform pg_temp.t_fail('22h anon cannot call set_cover', 'anon', null,
+    format($q$select public.set_cover('events', %L, null, null)$q$, v_cv_event), '^42501');
+  if to_regclass('storage.objects') is null then
+    -- local dry-run only (the embedded/dev database has no storage schema); staging always has it
+    perform pg_temp.t_rec('22 / 22b / 22c / 22g SKIPPED: no storage schema on this database', true, 'skipped');
+  else
+    v_cv_path := 'events/' || v_org || '/' || gen_random_uuid() || '.webp';
+    insert into storage.objects (bucket_id, name) values ('covers', v_cv_path);
+    begin
+      v_n := pg_temp.t_val('anon', null, format(
+        $q$select count(*)::text from storage.objects where bucket_id = 'covers' and name = %L$q$, v_cv_path))::int;
+      perform pg_temp.t_rec('22 anon reads an object of the public covers bucket', v_n = 1, 'rows=' || v_n);
+    exception when others then
+      perform pg_temp.t_rec('22 anon reads an object of the public covers bucket', false, sqlstate || ' ' || sqlerrm);
+    end;
+    perform pg_temp.t_fail('22b org A editor cannot upload into org B''s covers folder', 'authenticated', v_editor,
+      format($q$insert into storage.objects (bucket_id, name) values ('covers', %L)$q$, 'events/' || v_org_b || '/' || gen_random_uuid() || '.webp'),
+      '^42501');
+    select format('%s/%s/%s', b.public::text, b.file_size_limit, b.allowed_mime_types) into v_text from storage.buckets b where b.id = 'covers';
+    perform pg_temp.t_rec('22c covers bucket: public, 2 MB, webp/jpeg/png only',
+                          v_text = 'true/2097152/{image/webp,image/jpeg,image/png}', 'bucket=' || coalesce(v_text, 'missing'));
+    -- control: own-folder upload of both sizes, then set_cover on a PUBLISHED event → back to review with a revision row
+    begin
+      v_cv_path := 'events/' || v_org || '/' || gen_random_uuid() || '.webp';
+      v_n := pg_temp.t_val('authenticated', v_editor, format(
+        $q$with i as (insert into storage.objects (bucket_id, name) values ('covers', %L), ('covers', %L) returning 1) select count(*)::text from i$q$,
+        v_cv_path, replace(v_cv_path, '.webp', '-640.webp')))::int;
+      perform pg_temp.t_val('authenticated', v_editor, format(
+        $q$select 'ok' from public.set_cover('events', %L, %L, 'LEHV6nWB2yk8pyo0adR*.7kCMdnj')$q$, v_cv_event, v_cv_path));
+      select e.status::text || ' ' || coalesce((select array_to_string(r.changed_fields, ',') from public.content_revisions r
+                                                where r.entity_id = e.id order by r.id desc limit 1), 'no-revision')
+        into v_text from public.events e where e.id = v_cv_event;
+      perform pg_temp.t_rec('22g own-folder upload (2 files) + set_cover on a published event → in_review + revision (control)',
+                            v_n = 2 and v_text = 'in_review cover_path', 'uploaded=' || v_n || ' ' || coalesce(v_text, 'null'));
+    exception when others then
+      perform pg_temp.t_rec('22g own-folder upload (2 files) + set_cover on a published event → in_review + revision (control)',
+                            false, sqlstate || ' ' || sqlerrm);
+    end;
+  end if;
 
   -- ================================================================ report (always rolls back)
   select jsonb_build_object('pass', count(*) filter (where pass), 'fail', count(*) filter (where not pass),

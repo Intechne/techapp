@@ -34,7 +34,7 @@ const ADMIN = 'raised only by organiser/platform RPCs the app never calls; copy 
 const ALLOWED: Record<string, string> = {
   cv_token_locked: LOCK, event_counters_locked: LOCK, event_field_locked: LOCK, event_tenant_locked: LOCK,
   experience_owner_locked: LOCK, field_locked: LOCK, task_team_locked: LOCK, team_counters_locked: LOCK,
-  team_field_locked: LOCK, tenant_locked: LOCK, org_verification_forbidden: LOCK,
+  team_field_locked: LOCK, tenant_locked: LOCK, org_verification_forbidden: LOCK, cover_write_forbidden: LOCK,
   'guardian_request_*': WEB, guardian_request_expired: WEB, guardian_token_invalid: WEB, guardian_name_required: WEB,
   policy_version_mismatch: WEB,
   publish_requires_platform_approval: ADMIN, event_status_transition_invalid: ADMIN, review_forbidden: ADMIN,
