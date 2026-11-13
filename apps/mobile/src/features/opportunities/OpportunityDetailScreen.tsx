@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
@@ -12,6 +12,7 @@ import { useAccountState, useSession } from '../auth/SessionProvider';
 import { usePendingIntent } from '../auth/pendingIntent';
 import { fetchMyApplicationFor, fetchOpportunity, opportunityKeys } from './api';
 import { FOLLOW_LABELS, OPPORTUNITY_TYPE, SHARED_FIELD_LABEL, deadlineTag, deadlineView, opportunityIneligibility, placeOf } from './labels';
+import { ReportLink, ReportSheet, type ReportSubject } from '../reports/ReportSheet';
 import { useBookmarks } from '../saved/useBookmarks';
 
 const sem = semantic.light;
@@ -22,6 +23,7 @@ export function OpportunityDetailScreen({ navigation, route }: NativeStackScreen
   const q = useQuery({ queryKey: opportunityKeys.detail(opportunityId), queryFn: () => fetchOpportunity(opportunityId) });
   const mine = useQuery({ queryKey: opportunityKeys.myApplicationFor(opportunityId, userId), queryFn: () => fetchMyApplicationFor(userId!, opportunityId), enabled: !!userId });
   const follow = useBookmarks('opportunity');
+  const [report, setReport] = useState<ReportSubject | null>(null);
 
   useFocusEffect(useCallback(() => {
     if (userId && intent.consume('apply_opportunity')) navigation.navigate('OpportunityApply', { opportunityId });
@@ -75,13 +77,17 @@ export function OpportunityDetailScreen({ navigation, route }: NativeStackScreen
         {(o.min_age !== null || (o.guardian_required_under ?? 0) >= 18) && <MetadataRow icon="shield" strong>{Math.max(o.min_age ?? 0, o.guardian_required_under ?? 0)}+ yaş</MetadataRow>}
       </View>
       {o.skills.length > 0 && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginTop: space[4] }}>{o.skills.map((s) => <Tag key={s} label={s} tone="neutral" />)}</View>}
-      {o.organization && <><Divider /><OrganizerRow name={o.organization.name} verified={o.organization.verification === 'verified'} caption="Çağrının sahibi" /></>}
+      {o.organization && <><Divider /><OrganizerRow name={o.organization.name} verified={o.organization.verification === 'verified'} caption="Çağrının sahibi" onPress={() => navigation.navigate('Organization', { organizationId: o.organization!.id })} /></>}
       {o.description && (<><Divider /><Text variant="section">Ayrıntılar</Text><ReadMoreText style={{ marginTop: space[2] }}>{o.description}</ReadMoreText></>)}
       <Divider />
       {external
         ? <Notice tone="info" title="Başvuru kurumun kendi sayfasında">Bu çağrıya TechApp dışından başvurulur; TechApp yalnızca son tarihi takip etmene yardım eder. Dış sayfada paylaştığın bilgiler o kurumun koşullarına tabidir.</Notice>
         : blocker ? null // what would be shared only matters while applying is possible
         : <Notice tone="success" title="Başvurunda paylaşılacak bilgiler">{o.shared_fields.map((f) => SHARED_FIELD_LABEL[f] ?? f).join(' · ')}. Göndermeden önce hepsini göreceksin; profilinin geri kalanı paylaşılmaz.</Notice>}
+      <View style={{ marginTop: space[5], flexDirection: 'row' }}>
+        <ReportLink accessibilityLabel="Fırsatı bildir" onPress={() => setReport({ targetType: 'opportunity', targetId: o.id, label: o.title })} />
+      </View>
+      <ReportSheet subject={report} userId={userId} onClose={() => setReport(null)} onSignIn={() => navigation.getParent()?.getParent()?.navigate('AuthEmail')} />
     </Screen>
   );
 }

@@ -38,6 +38,7 @@ import { TeamProjectEditorScreen } from '../features/teams/TeamProjectEditorScre
 import { RecruitmentPostEditorScreen } from '../features/teams/RecruitmentPostEditorScreen';
 import { CreateTeamScreen } from '../features/teams/CreateTeamScreen';
 import { DeadlinesScreen } from '../features/opportunities/DeadlinesScreen';
+import { OrganizationScreen } from '../features/organizations/OrganizationScreen';
 import { OpportunityDetailScreen } from '../features/opportunities/OpportunityDetailScreen';
 import { OpportunityApplyScreen } from '../features/opportunities/OpportunityApplyScreen';
 import { MyApplicationsScreen } from '../features/opportunities/MyApplicationsScreen';
@@ -91,6 +92,7 @@ function eventJourney<T extends typeof Discover | typeof Events | typeof Profile
       <S.Screen name="ParticipationCard" component={ParticipationCardScreen} />
       <S.Screen name="MyRegistrations" component={MyRegistrationsScreen} />
       <S.Screen name="VolunteerHub" component={VolunteerHubScreen} />
+      <S.Screen name="Organization" component={OrganizationScreen} />
     </>
   );
 }
@@ -102,7 +104,7 @@ const DiscoverStack = () => <Discover.Navigator screenOptions={stackOptions}><Di
  */
 const filterSheetOptions: NativeStackNavigationOptions = { presentation: 'formSheet', sheetAllowedDetents: [0.6, 1], sheetGrabberVisible: true, sheetCornerRadius: radius.hero, contentStyle: { backgroundColor: colors.surface } };
 const EventsStack = () => <Events.Navigator screenOptions={stackOptions}><Events.Screen name="EventsList" component={EventsListScreen} />{eventJourney(Events)}{learningJourney(Events)}</Events.Navigator>;
-const OpportunitiesStack = () => <Opportunities.Navigator screenOptions={stackOptions}><Opportunities.Screen name="OpportunitiesHome" component={OpportunitiesScreen} /><Opportunities.Screen name="Deadlines" component={DeadlinesScreen} /><Opportunities.Screen name="OpportunityDetail" component={OpportunityDetailScreen} /><Opportunities.Screen name="OpportunityApply" component={OpportunityApplyScreen} /><Opportunities.Screen name="MyApplications" component={MyApplicationsScreen} /></Opportunities.Navigator>;
+const OpportunitiesStack = () => <Opportunities.Navigator screenOptions={stackOptions}><Opportunities.Screen name="OpportunitiesHome" component={OpportunitiesScreen} /><Opportunities.Screen name="Deadlines" component={DeadlinesScreen} /><Opportunities.Screen name="OpportunityDetail" component={OpportunityDetailScreen} /><Opportunities.Screen name="OpportunityApply" component={OpportunityApplyScreen} /><Opportunities.Screen name="MyApplications" component={MyApplicationsScreen} /><Opportunities.Screen name="Organization" component={OrganizationScreen} /></Opportunities.Navigator>;
 const CommunityStack = () => <Community.Navigator screenOptions={stackOptions}><Community.Screen name="CommunityHome" component={CommunityScreen} /><Community.Screen name="TeamDetail" component={TeamDetailScreen} /><Community.Screen name="TeamWorkspace" component={TeamWorkspaceScreen} /><Community.Screen name="TeamTaskEditor" component={TeamTaskEditorScreen} /><Community.Screen name="TeamProjectEditor" component={TeamProjectEditorScreen} /><Community.Screen name="RecruitmentPostEditor" component={RecruitmentPostEditorScreen} /><Community.Screen name="CreateTeam" component={CreateTeamScreen} /></Community.Navigator>;
 const ProfileStack = () => <Profile.Navigator screenOptions={stackOptions}><Profile.Screen name="ProfileHome" component={ProfileScreen} /><Profile.Screen name="CheckIn" component={CheckInScreen} /><Profile.Screen name="Saved" component={SavedScreen} /><Profile.Screen name="Notifications" component={NotificationsScreen} /><Profile.Screen name="EditProfile" component={EditProfileScreen} /><Profile.Screen name="Settings" component={SettingsScreen} /><Profile.Screen name="NotificationSettings" component={NotificationSettingsScreen} /><Profile.Screen name="Privacy" component={PrivacyScreen} /><Profile.Screen name="ConsentCenter" component={ConsentCenterScreen} /><Profile.Screen name="ExperienceEditor" component={ExperienceEditorScreen} /><Profile.Screen name="ExperienceDetail" component={ExperienceDetailScreen} />{eventJourney(Profile)}{learningJourney(Profile)}</Profile.Navigator>;
 

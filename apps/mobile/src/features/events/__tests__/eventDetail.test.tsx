@@ -169,4 +169,17 @@ describe('Etkinlik detayı — tek engel kutusu, pasif birincil düğme yok', ()
     expect(screen.getByLabelText(/^Düzenleyen: Şehit Öğretmen Ayşe Gülşen Çağlayan Mesleki ve Teknik Anadolu Lisesi, doğrulanmış kurum$/)).toBeTruthy();
     expect(screen.queryByText(/ŞEHİT ÖĞRETMEN/)).toBeNull();
   });
+
+  it('the organiser row opens the organisation profile', async () => {
+    await renderDetail();
+    await fireEvent.press(screen.getByLabelText(/^Düzenleyen: Şehit Öğretmen/));
+    expect(navigate).toHaveBeenCalledWith('Organization', { organizationId: 'o' });
+  });
+
+  it('Bildir opens the report sheet for this event, with the server reasons', async () => {
+    await renderDetail();
+    await fireEvent.press(screen.getByRole('button', { name: 'Etkinliği bildir' }));
+    expect(screen.getByText('İçeriği bildir')).toBeTruthy();
+    expect(screen.getAllByRole('radio')).toHaveLength(7);
+  });
 });

@@ -195,3 +195,35 @@ describe('Takım profili — yönetim ve başvuru', () => {
     expect(screen.queryByRole('button', { name: 'Mekanik ekibine katıl: başvur' })).toBeNull();
   });
 });
+
+// Faz 3b Task 14: user-generated content (a team, its projects and open roles) can be reported by anyone who is not on the team.
+describe('Takım profili — Bildir', () => {
+  it('the team, each project and each open role carry their own Bildir; the sheet opens for the chosen one', async () => {
+    mockPosts = [post()]; mockProjects = [project()];
+    await detail();
+    await screen.findByText('Otonom şasi v2');
+    expect(screen.getByRole('button', { name: 'Takımı bildir' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Mekanik ekibine katıl: ilanı bildir' })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Otonom şasi v2: projeyi bildir' }));
+    expect(screen.getByText('İçeriği bildir')).toBeTruthy();
+    expect(screen.getAllByText('Otonom şasi v2').length).toBeGreaterThan(1); // the sheet names the content as typed
+  });
+
+  it('a member of the team is not offered Bildir on its own content', async () => {
+    mockPosts = [post()]; mockProjects = [project()]; mockMembership = { id: 'm1', status: 'active', role: 'member' };
+    await detail();
+    await screen.findByText('Otonom şasi v2');
+    expect(screen.queryByRole('button', { name: 'Takımı bildir' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Otonom şasi v2: projeyi bildir' })).toBeNull();
+  });
+
+  it('a guest who taps Bildir gets the sign-in prompt; the button leads to sign-in and nothing is queued', async () => {
+    mockUser = null; mockProjects = [project()];
+    await detail();
+    await fireEvent.press(await screen.findByRole('button', { name: 'Takımı bildir' }));
+    expect(screen.getByText('Bildirmek için giriş yapman gerekiyor.')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Giriş yap' }));
+    expect(authNavigate).toHaveBeenCalledWith('AuthEmail');
+    expect(mockIntentSet).not.toHaveBeenCalled();
+  });
+});

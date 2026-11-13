@@ -11,6 +11,8 @@ export type SharedEventParamList = {
   ParticipationCard: { registrationId: string };
   MyRegistrations: undefined;
   VolunteerHub: { eventId: string };
+  /** Kurum profili: reached from an event's organiser row, an opportunity's owner row. */
+  Organization: { organizationId: string };
 };
 
 /** Gelişim: reachable from Keşfet, Etkinlikler ("Bu etkinliğe hazırlan") and Profil > Kaydedilenler. */
@@ -34,6 +36,7 @@ export type OpportunitiesStackParamList = {
   OpportunityDetail: { opportunityId: string };
   OpportunityApply: { opportunityId: string };
   MyApplications: undefined;
+  Organization: { organizationId: string };
 };
 export type CommunityStackParamList = {
   CommunityHome: undefined;

@@ -117,6 +117,8 @@ const COPY: Record<string, string> = {
   experience_is_draft: 'Doğrulama istemeden önce deneyimini yayınlaman gerekiyor.',
   organization_not_found: 'Bu kurum bulunamadı.',
   lesson_not_found: 'Bu ders artık yayında değil.',
+  // reports (Bildir): the unique index on an open report by the same person
+  already_reported: 'Bu içeriği zaten bildirdin. Bildirimin kayıtta; tekrar göndermene gerek yok.',
   bookmark_target_not_found: 'Kaydetmek istediğin içerik artık yayında değil.',
   // profile, CV, check-in, requests
   discoverable_requires_adult: 'Profilini keşifte göstermek şimdilik 18 yaş ve üzeri için açık.',

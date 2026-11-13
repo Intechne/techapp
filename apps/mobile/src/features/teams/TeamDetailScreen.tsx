@@ -10,6 +10,7 @@ import { toAppError } from '../../lib/errors';
 import type { CommunityStackParamList } from '../../navigation/types';
 import { useSession } from '../auth/SessionProvider';
 import { usePendingIntent } from '../auth/pendingIntent';
+import { ReportLink, ReportSheet, type ReportSubject } from '../reports/ReportSheet';
 import { useBookmarks } from '../saved/useBookmarks';
 import { fetchMyMembership, fetchMyRecruitmentApplications, fetchOpenPosts, fetchTeam, fetchTeamProfile, fetchTeamProjects, requestJoin, teamKeys, withdrawJoin, type RecruitmentPost } from './api';
 import { categoryIcon } from './categoryIcon';
@@ -29,6 +30,7 @@ export function TeamDetailScreen({ navigation, route }: NativeStackScreenProps<C
   const intent = usePendingIntent();
   const saves = useBookmarks('team');
   const [sheet, setSheet] = useState(false); const [message, setMessage] = useState(''); const [applyTo, setApplyTo] = useState<RecruitmentPost | null>(null);
+  const [report, setReport] = useState<ReportSubject | null>(null);
 
   const team = useQuery({ queryKey: teamKeys.detail(teamId), queryFn: () => fetchTeam(teamId) });
   const posts = useQuery({ queryKey: teamKeys.posts(teamId), queryFn: () => fetchOpenPosts(teamId) });
@@ -136,6 +138,7 @@ export function TeamDetailScreen({ navigation, route }: NativeStackScreenProps<C
                   {!!p.closes_at && <Text variant="caption" color="textSecondary">Son başvuru: {formatDate(p.closes_at)}</Text>}
                   {applied ? <View style={{ flexDirection: 'row', marginTop: space[1] }}><ApplicationStatus status={RECRUITMENT_STATUS[applied]} /></View>
                     : !perms.isMember && <Button kind="secondary" label="Başvur" accessibilityLabel={`${p.title}: başvur`} onPress={() => openApply(p)} style={{ marginTop: space[2] }} />}
+                  {!perms.isMember && <View style={{ flexDirection: 'row' }}><ReportLink accessibilityLabel={`${p.title}: ilanı bildir`} onPress={() => setReport({ targetType: 'recruitment_post', targetId: p.id, label: p.title })} /></View>}
                 </Card>
               );
             })}
@@ -155,6 +158,7 @@ export function TeamDetailScreen({ navigation, route }: NativeStackScreenProps<C
                   {!!pr.summary && <Text variant="bodySmall" color="textSecondary">{pr.summary}</Text>}
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[4] }}>
                     {!!pr.url && <TextButton label="Bağlantıyı aç" iconRight="arrow" accessibilityRole="link" accessibilityLabel={`${pr.title}: bağlantıyı aç`} onPress={() => void openExternalUrl(pr.url, () => toast.show('Bağlantı açılamadı.', 'danger'))} />}
+                    {!perms.isMember && <ReportLink accessibilityLabel={`${pr.title}: projeyi bildir`} onPress={() => setReport({ targetType: 'team_project', targetId: pr.id, label: pr.title })} />}
                     {perms.canManage && <TextButton label="Düzenle" accessibilityLabel={`${pr.title}: düzenle`} onPress={() => navigation.navigate('TeamProjectEditor', { teamId, projectId: pr.id })} />}
                   </View>
                 </Card>
@@ -179,6 +183,8 @@ export function TeamDetailScreen({ navigation, route }: NativeStackScreenProps<C
         </>
       )}
 
+      {!perms.isMember && <><Divider /><View style={{ flexDirection: 'row' }}><ReportLink accessibilityLabel="Takımı bildir" onPress={() => setReport({ targetType: 'team', targetId: teamId, label: t.name })} /></View></>}
+      <ReportSheet subject={report} userId={userId} onClose={() => setReport(null)} onSignIn={() => navigation.getParent()?.getParent()?.navigate('AuthEmail')} />
       <RecruitmentApplySheet post={applyTo} userId={userId ?? ''} onClose={() => setApplyTo(null)} />
       <BottomSheet visible={sheet} title="Katılma isteği" onClose={() => setSheet(false)}>
         <Text variant="bodySmall" color="textSecondary">İsteğin takımın kaptanına ve mentorlarına gider. Adın ve yazdığın not görünür; iletişim bilgilerin paylaşılmaz.</Text>
