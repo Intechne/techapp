@@ -140,10 +140,9 @@ export function TeamDetailScreen({ navigation, route }: NativeStackScreenProps<C
             {projects.isError ? <ErrorState error={toAppError(projects.error)} onRetry={() => void projects.refetch()} />
               : projects.data?.map((pr) => (
                 <Card key={pr.id} style={{ gap: space[2] }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: space[3] }}>
-                    <Text variant="cardTitle" breakStrategy="words" style={{ flex: 1 }}>{pr.title}</Text>
-                    {pr.year != null && <Text variant="label" color="textSecondary">{pr.year}</Text>}
-                  </View>
+                  {/* Year on its own line: beside a long unbreakable title it would be squeezed to one digit. */}
+                  {pr.year != null && <Text variant="label" color="textSecondary">{pr.year}</Text>}
+                  <Text variant="cardTitle" breakStrategy="words">{pr.title}</Text>
                   {!!pr.summary && <Text variant="bodySmall" color="textSecondary">{pr.summary}</Text>}
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[4] }}>
                     {!!pr.url && <TextButton label="Bağlantıyı aç" iconRight="arrow" accessibilityRole="link" accessibilityLabel={`${pr.title}: bağlantıyı aç`} onPress={() => void openExternalUrl(pr.url, () => toast.show('Bağlantı açılamadı.', 'danger'))} />}
