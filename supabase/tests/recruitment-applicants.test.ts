@@ -58,6 +58,14 @@ describe('team_recruitment_applications', () => {
     await expectFail(list(f.captain, randomUUID()), 403, 'team_manage_forbidden');
     await expect(asAnon((q) => q(`select * from public.team_recruitment_applications($1)`, [f.post]))).rejects.toMatchObject({ code: '42501' });
   });
+  it('decided applications (accepted / rejected) are no longer returned', async () => {
+    const f = await fixture();
+    const ids = Object.fromEntries((await list(f.captain, f.post)).rows.map((r) => [r.display_name, r.application_id]));
+    await asUser(f.captain, (q) => q(`select public.decide_recruitment_application($1, false)`, [ids['Genç Başvuran']]));
+    await asUser(f.captain, (q) => q(`select public.decide_recruitment_application($1, true)`, [ids['Yetişkin Başvuran']]));
+    const names = (await list(f.captain, f.post)).rows.map((r) => r.display_name);
+    expect(names).toEqual(['Doğum Tarihsiz Başvuran']);
+  });
   it('a former mentor (left) loses access', async () => {
     const f = await fixture();
     await admin(`update public.team_memberships set status = 'left' where team_id = $1 and user_id = $2`, [f.team, f.mentor]);
@@ -76,6 +84,11 @@ describe('recruitment_posts.created_by', () => {
     await asUser(f.captain, (q) => q(`update public.recruitment_posts set created_by = $2, title = 'Yeni başlık' where id = $1`, [f.post, f.otherCaptain]));
     const row = (await admin(`select created_by, title from public.recruitment_posts where id = $1`, [f.post])).rows[0];
     expect(row).toEqual({ created_by: f.captain, title: 'Yeni başlık' });
+  });
+  it('a manager cannot clear it either', async () => {
+    const f = await fixture();
+    await asUser(f.mentor, (q) => q(`update public.recruitment_posts set created_by = null where id = $1`, [f.post]));
+    expect((await admin(`select created_by from public.recruitment_posts where id = $1`, [f.post])).rows[0].created_by).toBe(f.captain);
   });
   it('the service role / migrations (no auth.uid) keep a given value, and deleting the creator still clears it', async () => {
     const f = await fixture();
