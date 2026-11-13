@@ -100,7 +100,7 @@ declare
   v_owner_a uuid; v_owner_b uuid; v_staff uuid; v_captain uuid; v_member uuid; v_team uuid; v_cap_m uuid; v_mem_m uuid;
   v_appl uuid; v_sc_event uuid; v_sc_user uuid; v_sc_reg uuid; v_sc_code text; v_post uuid;
   v_cv_event uuid; v_cv_path text;
-  v_pt_team uuid; v_pt_cap uuid; v_pt_minor uuid; v_pt_hidden uuid; v_pt_mem uuid; v_pt_proj uuid;
+  v_pt_team uuid; v_pt_cap uuid; v_pt_minor uuid; v_pt_hidden uuid; v_pt_mem uuid; v_pt_proj uuid; v_ra_post uuid; v_ra_app uuid; v_ra_by uuid; v_ra_cols text;
   v_out jsonb;
 begin
   -- ================================================================ CV
@@ -430,6 +430,35 @@ begin
   exception when others then
     perform pg_temp.t_rec('23i suspended team: anon and outsiders read 0 projects', false, sqlstate || ' ' || sqlerrm);
   end;
+
+
+  -- 20261113000300: managers see WHO applied (name + is_minor, never ids); recruitment_posts.created_by is server-set.
+  begin
+    v_ra_post := (pg_temp.t_val('authenticated', v_pt_cap, format(
+      $q$insert into public.recruitment_posts (team_id, title, created_by) values (%L, 'Remote ilan', %L) returning id::text$q$, v_pt_team, v_pt_minor)))::uuid;
+    select created_by into v_ra_by from public.recruitment_posts where id = v_ra_post;
+    perform pg_temp.t_rec('24 created_by is forced to the inserting manager (spoofed value ignored)', v_ra_by = v_pt_cap, coalesce(v_ra_by::text, 'null'));
+  exception when others then
+    perform pg_temp.t_rec('24 created_by is forced to the inserting manager (spoofed value ignored)', false, sqlstate || ' ' || sqlerrm);
+  end;
+  begin
+    perform pg_temp.t_val('authenticated', v_other, format($q$select public.apply_to_recruitment(%L, 'Merhaba')::text$q$, v_ra_post));
+  exception when others then null; -- an applicant row for the checks below; failure shows up in 24b
+  end;
+  begin
+    v_ra_cols := (pg_temp.t_val('authenticated', v_pt_cap, format(
+      $q$select string_agg(k, ',' order by k) from (select jsonb_object_keys(to_jsonb(r)) k from public.team_recruitment_applications(%L) r limit 6) z$q$, v_ra_post)));
+    perform pg_temp.t_rec('24b manager reads applicants: no user_id column (name + is_minor only)',
+      v_ra_cols is not null and v_ra_cols !~ 'user_id' and v_ra_cols ~ 'display_name' and v_ra_cols ~ 'is_minor', coalesce(v_ra_cols, 'null'));
+  exception when others then
+    perform pg_temp.t_rec('24b manager reads applicants: no user_id column (name + is_minor only)', false, sqlstate || ' ' || sqlerrm);
+  end;
+  perform pg_temp.t_fail('24c non-manager (plain member) team_recruitment_applications → 403', 'authenticated', v_pt_mem,
+    format('select * from public.team_recruitment_applications(%L)', v_ra_post), '^PT403 team_manage_forbidden');
+  perform pg_temp.t_fail('24c outsider team_recruitment_applications → 403', 'authenticated', v_other,
+    format('select * from public.team_recruitment_applications(%L)', v_ra_post), '^PT403 team_manage_forbidden');
+  perform pg_temp.t_fail('24c anon cannot call team_recruitment_applications', 'anon', null,
+    format('select * from public.team_recruitment_applications(%L)', v_ra_post), '^42501');
 
   -- ================================================================ report (always rolls back)
   select jsonb_build_object('pass', count(*) filter (where pass), 'fail', count(*) filter (where not pass),
