@@ -137,6 +137,8 @@ export const hasErrorCopy = (code: string): boolean => Object.prototype.hasOwnPr
 
 const STATUS_FALLBACK: Record<number, string> = { 401: 'session_expired', 403: 'forbidden', 404: 'not_found', 429: 'rate_limited' };
 
+const HARD_CAP = /_limit$/;
+
 export function makeError(code: string, status = 0, extra: Partial<AppError> = {}): AppError {
   const known = code !== 'unknown' && code in COPY;
   const resolved = known ? code : STATUS_FALLBACK[status] ?? (status >= 500 ? 'server_error' : 'unknown');
@@ -146,7 +148,8 @@ export function makeError(code: string, status = 0, extra: Partial<AppError> = {
     code: known ? code : resolved,
     message: COPY[canonical] ?? COPY.unknown!,
     status,
-    retryable: code === 'network_unreachable' || status === 429 || status >= 500,
+    // A hard cap (`*_limit`: 50 projects, 5 teams …) arrives as 429 but retrying the same call can never succeed: no "Tekrar dene".
+    retryable: !HARD_CAP.test(code) && (code === 'network_unreachable' || status === 429 || status >= 500),
     ...extra,
   };
 }
