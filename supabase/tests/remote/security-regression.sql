@@ -103,6 +103,7 @@ declare
   v_pt_team uuid; v_pt_cap uuid; v_pt_minor uuid; v_pt_hidden uuid; v_pt_mem uuid; v_pt_proj uuid; v_ra_post uuid; v_ra_app uuid; v_ra_by uuid; v_ra_cols text;
   v_nt_team uuid; v_nt_id uuid; v_nt_cap uuid; v_nt_req uuid;
   v_tr_org uuid; v_tr_owner uuid; v_tr_editor uuid; v_tr_event uuid; v_tr_team uuid; v_tr_cap uuid; v_tr_minor uuid; v_tr_reg uuid; v_tr_mrow uuid;
+  v_t2_cap uuid; v_t2_mentor uuid; v_t2_member uuid; v_t2_event uuid; v_t2_team uuid;
   v_out jsonb;
 begin
   -- ================================================================ CV
@@ -596,6 +597,60 @@ begin
      where n.nspname = 'app' and p.proname in ('is_team_registration_member', 'is_team_registration_staff', 'recount_team_event');
     perform pg_temp.t_rec('26h app helpers: RLS helpers authenticated-only, recount_team_event not callable by API roles',
       v_text = 'is_team_registration_member=false/true is_team_registration_staff=false/true recount_team_event=false/false', coalesce(v_text, 'missing'));
+  end;
+
+  -- 20261113000600: submit_team_registration — an ACTIVE captain or mentor submits (here: the mentor, not on the roster);
+  -- a plain member → 403 not_team_manager; anon cannot call it; the tables still have no client write path.
+  v_t2_cap := pg_temp.t_user(30, 'Remote Gönderen Kaptan'); v_t2_mentor := pg_temp.t_user(40, 'Remote Mentor');
+  v_t2_member := pg_temp.t_user(16, 'Remote Gönderim Üyesi');
+  v_t2_event := pg_temp.t_event(v_tr_org);
+  update public.events set registration_mode = 'team', team_capacity = 2, team_min_size = 2, team_max_size = 4 where id = v_t2_event;
+  begin
+    v_t2_team := (pg_temp.t_val('authenticated', v_t2_cap, $q$select (public.create_team('Remote Gönderim Takımı')).id::text$q$))::uuid;
+    insert into public.team_memberships (team_id, user_id, role, status)
+    values (v_t2_team, v_t2_mentor, 'mentor', 'active'), (v_t2_team, v_t2_member, 'member', 'active');
+  exception when others then
+    perform pg_temp.t_rec('27 fixture: team with captain + mentor + member', false, sqlstate || ' ' || sqlerrm);
+  end;
+  perform pg_temp.t_fail('27a plain member submits → 403 not_team_manager', 'authenticated', v_t2_member,
+    format('select public.submit_team_registration(%L, %L, array[%L, %L]::uuid[], gen_random_uuid())', v_t2_event, v_t2_team, v_t2_cap, v_t2_member),
+    '^PT403 not_team_manager');
+  perform pg_temp.t_fail('27b anon cannot call submit_team_registration → permission denied', 'anon', null,
+    format('select public.submit_team_registration(%L, %L, array[%L]::uuid[], gen_random_uuid())', v_t2_event, v_t2_team, v_t2_cap), '^42501');
+  begin
+    v_text := pg_temp.t_val('authenticated', v_t2_mentor,
+      format('select (public.submit_team_registration(%L, %L, array[%L, %L]::uuid[], gen_random_uuid())).status::text',
+             v_t2_event, v_t2_team, v_t2_cap, v_t2_member));
+    select teams_taken, (select count(*) from public.team_event_registration_members tm
+                         join public.team_event_registrations t on t.id = tm.team_registration_id
+                         where t.event_id = v_t2_event and tm.state = 'invited')
+      into i, v_n from public.events where id = v_t2_event;
+    perform pg_temp.t_rec('27 mentor submits 2 members → pending_members, 2 invited, teams_taken 1 (control, MUST PASS)',
+      v_text = 'pending_members' and i = 1 and v_n = 2, 'status=' || coalesce(v_text, 'null') || ' teams_taken=' || i || ' invited=' || v_n);
+  exception when others then
+    perform pg_temp.t_rec('27 mentor submits 2 members → pending_members, 2 invited, teams_taken 1 (control, MUST PASS)', false, sqlstate || ' ' || sqlerrm);
+  end;
+  perform pg_temp.t_fail('27c captain direct insert into team_event_registrations still denied after the RPC exists', 'authenticated', v_t2_cap,
+    format($q$insert into public.team_event_registrations (event_id, team_id, status, submitted_by, idempotency_key, hold_expires_at)
+              values (%L, %L, 'confirmed', %L, gen_random_uuid(), now())$q$, v_t2_event, v_tr_team, v_t2_cap), '^42501');
+  begin
+    j := pg_temp.t_val('authenticated', v_t2_mentor, format('select public.event_eligibility(%L)::text', v_t2_event))::jsonb;
+    v_n := jsonb_array_length(pg_temp.t_val('authenticated', v_t2_member, format('select public.event_eligibility(%L)::text', v_t2_event))::jsonb -> 'manageable_teams');
+    perform pg_temp.t_rec('27d event_eligibility: mentor manages the team (3 active, live registration), plain member manages none',
+      j ->> 'registration_mode' = 'team' and (j ->> 'team_seats_left')::int = 1 and jsonb_array_length(j -> 'manageable_teams') = 1
+        and (j -> 'manageable_teams' -> 0 ->> 'team_id')::uuid = v_t2_team and (j -> 'manageable_teams' -> 0 ->> 'active_member_count')::int = 3
+        and j -> 'manageable_teams' -> 0 ->> 'registration_status' = 'pending_members' and v_n = 0,
+      left(j::text, 300) || ' member_manageable=' || v_n);
+  exception when others then
+    perform pg_temp.t_rec('27d event_eligibility: mentor manages the team (3 active, live registration), plain member manages none', false, sqlstate || ' ' || sqlerrm);
+  end;
+  begin
+    select string_agg(p.proname || '=' || has_function_privilege('anon', p.oid, 'execute')::text || '/'
+                      || has_function_privilege('authenticated', p.oid, 'execute')::text, ' ' order by p.proname) into v_text
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where (n.nspname = 'public' and p.proname = 'submit_team_registration') or (n.nspname = 'app' and p.proname = 'promote_team_waitlist');
+    perform pg_temp.t_rec('27e grants: submit_team_registration authenticated-only, promote_team_waitlist not callable by API roles',
+      v_text = 'promote_team_waitlist=false/false submit_team_registration=false/true', coalesce(v_text, 'missing'));
   end;
 
   -- ================================================================ report (always rolls back)
