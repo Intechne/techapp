@@ -25,6 +25,8 @@ export type ExperienceRow = Db['Tables']['experiences']['Row'];
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
 export const configured = !!url && !!key;
+/** Team registration (Faz 3a) is pilot-gated: only an explicit '1' turns the organiser UI on. The server enforces the rules either way. */
+export const TEAM_REGISTRATION = import.meta.env.VITE_FEATURE_TEAM_REGISTRATION === '1';
 // Staff sessions live only as long as the browser tab (sessionStorage), not indefinitely on a shared office machine.
 export const supabase = createClient<Database>(url ?? 'http://invalid.local', key ?? 'missing', {
   auth: { storage: typeof window !== 'undefined' ? window.sessionStorage : undefined, persistSession: true, autoRefreshToken: true },
@@ -114,3 +116,26 @@ export const toLocalInput = (iso?: string | null) => { if (!iso) return ''; cons
 export const fromLocalInput = (local: string) => (local ? new Date(local).toISOString() : null);
 export const numOrNull = (v: string) => (v.trim() === '' ? null : Number(v));
 export const slugify = (s: string) => s.toLocaleLowerCase('tr').replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+
+// ---- Team registrations (Faz 3a). The two RPCs are not in the hand-patched generated types yet, so the shapes live here.
+export type TeamRegStatus = Db['Enums']['team_registration_status'];
+export type TeamMemberStep = 'invited' | 'guardian' | 'ready' | 'declined';
+/** Organiser view of one team registration. Members: display name + state only; the server sends no e-mail, age or guardian data. */
+export interface TeamRegItem {
+  id: string; team_id: string; team_name: string; status: TeamRegStatus; status_reason: string | null; roster_version: number; roster_size: number; ready_count: number;
+  hold_expires_at: string | null; confirmed_at: string | null; created_at: string;
+  members: { display_name: string | null; role_at_submit: string; state: 'invited' | 'accepted' | 'declined' | 'removed'; step: TeamMemberStep }[];
+}
+/** Statuses in which the team still holds a seat and its members' steps mean something. */
+export const TEAM_LIVE: TeamRegStatus[] = ['pending_members', 'pending_review', 'confirmed', 'waitlisted'];
+export const TEAM_STATUS_LABEL: Record<TeamRegStatus, string> = { pending_members: 'Üyeler bekleniyor', pending_review: 'Değerlendirmede', confirmed: 'Onaylı', waitlisted: 'Bekleme listesi', cancelled: 'İptal', rejected: 'Uygun bulunmadı', expired: 'Süresi doldu' };
+export const TEAM_REASON_LABEL: Record<string, string> = {
+  members_ready: 'Tüm üyeler hazır; kurum değerlendirmesi bekleniyor.',
+  roster_below_min_after_close: 'Kayıt kapandıktan sonra kadro alt sınırın altına düştü.',
+  approved_by_organizer: 'Kurum onayladı.', approved_below_min_after_close: 'Kurum, alt sınırın altındaki kadroyla onayladı.',
+  rejected_by_organizer: 'Kurum reddetti.', review_not_decided: 'Değerlendirme etkinlik bitene kadar sonuçlanmadı.',
+  hold_expired: 'Üyeler süresinde hazır olmadı.', registration_closed: 'Kayıt kapandı; bekleme listesinden çıkamadı.',
+  promoted_from_waitlist: 'Bekleme listesinden alındı.', roster_incomplete: 'Kadro eksik.', event_cancelled: 'Etkinlik iptal edildi.',
+  cancelled_by_team: 'Takım kaydını iptal etti.', guardian_denied: 'Bir üyenin velisi onay vermedi.', guardian_request_expired: 'Bir üyenin veli isteği süresinde yanıtlanmadı.',
+  guardian_revoked: 'Bir veli onayını geri çekti.', team_registration_expired: 'Takım kaydının süresi doldu.',
+};

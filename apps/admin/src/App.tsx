@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { configured, supabase, toUiError, type Account } from './lib';
+import { TEAM_REGISTRATION, configured, supabase, toUiError, type Account } from './lib';
 import { Login } from './pages/Login';
 import { Events } from './pages/Events';
 import { EventForm } from './pages/EventForm';
@@ -11,10 +11,11 @@ import { OpportunityForm } from './pages/OpportunityForm';
 import { OpportunityDetail } from './pages/OpportunityDetail';
 import { Attestations } from './pages/Attestations';
 import { PublishQueue } from './pages/PublishQueue';
+import { EventTeamRegistrations } from './pages/EventTeamRegistrations';
 
 const DESKTOP_MIN = 1024;
 
-/** Hash router: #/events[/new|/<id>[/edit|/check-in]] · #/opportunities[/new|/<id>[/edit]] · #/attestations · #/queue */
+/** Hash router: #/events[/new|/<id>[/edit|/check-in|/teams]] · #/opportunities[/new|/<id>[/edit]] · #/attestations · #/queue */
 function useRoute() {
   const [hash, setHash] = useState(location.hash.slice(1) || '/events');
   useEffect(() => { const on = () => setHash(location.hash.slice(1) || '/events'); addEventListener('hashchange', on); return () => removeEventListener('hashchange', on); }, []);
@@ -85,6 +86,7 @@ export function App() {
         : section === 'queue' && account.is_platform_admin ? <PublishQueue />
           : id === 'new' ? <EventForm account={account} />
             : id && action === 'edit' ? <EventForm account={account} eventId={id} />
+              : id && action === 'teams' && TEAM_REGISTRATION ? <EventTeamRegistrations account={account} eventId={id} />
               : id ? <EventDetail account={account} eventId={id} />
                 : <Events account={account} />;
 

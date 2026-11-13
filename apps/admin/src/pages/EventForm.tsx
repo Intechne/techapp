@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CoverField } from '../components/CoverField';
-import { supabase, toUiError, type Account, type EventInsert, type EventRow } from '../lib';
+import { TEAM_REGISTRATION, supabase, toUiError, type Account, type EventInsert, type EventRow } from '../lib';
 
 const TYPES: [EventRow['type'], string][] = [['hackathon', 'Hackathon'], ['competition', 'Yarışma'], ['workshop', 'Atölye'], ['conference', 'Konferans'], ['meetup', 'Buluşma'], ['social_impact', 'Sosyal etki'], ['training', 'Eğitim'], ['festival', 'Şenlik']];
 const EDIT_ROLES = ['owner', 'admin', 'editor'];
@@ -13,11 +13,11 @@ const num = (v: string) => (v.trim() === '' ? null : Number(v));
 interface Form { organization_id: string; title: string; slug: string; poster_line: string; summary: string; description: string; type: EventRow['type']; format: EventRow['format'];
   topic_interest_id: string; tone: string; city: string; venue: string; online_url: string; starts_at: string; ends_at: string; registration_opens_at: string; registration_closes_at: string;
   capacity: string; waitlist_enabled: boolean; requires_review: boolean; registration_mode: EventRow['registration_mode']; min_age: string; max_age: string; guardian_required_under: string;
-  audience_note: string; cancellation_policy: string; support_contact: string }
+  audience_note: string; cancellation_policy: string; support_contact: string; team_capacity: string; team_min_size: string; team_max_size: string }
 
 const empty = (org: string): Form => ({ organization_id: org, title: '', slug: '', poster_line: '', summary: '', description: '', type: 'workshop', format: 'in_person', topic_interest_id: '', tone: 'iris',
   city: '', venue: '', online_url: '', starts_at: '', ends_at: '', registration_opens_at: '', registration_closes_at: '', capacity: '', waitlist_enabled: true, requires_review: false,
-  registration_mode: 'individual', min_age: '', max_age: '', guardian_required_under: '18', audience_note: '', cancellation_policy: '', support_contact: '' });
+  registration_mode: 'individual', min_age: '', max_age: '', guardian_required_under: '18', audience_note: '', cancellation_policy: '', support_contact: '', team_capacity: '', team_min_size: '1', team_max_size: '' });
 
 export function EventForm({ account, eventId }: { account: Account; eventId?: string }) {
   const orgs = account.organization_roles.filter((r) => EDIT_ROLES.includes(r.role)).map((r) => r.organization_id);
@@ -40,7 +40,8 @@ export function EventForm({ account, eventId }: { account: Account; eventId?: st
         topic_interest_id: e.topic_interest_id?.toString() ?? '', tone: e.tone, city: e.city ?? '', venue: e.venue ?? '', online_url: e.online_url ?? '', starts_at: toLocal(e.starts_at), ends_at: toLocal(e.ends_at),
         registration_opens_at: toLocal(e.registration_opens_at), registration_closes_at: toLocal(e.registration_closes_at), capacity: e.capacity?.toString() ?? '', waitlist_enabled: e.waitlist_enabled,
         requires_review: e.requires_review, registration_mode: e.registration_mode, min_age: e.min_age?.toString() ?? '', max_age: e.max_age?.toString() ?? '',
-        guardian_required_under: e.guardian_required_under?.toString() ?? '', audience_note: e.audience_note ?? '', cancellation_policy: e.cancellation_policy ?? '', support_contact: e.support_contact ?? '' });
+        guardian_required_under: e.guardian_required_under?.toString() ?? '', audience_note: e.audience_note ?? '', cancellation_policy: e.cancellation_policy ?? '', support_contact: e.support_contact ?? '',
+        team_capacity: e.team_capacity?.toString() ?? '', team_min_size: e.team_min_size?.toString() ?? '1', team_max_size: e.team_max_size?.toString() ?? '' });
     });
   }, [eventId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -48,7 +49,17 @@ export function EventForm({ account, eventId }: { account: Account; eventId?: st
     e.preventDefault(); setError(null);
     if (new Date(form.ends_at) <= new Date(form.starts_at)) return setError('Bitiş, başlangıçtan sonra olmalı.');
     if (new Date(form.registration_closes_at) > new Date(form.ends_at)) return setError('Son kayıt tarihi etkinlik bitişinden sonra olamaz.');
+    const teamMode = TEAM_REGISTRATION && form.registration_mode !== 'individual';
+    if (teamMode) {
+      // Same limits as the database checks (events.team_* and events_team_size_range); the server still decides.
+      const whole = (v: string, lo: number, hi: number) => /^\d+$/.test(v.trim()) && Number(v) >= lo && Number(v) <= hi;
+      if (form.team_capacity.trim() !== '' && !whole(form.team_capacity, 1, 1_000_000)) return setError('Takım kontenjanı 1 veya daha büyük bir tam sayı olmalı; sınırsız için boş bırak.');
+      if (!whole(form.team_min_size, 1, 100)) return setError('Takımın en az kişi sayısı 1 ile 100 arasında olmalı.');
+      if (form.team_max_size.trim() !== '' && !whole(form.team_max_size, 1, 100)) return setError('Takımın en çok kişi sayısı 1 ile 100 arasında olmalı; sınırsız için boş bırak.');
+      if (form.team_max_size.trim() !== '' && Number(form.team_min_size) > Number(form.team_max_size)) return setError('Takımın en az kişi sayısı en çok kişi sayısından büyük olamaz.');
+    }
     setBusy(true);
+    const teamFields: { team_capacity?: number | null; team_min_size?: number; team_max_size?: number | null } = teamMode ? { team_capacity: num(form.team_capacity), team_min_size: Number(form.team_min_size), team_max_size: num(form.team_max_size) } : {};
     // Status, counters, approval and tenant are not part of this payload: the server owns them.
     const payload = {
       title: form.title.trim(), slug: form.slug || slugify(form.title), poster_line: form.poster_line.trim() || null, summary: form.summary.trim(), description: form.description.trim() || null,
@@ -56,12 +67,14 @@ export function EventForm({ account, eventId }: { account: Account; eventId?: st
       online_url: form.online_url.trim() || null, starts_at: toIso(form.starts_at)!, ends_at: toIso(form.ends_at)!, registration_opens_at: toIso(form.registration_opens_at),
       registration_closes_at: toIso(form.registration_closes_at)!, capacity: num(form.capacity), waitlist_enabled: form.waitlist_enabled, requires_review: form.requires_review,
       registration_mode: form.registration_mode, min_age: num(form.min_age), max_age: num(form.max_age), guardian_required_under: num(form.guardian_required_under),
+      ...teamFields,
       audience_note: form.audience_note.trim() || null, cancellation_policy: form.cancellation_policy.trim() || null, support_contact: form.support_contact.trim() || null,
     } satisfies Partial<EventInsert>;
+    // The hand-patched Insert type lacks team_* (Update has them), hence the cast on insert: regenerate with db:types.
     const { data: userData } = await supabase.auth.getUser();
     const res = eventId
       ? await supabase.from('events').update(payload).eq('id', eventId).select('id').single()
-      : await supabase.from('events').insert({ ...payload, organization_id: form.organization_id, created_by: userData.user?.id }).select('id').single();
+      : await supabase.from('events').insert({ ...payload, organization_id: form.organization_id, created_by: userData.user?.id } as EventInsert).select('id').single();
     setBusy(false);
     if (res.error) return setError(res.error.code === 'PGRST116' ? 'Bu etkinliği düzenleme yetkin yok.' : toUiError(res.error).message);
     location.hash = `#/events/${res.data.id}`;
@@ -100,8 +113,15 @@ export function EventForm({ account, eventId }: { account: Account; eventId?: st
         {form.format !== 'in_person' && T({ k: 'online_url', label: 'Çevrim içi bağlantı (https://)', type: 'url' })}</div>
       <div className="card stack"><h2>Katılım kuralları</h2>
         <div className="grid3">{T({ k: 'capacity', label: 'Kontenjan (boş = sınırsız)', type: 'number' })}{T({ k: 'min_age', label: 'En küçük yaş', type: 'number' })}{T({ k: 'max_age', label: 'En büyük yaş', type: 'number' })}</div>
-        <div className="grid2"><label>Kayıt biçimi<select value={form.registration_mode} onChange={(e) => set('registration_mode', e.target.value as never)}><option value="individual">Bireysel</option><option value="team">Takım</option><option value="both">İkisi de</option></select></label>
+        <div className="grid2"><label>Kayıt biçimi<select value={form.registration_mode} onChange={(e) => set('registration_mode', e.target.value as never)}><option value="individual">Bireysel</option>{(TEAM_REGISTRATION || form.registration_mode === 'team') && <option value="team">Takım</option>}{(TEAM_REGISTRATION || form.registration_mode === 'both') && <option value="both">İkisi de</option>}</select></label>
           {T({ k: 'guardian_required_under', label: 'Şu yaşın altı için veli onayı iste', type: 'number', help: 'Boş bırakırsan veli onayı istenmez. Yaş ve onay her kayıtta sunucuda kontrol edilir.' })}</div>
+        {TEAM_REGISTRATION && form.registration_mode !== 'individual' && (
+          <div className="stack" style={{ borderTop: '1px solid var(--line)', paddingTop: 16 }}>
+            <h3>Takım kaydı</h3>
+            <p className="muted small">{form.registration_mode === 'both' ? 'Bireysel kontenjan ve takım kontenjanı ayrı sayılır.' : 'Katılım yalnızca takımla olur; yukarıdaki kontenjan bireysel kayıtlar içindir.'} Kaptan ya da mentor başvurur; her üyenin kendi onayı (18 yaş altı için veli onayı) gerekir. Takımlar üyeleri hazır olana kadar 7 gün yer tutar.</p>
+            <div className="grid3">{T({ k: 'team_capacity', label: 'Takım kontenjanı (boş = sınırsız)', type: 'number' })}{T({ k: 'team_min_size', label: 'Takımda en az kişi', type: 'number', required: true })}{T({ k: 'team_max_size', label: 'Takımda en çok kişi (boş = sınırsız)', type: 'number' })}</div>
+            {status === 'published' && <div className="notice warn">Yayındaki etkinlikte takım büyüklüğü sınırlarını değiştirmek ya da takım kontenjanını azaltmak etkinliği yeniden incelemeye gönderir.</div>}
+          </div>)}
         <label className="row" style={{ fontWeight: 500 }}><input type="checkbox" style={{ width: 20, minHeight: 20 }} checked={form.waitlist_enabled} onChange={(e) => set('waitlist_enabled', e.target.checked)} /> Kontenjan dolunca bekleme listesi aç</label>
         <label className="row" style={{ fontWeight: 500 }}><input type="checkbox" style={{ width: 20, minHeight: 20 }} checked={form.requires_review} onChange={(e) => set('requires_review', e.target.checked)} /> Kayıtları ekibimiz tek tek değerlendirsin</label>
         {T({ k: 'audience_note', label: 'Kimler için', max: 120, help: 'Örn. “Lise + üniversite”' })}

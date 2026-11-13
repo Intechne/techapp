@@ -60,8 +60,8 @@ export function CheckRow({ label, checked, onChange, disabled }: { label: ReactN
 }
 
 /** Two-step button for irreversible actions (no browser confirm() dialogs). */
-export function ConfirmButton({ label, confirmLabel, className = 'btn danger', disabled, onConfirm }: { label: string; confirmLabel: string; className?: string; disabled?: boolean; onConfirm: () => void }) {
+export function ConfirmButton({ label, confirmLabel, className = 'btn danger', confirmClassName = 'btn danger', disabled, onConfirm }: { label: string; confirmLabel: string; className?: string; confirmClassName?: string; disabled?: boolean; onConfirm: () => void }) {
   const [armed, setArmed] = useState(false);
   if (!armed) return <button type="button" className={className} disabled={disabled} onClick={() => setArmed(true)}>{label}</button>;
-  return <span className="row"><button type="button" className="btn danger" disabled={disabled} onClick={() => { setArmed(false); onConfirm(); }}>{confirmLabel}</button><button type="button" className="btn secondary" onClick={() => setArmed(false)}>Vazgeç</button></span>;
+  return <span className="row"><button type="button" className={confirmClassName} disabled={disabled} onClick={() => { setArmed(false); onConfirm(); }}>{confirmLabel}</button><button type="button" className="btn secondary" onClick={() => setArmed(false)}>Vazgeç</button></span>;
 }

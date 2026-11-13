@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { REG_LABEL, STATUS_LABEL, closedForRegistration, fmt, supabase, toUiError, type Account, type EventRow, type PublishStatus, type RegistrationItem, type RegistrationStatus } from '../lib';
+import { REG_LABEL, TEAM_REGISTRATION, STATUS_LABEL, closedForRegistration, fmt, supabase, toUiError, type Account, type EventRow, type PublishStatus, type RegistrationItem, type RegistrationStatus } from '../lib';
 import { statusTone } from './Events';
 import { EventVolunteers } from './EventVolunteers';
 import { EventAnnouncements } from './EventAnnouncements';
@@ -78,7 +78,12 @@ export function EventDetail({ account, eventId }: { account: Account; eventId: s
       </div>
 
       <div className="grid3">
-        <div className="card"><div className="muted small">ONAYLI</div><div className="stat">{count('confirmed')}{event.capacity ? <span className="muted" style={{ fontSize: 16 }}> / {event.capacity}</span> : null}</div></div>
+        {/* Individual and team seats are separate pools: the counters are server-owned and each pool shows only its own. */}
+        {!(TEAM_REGISTRATION && event.registration_mode === 'team') && (event.registration_mode === 'individual' || !TEAM_REGISTRATION
+          ? <div className="card"><div className="muted small">ONAYLI</div><div className="stat">{count('confirmed')}{event.capacity ? <span className="muted" style={{ fontSize: 16 }}> / {event.capacity}</span> : null}</div></div>
+          : <div className="card"><div className="muted small">BİREYSEL KONTENJAN (dolu{event.waitlist_count > 0 ? ' · bekleyen' : ''})</div><div className="stat">{event.seats_taken}{event.capacity ? <span className="muted" style={{ fontSize: 16 }}> / {event.capacity}</span> : null}{event.waitlist_count > 0 && <span className="muted" style={{ fontSize: 16 }}> · +{event.waitlist_count}</span>}</div></div>)}
+        {TEAM_REGISTRATION && event.registration_mode !== 'individual' && <div className="card"><div className="muted small">TAKIM KONTENJANI (dolu{event.team_waitlist_count > 0 ? ' · bekleyen' : ''})</div><div className="stat">{event.teams_taken}{event.team_capacity ? <span className="muted" style={{ fontSize: 16 }}> / {event.team_capacity}</span> : null}{event.team_waitlist_count > 0 && <span className="muted" style={{ fontSize: 16 }}> · +{event.team_waitlist_count}</span>}</div>
+          {(canReview || account.is_platform_admin) && <a className="small" href={`#/events/${eventId}/teams`}>Takım kayıtları →</a>}</div>}
         <div className="card"><div className="muted small">BEKLEYEN (veli · değerlendirme · liste)</div><div className="stat">{count('pending_guardian')} · {count('pending_review')} · {count('waitlisted')}</div></div>
         <div className="card"><div className="muted small">GİRİŞ YAPAN</div><div className="stat">{(regs ?? []).filter((r) => r.checked_in_at).length}</div></div>
       </div>
