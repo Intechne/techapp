@@ -2,7 +2,7 @@
 
 # Bilinen sorunlar ve sınırlar
 
-Son güncelleme: 2026-11-11 (V5). Güncel durumun tek kaynağı `IMPLEMENTATION-STATUS.md` başındaki V5 bölümüdür; bu liste onunla çelişmez. Bu liste bilinçli olarak eksiksiz tutulur; buradaki bir madde kapanmadan ilgili alan "tamamlandı" sayılmaz.
+Son güncelleme: 2026-11-13 (V5, Faz 3b kapanışı). Güncel durumun tek kaynağı `IMPLEMENTATION-STATUS.md` başındaki V5 bölümüdür; bu liste onunla çelişmez. Bu liste bilinçli olarak eksiksiz tutulur; buradaki bir madde kapanmadan ilgili alan "tamamlandı" sayılmaz.
 
 ## Doğrulanmamış olanlar
 
@@ -29,7 +29,7 @@ Son güncelleme: 2026-11-11 (V5). Güncel durumun tek kaynağı `IMPLEMENTATION-
 
 ## Teknik borç
 
-- `database.generated.ts` artık staging'den (`supabase gen types --linked`) üretiliyor; kanonik kaynak budur. `db:types:local` (yerel üretici) kozmetik olarak farklı çıktı verir (`isOneToOne`, `__InternalSupabase` yok) — `db:types:check` remote'a karşı çalıştırılmalı.
+- `database.generated.ts` artık staging'den (`supabase gen types --linked`) üretiliyor; kanonik kaynak budur. **Faz 3b notu:** `feat/v5-product` üzerinde yerel üretici eski dosyanın biçimini bozduğu için `mark_notifications_read`, `notification_preferences` ve `set_notification_preferences` **el ile** eklendi; staging'e `db push` sonrası dosya `supabase gen types --linked` ile yeniden üretilmeli. `db:types:local` (yerel üretici) kozmetik olarak farklı çıktı verir (`isOneToOne`, `__InternalSupabase` yok) — `db:types:check` remote'a karşı çalıştırılmalı.
 - Web önizleme: `RegistrationStatus` / `EventDetail` derin bağlantısı (URL ile doğrudan açma) Keşfet'e düşüyor; kenar çubuğu "Etkinlikler" sekmesi tıklamada gezinmiyor. Native'de ayrıca bakılacak.
 - ~~Web: OTP ekranı e-postayı URL'ye yazıyor (`AuthOtp?email=…`)~~ — **Çözüldü** (a8d9c5a + düzeltme turu): e-posta route param yerine yalnız modül belleğinde (`otpFlow`) tutuluyor.
 - ~~Profil özetindeki "Katılım" sayacı onaylı kayıtta 0 kalıyor~~ — **Çözüldü** (6fb7d52): sayaç check-in'e dayanır (katıldığı etkinlik), yaklaşan kayıtlar ayrı listelenir; etiket "Katılım".
@@ -64,10 +64,10 @@ Bilinçli olarak bırakılanlar; her biri ya kozmetik ya da cihaz doğrulaması 
 
 - **Fırsatlar ve Topluluk salt okunur değildir** (11 Kasım, kodda kontrol edildi): fırsat detayı, başvuru, başvurularım, son tarihler; takım detayı + katılma isteği, takım oluşturma, takım çalışma alanı (kanban), görev düzenleyici mobilde var. Profilde deneyim düzenleyici/detay, doğrulama talebi, CV paylaşımı ve gönüllü alanı var. Bunlar yalnız yerel/Expo web ortamında denendi; cihazda değil.
 - **Takım etkinlik kaydı yok.** DB `registration_mode = 'team'` kaydını reddeder; arayüz "yalnız takım" uyarısı verir. Cezeri'de resmî takım kaydı TechApp dışında kalır (kullanıcı kararı); ürün kapsamında Faz 3a.
-- **Yer imi arayüzü yalnız fırsatlarda bağlı**; etkinliklerde `onToggleSave` verilmiyor, **Kaydedilenler ekranı yok.**
-- **Arama yalnız etkinlikleri kapsar** (başlık + özet, `ilike`). Fırsat / takım araması ve tam metin arama yok.
-- **Etkinlik / fırsat / takım kapak görselleri yok** (kolon yok); pilot için tek etkinlik, poster tonuyla.
-- **Başlamamış:** bildirimler (push + uygulama içi), öğrenme ekranları (tablolar ve seed hazır), uygulama içi ayarlar / görünürlük / rıza merkezi / yardım / yasal ekranlar, içerik bildirme arayüzü, veri dışa aktarma talebi.
+- ~~Yer imi arayüzü yalnız fırsatlarda~~ / ~~Kaydedilenler yok~~ — **Faz 3b T8 (`feat/v5-product`):** etkinlik, fırsat, takım ve eğitim kartlarında kaydet var, Profil > Kaydedilenler var (aşağıdaki sınırlar).
+- ~~Arama yalnız etkinlik~~ — **Faz 3b T13:** birleşik arama (etkinlik, fırsat, takım, eğitim; yalnız başlık/ad). Tam metin arama yok.
+- ~~Kapak görselleri yok~~ — **Faz 3b T3–T4:** etkinlik/fırsat kapağı (admin yükleme) ve mobil gösterim kodda var; **sunucu tarafı staging'de uygulanmadı** (yayın sırası `docs/RELEASE.md`). Takım kapağı yüklemesi **bilerek yok** (kullanıcı kararı, aşağıda).
+- ~~Bildirimler / öğrenme ekranları / ayarlar / rıza merkezi / içerik bildirme arayüzü başlamadı~~ — **Faz 3b T9–T14:** uygulama içi bildirimler, Gelişim, Ayarlar + Gizlilik + Rıza merkezi, içerik bildirme kodda var (cihazda denenmedi; sunucu parçaları staging'de uygulanmadı). **Hâlâ yok:** push bildirimi, uygulama içi hukuki metin, veri dışa aktarma talebi, rapor yönetim arayüzü.
 - **Yönetim paneli (`apps/admin`) boş değildir:** etkinlik, fırsat, doğrulama talepleri, Intechne onay kuyruğu, kayıt listesi ve web check-in var. Eksik: kapak yükleme, oturum programı düzenleyici, kurum/üye yönetimi, audit ekranı.
 - Organizatör tarafında mobilde yalnız check-in var; etkinlik oluşturma/yayınlama ve kayıt değerlendirme admin web'de.
 - Fırsat başvurularında veli akışı yok; yaşı tutmayan başvuran reddedilir.
@@ -87,3 +87,30 @@ Bilinçli olarak bırakılanlar; her biri ya kozmetik ya da cihaz doğrulaması 
 - **`makeError('unknown')`** kendi kopya tablosunda bulunduğu için "bilinen kod" sayılıyor, 5xx hatalar `server_error` yerine `unknown` oluyordu (jest testi yakaladı).
 - **Yeniden deneme kuralı:** durum kodu olmayan her hata `retryable` sayılıyordu; artık yalnız ağ hatası, 429 ve 5xx.
 - `HeroCard` içinde iç içe başlık rolü (web'de `<h1>` içinde `<h1>`), `TechIcon`'un web'de geçersiz DOM özniteliği, `useRef(...).current`'ın render sırasında okunması.
+
+## Faz 3b kapanışı (13 Kasım 2026, dal `feat/v5-product`)
+Kaynak: `.superpowers/sdd/2026-11-12-techapp-v5-faz3b-core-modules/progress.md` ve görev raporları. Hiçbir Faz 3b parçası cihazda denenmedi; doğrulama jest, `db:test`, remote regresyonun yerel kuru koşusu ve web ekran görüntüleridir.
+
+**Kullanıcı kararları (13 Kasım 2026)**
+- **Takım kapağı yüklemesi atlandı (Task 5):** takım fotoğrafları çoğunlukla 18 yaş altını gösterir; hukuki inceleme ve fotoğraf politikası olana kadar takımlar devre posteriyle kalır. Sunucuda takım kapağı yazımı yalnız platform admini (`app.team_cover_writes_enabled()` = `false`); mobilde fotoğraf kütüphanesi izni eklenmedi.
+- **Bildirim saklama:** okunmuş bildirimler oluşturulmalarından 90 gün sonra silinir; okunmamışlar silinmez. Gizlilik/saklama politikası metni bunu belirtmeli (metni politika sahibi yazar).
+
+**Önceden var olan hata (pilot + ürün dalı):** `app.promote_waitlist` (`supabase/migrations/20260919000200_events.sql:318-340`) reşit olmayanı `waitlisted → pending_guardian` yapar ama veli isteği ve son kullanma tarihi oluşturmaz; kayıt süresiz `pending_guardian`'da kalır, kontenjan dolu sayılır ve bekleme listesi ilerlemez. Pilot dalında yalnız kontrol listesi kuralı eklendi (`9380d5d`, `feat/v5-pilot-platform`); ürün tarafında düzeltme yapılmadı → **Faz 6 öncesi görev gerekli** (otomatik süre dolumu / veli istemi).
+
+**Faz 6 ön koşulları (mağaza/herkese açık yayın)**
+- Hukuk onaylı metinler: web `/gizlilik` ve `/kosullar` bugün yer tutucudur ("hazırlanıyor"); uygulamada hukuki metin yok.
+- Yönetim arayüzünde rapor kuyruğu / moderasyon konsolu: kullanıcı içeriği raporlanabiliyor ama `apps/admin` raporu okuyup işlem yapacak bir ekrana sahip değil (`reports_platform_update` ve `moderation_actions` politikaları var). Küçük yaşta kişi adı içeren proje/ilan metni için "gizle" eylemi yok, yalnız `delete_team_project`.
+- Beş bekletilen migration'ın (`20261112000300`, `20261113000100`–`000400`) kullanıcı onayıyla staging'e basılması ve remote regresyonun koşulması (`docs/RELEASE.md`).
+- Expo yama sürümü yükseltmeleri (`expo-doctor` 20/21: expo, expo-constants, expo-linking, expo-updates) — ürün dalında.
+- Yetim kapak dosyalarını (kullanımda olmayan, 24 saatten eski) Storage API ile silen zamanlanmış temizlik yok.
+
+**Bilinen sorunlar ve sınırlar (düzeltilmedi)**
+- Kaydedilenler listesi 200 satırla sınırlı, sayfalama yok; yarıda bırakılan misafir kaydı sonradan tamamlanabilir (düşük).
+- Arama: Türkçe ı/I katlaması bilinçli ödünlerle çalışır (ı/I tek karakter jokeri yalnız ≥4 harfli sorguda, istemci tarafında süzülür; doygun joker penceresi nadiren gerçek sonucu gizleyebilir). Hedef veritabanının `datctype`/collation'ı staging'de kontrol edilmeli (`"C"` ise yalnız ASCII katlanır; istemci yazılan + Türkçe küçük + Türkçe büyük biçimi arar). Yeniden denemeler sınırlandı (tipik sorgu 4 istek).
+- Takım ilanı başvurusu kabulünde (`decide_recruitment_application`) bekleyen katılma isteği yoksa üyelik doğrudan `active` yazılır → `team_join.accepted` bildirimi gitmez.
+- Storage hata kodu eşlemesi: takım kapağı kapalıyken Storage API'nin döndüğü hata genel hataya düşebilir; `team_cover_disabled` metni görünmeyebilir (kapalı güvenli yönde başarısız olur). `set_cover` RPC'si kodu doğru verir.
+- Rıza merkezi kartları hangi etkinliğe/başvuruya ait olduğunu söylemez (satırda yalnız `subject_id` var).
+- `apps/mobile/src/lib/database.generated.ts` el ile yamalı (yukarıdaki teknik borç maddesi) — `db push` sonrası yeniden üret.
+- Pilot dalı Keşfet araması `.or()` dizesini kullanıcı metninden (`%`, `(`, `)` temizlenerek) kurar: RLS veriyi sınırlar, en kötü durum hata/tuhaf eşleşme; düşük risk, donma süresince dokunulmadı, go/no-go'da anılacak. Ürün dalında bu yol kaldırıldı (Task 13).
+- Bildirim listesi son 100 satırla sınırlı (sayfalama yok; rozet sayısı kesin). Rozet odakta ve uygulama öne gelince yenilenir (realtime/polling yok).
+- Test altyapısı (13 Kasım): Ayarlar ve Gelişim testlerindeki `fireEvent` çağrıları `await` edilmiyordu (RNTL 14'te `fireEvent` async); bu açık act kapsamı ve konsol uyarısına yol açıyordu, düzeltildi. Başka test dosyalarında (opportunitiesList, consentCenter, profile*, myRegistrationsOffline, eventDetail, communityScreen) hâlâ `await`'siz `fireEvent.press` var; uyarı üretmiyorlar ama aynı kalıp — dokunulduğunda `await` eklenmeli.

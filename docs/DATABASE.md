@@ -9,6 +9,13 @@ Tek doğruluk kaynağı: `supabase/migrations/*.sql`. RLS sonradan eklenmez; her
 | `…000300_reference_data.sql` | 8 ilgi alanı |
 | `…000400_ecosystem.sql` | Takım, fırsat/başvuru, deneyim/doğrulama, öğrenme, yer imi, bildirim, cihaz, şikâyet/moderasyon |
 | `…000500_storage.sql` | Özel `evidence` ve `avatars` bucket'ları (`storage` şeması yoksa no-op) |
+| `20261112000300_hide_creator_columns` | `teams` ve `recruitment_posts` için sütun düzeyi SELECT (`created_by` dışarıda) — **staging'e bekletiliyor** |
+| `20261113000100_covers` | `cover_path`/`cover_blurhash`, `covers` bucket'ı, `set_cover`, `app.*` kapak yardımcıları — bekletiliyor |
+| `20261113000200_team_profile` | `teams.category_key`, `team_projects`, `team_public_profile`, `upsert_team_project`/`delete_team_project`, 5 argümanlı `create_team`, `reports` hedefi `team_project` — bekletiliyor |
+| `20261113000300_recruitment_applicants` | `team_recruitment_applications` RPC'si, `recruitment_posts.created_by` tetikleyicisi — bekletiliyor |
+| `20261113000400_notifications` | Bildirim tetikleyicileri, `notification_preferences`, `mark_notifications_read`, `set_notification_preferences`, iki pg_cron işi — bekletiliyor |
+
+Arada kalan migration'lar (`20260919…`–`20261112000200`, ör. `…hide_org_verifier`, `…stabilization_security`, `…checkin_short_code`) `supabase/migrations/` dizinindedir; yukarıdaki tablo yalnız tabloda ayrıca anlatılan dosyaları listeler. Faz 3b dosyalarının hedefte uygulanma sırası ve zorunlu remote kontroller: `docs/RELEASE.md` > "Faz 3b — bekletilen migration'lar".
 
 ## Tablo grupları
 
@@ -16,11 +23,11 @@ Tek doğruluk kaynağı: `supabase/migrations/*.sql`. RLS sonradan eklenmez; her
 - **Kiracı sınırı:** `organizations`, `organization_members` (`owner`, `admin`, `editor`, `checkin_staff`, `reviewer`)
 - **Etkinlik:** `events`, `event_sessions`, `event_registrations`, `event_check_ins`, `event_courses`
 - **Onay:** `guardian_requests`, `consents`
-- **Takım:** `teams` (`team` | `community`), `team_memberships`, `team_tasks`, `recruitment_posts`, `recruitment_applications`
+- **Takım:** `teams` (`team` | `community`; `category_key`, `cover_path`/`cover_blurhash` ile), `team_memberships`, `team_tasks`, `team_projects`, `recruitment_posts`, `recruitment_applications`
 - **Fırsat:** `opportunities`, `applications`, `application_status_history`
 - **Deneyim:** `experiences`, `experience_evidence`, `attestations`
 - **Öğrenme:** `courses`, `lessons`, `course_progress`
-- **Diğer:** `bookmarks`, `notifications`, `devices`, `reports`, `moderation_actions`, `audit_events`
+- **Diğer:** `bookmarks`, `notifications`, `notification_preferences`, `devices`, `reports`, `moderation_actions`, `audit_events`
 - **Özel:** `app.secrets` (API'ye kapalı)
 
 `profile_private` ve `event_check_ins` kullanıcı listesindeki tablolara ek olarak bilinçli eklendi: sütun bazlı gizlilik RLS ile sağlıklı yapılamıyor; check-in ise oturum kapsamı taşıyor. `event_courses` "Bu etkinliğe hazırlan" ilişkisini taşır.
@@ -55,10 +62,15 @@ Diğer koruyucu tetikleyiciler: doğum tarihi bir kez yazılır (`app.protect_bi
 | `register_for_event`, `cancel_event_registration`, `get_participation_card`, `create_guardian_request` | `authenticated` (yalnız kendi kaydı) |
 | `check_in_participant` | `authenticated` + o etkinliğin kurumunda `owner`/`admin`/`checkin_staff` |
 | `review_event_registration` | `authenticated` + `owner`/`admin`/`reviewer` |
-| `create_team`, `request_team_join`, `withdraw_team_join`, `leave_team`, `team_roster` | `authenticated` |
+| `create_team` (5 argümanlı: `p_name, p_kind, p_category, p_tagline, p_category_key`), `request_team_join`, `withdraw_team_join`, `leave_team`, `team_roster` | `authenticated` (`create_team`: kişi başına en çok 5 takım, 429 `team_create_limit`; `p_category_key` verilmezse etiketten türetilir, bilinmeyen anahtar 422 `team_category_invalid`) |
 | `decide_team_join`, `set_team_task_status` | o takımın kaptanı/mentoru (görev sahibi kendi görevini ilerletebilir) |
 | `set_team_member_role`, `remove_team_member` | yalnız o takımın kaptanı; kimse kendi rolünü değiştiremez; son kaptan korunur |
 | `apply_to_recruitment`, `decide_recruitment_application` | üye / takım yöneticisi |
+| `team_recruitment_applications(p_post_id)` | yalnız etkin kaptan/mentor ve platform admini (başkası, bilinmeyen ilan dahil, aynı 403); yalnız `submitted` başvurular; ad + `is_minor` + not döner, kullanıcı id'si/doğum tarihi/e-posta dönmez |
+| `upsert_team_project`, `delete_team_project` | etkin kaptan/mentor ve platform admini; takım başına en çok 50 proje (429 `team_project_limit`); `anon` çağıramaz |
+| `team_public_profile(p_team_id)` | `anon`, `authenticated`; sayılar + rol dağılımı + yalnız 18+ **ve** `discoverable` kaptan/mentor adı; askıdaki takım üye/admin dışına 404 |
+| `set_cover(p_entity, p_entity_id, p_path, p_blurhash)` | `authenticated` (anon yok): etkinlik/fırsat için kurum owner/admin/editor, takım için **şimdilik yalnız platform admini** (403 `team_cover_disabled`); kapak yazımının tek yolu |
+| `mark_notifications_read(p_ids)`, `set_notification_preferences(p_event_reminders)` | `authenticated` (yalnız kendi satırları; `anon` çağıramaz) |
 | `application_share_preview`, `submit_application`, `withdraw_application` | `authenticated` (kendi başvurusu) |
 | `set_application_status` | fırsatın kurumundaki inceleme rolleri; geçişler doğrulanır, geçmişe yazılır |
 | `request_attestation` / `decide_attestation` / `revoke_attestation` | deneyim sahibi / doğrulayan kurumun yetkilisi (kendi deneyimini doğrulayamaz) |
@@ -70,7 +82,11 @@ Tüm RPC'ler `SECURITY DEFINER` + `set search_path = ''`. Her migration sonunda 
 ## RLS özeti
 
 - **Yayınlanmış içerik** (`events`, `event_sessions`, `opportunities`, `courses`, doğrulanmış `organizations`, etkin `teams`): `anon` dahil okunur. Taslaklar yalnız ilgili kurum üyelerine ve platform yöneticisine.
-- **Kişiye ait** (`profile_private`, `consents`, `bookmarks`, `applications`, `course_progress`, `notifications`, `devices`, deneyim taslakları): yalnız sahibi.
+- **Kişiye ait** (`profile_private`, `consents`, `bookmarks`, `applications`, `course_progress`, `notifications`, `notification_preferences`, `devices`, deneyim taslakları): yalnız sahibi. `notifications` ve `notification_preferences` için istemcide yalnız SELECT grant'i vardır (INSERT/UPDATE/DELETE kaldırıldı); yazma `mark_notifications_read` / `set_notification_preferences` ile.
+- **`teams`, `recruitment_posts` sütun düzeyi SELECT (`20261112000300`):** tablo düzeyi SELECT geri alındı; `created_by` hiçbir istemciye açık değil. Sonradan eklenen her sütun açıkça grant edilmelidir (`pilot-privacy.test.ts` bunu denetler): `teams.category_key`, `cover_path`, `cover_blurhash` bu yolla grant edilir. `select('*')` bu tablolarda "permission denied" verir; istemci `TEAM_PUBLIC_COLUMNS` / `RECRUITMENT_POST_COLUMNS` kullanır. `recruitment_posts.created_by` API çağıranı için sunucuda sabittir (insert'te çağıranın uid'i, update'te değişmez, API'den temizlenemez; yalnız kullanıcı silinince FK `ON DELETE SET NULL` boşaltır).
+- **`team_projects`:** okuma = takım görünürse (aktif takım → herkes; askıdaki → yalnız etkin üyeler ve platform admini); istemcinin tabloya yazma grant'i yok (`cover_path` CHECK ile şimdilik hep NULL).
+- **`covers` bucket'ı:** public URL ile servis, yalnız `image/webp`, ≤2 MB. `storage.objects` politikaları: listeleme/SELECT ve yükleme yalnız klasör sahibine (`app.can_write_cover_object` / `app.can_insert_cover_object`), silme klasör sahibine ve yalnız kullanımda olmayan dosyaya; UPDATE politikası yok; bir satırın kullandığı ad yeniden yüklenemez. Yol sözleşmesi `<events|opportunities|teams>/<kurum ya da takım id>/<uuid>.webp` (+ `-640` küçük kopya), klasör = satırın kendi sahibi (CHECK). Takım kapağı yazımı `app.team_cover_writes_enabled()` ile kapalıdır (kullanıcı kararı 13 Kasım 2026).
+- **`reports`:** `target_type` değerleri `event, opportunity, team, organization, profile, experience, recruitment_post, course, team_project`; kişi kendi raporunu okur, aynı içeriğe ikinci açık rapor reddedilir. Raporları okuyan/işleyen bir yönetici arayüzü henüz yok (Faz 6 ön koşulu).
 - **`event_registrations`, `event_check_ins`:** sahibi okur; etkinliğin kurumundaki yetkili roller okur; **istemciden INSERT/UPDATE/DELETE yoktur**.
 - **`guardian_requests`:** doğrudan tablo erişimi yok. Sahibi `my_guardian_requests` görünümünden okur.
 - **`applications`:** kurum yalnız kendi fırsatlarına gelen başvuruları ve yalnız `snapshot`'ı görür; `profile_private` hiçbir kuruma açılmaz. Kurumlar genç profillerini listeleyemez.
@@ -81,7 +97,9 @@ Tüm RPC'ler `SECURITY DEFINER` + `set search_path = ''`. Her migration sonunda 
 
 ## `app` şeması
 
-API'ye açılmayan yardımcılar: `app.fail`, `app.audit`, `app.age_years`, `app.min_account_age`, `app.has_org_role`, `app.is_platform_admin`, `app.ticket_token`, `app.next_registration_status`, `app.promote_waitlist`, `app.expire_guardian_requests`. `app.secrets`, QR imzası için ortam başına migration anında üretilen `ticket_hmac_v1` anahtarını tutar; kaynak kodda sır yoktur.
+API'ye açılmayan yardımcılar: `app.fail`, `app.audit`, `app.age_years`, `app.min_account_age`, `app.has_org_role`, `app.is_platform_admin`, `app.ticket_token`, `app.next_registration_status`, `app.promote_waitlist`, `app.expire_guardian_requests`; Faz 3b ile: `app.cover_object_pattern`, `app.team_cover_writes_enabled`, `app.can_write_cover_folder`, `app.fail_if_team_cover_disabled`, `app.guard_cover_columns`, `app.team_category_key_for`, `app.recruitment_post_creator`, `app.notification_retention_days`, `app.notification_kinds`, `app.notification_copy`, `app.notify`, `app.notify_registration_status`, `app.notify_application_status`, `app.notify_team_membership`, `app.queue_event_reminders`, `app.prune_notifications` (hepsinden `anon`/`public` execute geri alınmıştır; bildirim yardımcılarında `authenticated` ve `service_role` dahil). İstisna: storage politikaları çağıranın yetkisiyle çalıştığı için `app.can_write_cover_object`, `app.can_insert_cover_object` ve `app.cover_object_in_use` `authenticated`'a **açıkça** grant edilir (`anon` yok); `service_role` için kapak temizleme işi yazılırsa `app.cover_object_in_use` grant'i ayrıca verilmelidir.
+
+**Bildirimler.** `public.notifications` satırlarını yalnız tetikleyiciler yazar (13 tür: `registration.confirmed|promoted|promoted_pending|rejected|expired`, `guardian.denied|revoked`, `application.status_changed`, `team_join.accepted|rejected|requested`, `event.reminder_24h`, `event.cancelled`); metin `app.notification_copy` içinde sabit cümle + içerik başlığıdır (kişi adı yok), satıra oluşurken dondurulur ve hedefe FK yoktur. `target_type` yalnız `event | event_registration | application | team`. 24 saat hatırlatması kullanıcı + etkinlik başına bir kez (`notifications_one_reminder` kısmi benzersiz indeks). Saklama: okunmuş bildirimler oluşturulmalarından 90 gün sonra silinir, okunmamışlar silinmez (kullanıcı kararı 13 Kasım 2026); istisna olarak etkinliği hâlâ gelecekte olan hatırlatma satırı "gönderildi" işareti olduğu için silinmez. pg_cron işleri (pg_cron varsa kurulur, yoksa uyarı verip geçer): `techapp-event-reminders` `*/15 * * * *` → `app.queue_event_reminders()`, `techapp-prune-notifications` `23 3 * * *` → `app.prune_notifications()`. `app.secrets`, QR imzası için ortam başına migration anında üretilen `ticket_hmac_v1` anahtarını tutar; kaynak kodda sır yoktur.
 
 ## Gerçek Supabase projesine dağıtım
 
@@ -95,9 +113,11 @@ supabase secrets set RESEND_API_KEY=… GUARDIAN_PAGE_URL=… MAIL_FROM=…
 
 - Seed production'a uygulanmaz; tüm satırları `is_demo = true` taşır ve uygulamada "ÖRNEK İÇERİK" etiketiyle görünür.
 - İlk platform yöneticisi SQL ile eklenir: `insert into public.platform_admins (user_id) values ('<uuid>')`.
-- **pg_cron önerisi:** `select cron.schedule('expire-guardian', '*/15 * * * *', $$select app.expire_guardian_requests()$$);` Şu an süre dolumu yalnız tembel (yeni kayıt sırasında) çalışıyor.
+- **pg_cron önerisi:** `select cron.schedule('expire-guardian', '*/15 * * * *', $$select app.expire_guardian_requests()$$);` Şu an süre dolumu yalnız tembel (yeni kayıt sırasında) çalışıyor. (`20261113000400_notifications` iki bildirim işini kendisi kurar; yukarıdaki "Bildirimler".)
 - **Tip üretimi (TODO):** `apps/mobile/src/lib/database.types.ts` elle yazılmış bir alt kümedir. Proje bağlanınca `supabase gen types typescript` çıktısıyla değiştirilmeli.
 
 ## Doğrulama durumu
 
 Migration 0100–0400 gömülü PostgreSQL 18 üzerinde 47 testle çalıştırıldı (0600 dahil). `…000500_storage.sql` ve Edge Functions **statik olarak hazırlandı; gerçek Supabase projesinde hiç çalıştırılmadı.**
+
+**Faz 3b (13 Kasım 2026):** `npm run db:test` yerelde geçiyor (Task 14 sonunda 283 test, bu görevde yeniden koşuldu — `IMPLEMENTATION-STATUS.md`); remote regresyon betiğinin Faz 3b maddeleri (21–21d, 22–22k, 23–23i, 24–24c, 25–25k) yalnız yerel kuru koşuyla denendi, **staging'de koşulmadı** (beş migration bekletiliyor). `covers` bucket'ının `storage.objects` politikaları yerel yığında Storage olmadığı için bir stand-in üzerinde test edilir (`covers.test.ts`); gerçek Storage'a karşı doğrulama 22g ve 22k ile staging'de yapılacak.

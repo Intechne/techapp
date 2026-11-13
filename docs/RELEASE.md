@@ -68,6 +68,33 @@ Kaynak: `design-source/TEKNIK-VE-YAYIN.md`.
 - [ ] Sentry: DSN bağlandı, saklama süresi kararı yazıldı, bağlantı sonrası doğrulama (`docs/CRASH-REPORTING.md`) geçti
 - [ ] İkon / splash / mağaza varlıkları
 
+## Faz 3b — bekletilen migration'lar: tek sıra (13 Kasım 2026)
+
+Bu bölüm, aşağıdaki "Production'a geçiş" 1. maddesindeki dağınık notların **tek ve bağlayıcı özetidir**; çelişki halinde bu bölüm geçerlidir. Beş migration (`feat/v5-product`) **staging'e uygulanmadı**; Cezeri pilotu (27–29 Kasım) bitene ve kullanıcı açıkça onaylayana kadar uygulanmaz. Hiçbiri `preview` kanalına OTA ile gitmez.
+
+**Uygulama sırası (dosya sırası, her adım bir öncekinden sonra):**
+1. Önce istemci: `teams` / `recruitment_posts` için açık sütun listeli (`select('*')` yok) istemci OTA/build — pilotun `preview` kanalına **değil**, hedef sürüm kanalına. Yoksa 2. adım Topluluk, takım detayı, Takımlarım ve Keşfet'i kırar.
+2. `20261112000300_hide_creator_columns` — remote regresyon **21–21d** geçmeli.
+3. `20261113000100_covers` — remote regresyon **22–22k** koşulur; **22g ve 22k MUST PASS** (`set_cover` sahibinin `storage.objects` RLS'ini atladığı ve kapak bağlama akışı).
+4. `20261113000200_team_profile` — **23–23i** geçmeli. (`000300`'den önce uygulanırsa toplu revoke `category_key` grant'ini düşürür; dosya sırası bunu önler.)
+5. `20261113000300_recruitment_applicants` — **24–24c** geçmeli.
+6. `20261113000400_notifications` — **25–25k** geçmeli; **25 ve 25j MUST PASS** (tetikleyici gerçek sahiple yazıyor; `techapp-event-reminders` ve `techapp-prune-notifications` `cron.job`'da). pg_cron yoksa migration iş kurmadan uyarı verip geçer; 25j bunu yakalar.
+7. Push sonrası: remote regresyonun tamamı (`npx supabase db query --linked -f supabase/tests/remote/security-regression.sql | python3 supabase/tests/remote/report.py`; rollback, kalıntı 0), `covers` bucket public URL'inin curl ile kontrolü, `supabase gen types --linked` ile `database.generated.ts` yeniden üretimi.
+8. Sonra istemci (aşağıdaki liste).
+
+**Push öncesi salt okunur kontroller (hepsi 0 / beklenen olmalı, değilse push yapılmaz):**
+- `select count(*) from public.notifications where target_type not in ('event','event_registration','application','team')` → 0 (aksi halde `000400` `VALIDATE CONSTRAINT notifications_target_type_check` adımında durur).
+- `npx supabase db push` dry-run planı yalnız bu beş dosyayı (ve daha önce uygulanmamış başkasını) göstermeli; hedef proje ref'i iki kez kontrol edilir.
+- Hedef veritabanının `datctype`'ı not alınır (arama için; `"C"` ise istemci üçlü deseni zaten kullanır).
+
+**Zorunlu remote kontroller özeti:** 21–21d · 22g · 22k · 23–23i · 24–24c · 25 + 25j (diğer 22/25 harfli maddeler de geçmeli; yalnız bunlar "MUST PASS" işaretlidir).
+
+**İstemci, ilgili migration'lardan SONRA yayınlanır (T = Faz 3b görevi):** T4 (kapaklı admin/mobil — `000100`), T7 (zengin takım profili — `000200` + `000300`), T8 (Kaydedilenler — takım başlıkları `category_key` okur), T10 (Bildirimler — `000400`), T11 (Ayarlar/Gizlilik — `000400` + `000200`), T12 (Gelişim), T13 (Arama), T14 (Kurum profili + Bildir; `team_project` raporu `000200`'e bağlı, yoksa 23514). T12–T14 migration eklemez ama `TEAM_PUBLIC_COLUMNS` / `cover_*` okuduklarından T7 ile aynı sırada gider. Pratikte: beş migration + 25j'ye kadar remote kontroller → tek `feat/v5-product` istemcisi.
+
+**Kural:** `feat/v5-product` dalı pilotun `preview` kanalına **asla** OTA ile yayınlanmaz (preview build eski JS ile çalışıyor; yeni sütunları okuyan kod onu kırar, eski sorgular da `000300`'ü kırar).
+
+**Hâlâ açık (yayın öncesi):** `/gizlilik` ve `/kosullar` hukuk metinleri, admin rapor/moderasyon konsolu, expo yama sürümleri — `docs/KNOWN-ISSUES.md` > Faz 3b kapanışı.
+
 ## Remote Supabase'e ilk bağlanma (sırayla)
 1. `npx supabase login` (kendi terminalinde; tarayıcı açılır). Token'ı sohbete/repoya yapıştırma.
 2. `npx supabase projects list` → `npx supabase link --project-ref <ref>` (ref gizli değildir). Yanlış projeye push etmemek için ref'i iki kez kontrol et.
