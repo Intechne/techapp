@@ -147,7 +147,7 @@ describe('Gelişim — kurs detayı', () => {
   it('not started: "Başla" opens the first lesson; guest sees no progress', async () => {
     seedCourse(); mockUser = null;
     await mount(<CourseDetailScreen {...props('CourseDetail', { courseId: 'c1' })} />);
-    fireEvent.press(await screen.findByRole('button', { name: 'Başla' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Başla' }));
     expect(navigate).toHaveBeenCalledWith('Lesson', { courseId: 'c1', lessonId: 'l1' });
     expect(screen.queryByText(/%\d/)).toBeNull();
   });
@@ -156,7 +156,7 @@ describe('Gelişim — kurs detayı', () => {
     seedCourse();
     await mount(<CourseDetailScreen {...props('CourseDetail', { courseId: 'c1' })} />);
     await screen.findByText('1. Birinci ders');
-    fireEvent.press(screen.getAllByRole('button', { name: 'Kaydet' })[0]!);
+    await fireEvent.press(screen.getAllByRole('button', { name: 'Kaydet' })[0]!);
     expect(mockSaveToggle).toHaveBeenCalledWith('c1');
   });
 
@@ -175,7 +175,7 @@ describe('Gelişim — ders', () => {
     await open();
     expect(await screen.findByText('Birinci paragraf.')).toBeTruthy();
     expect(screen.getByText('İkinci paragraf.')).toBeTruthy();
-    fireEvent.press(screen.getByRole('button', { name: 'Tamamladım' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Tamamladım' }));
     expect(mockIntent.set).toHaveBeenCalledWith({ type: 'complete_lesson', courseId: 'c1', lessonId: 'l1' });
     expect(parentNavigate).toHaveBeenCalledWith('AuthEmail');
     expect(mockDb.rpcCalls).toHaveLength(0);
@@ -191,13 +191,13 @@ describe('Gelişim — ders', () => {
   it('signed in: completes via complete_lesson, says the server percent, then offers the next lesson', async () => {
     seedCourse();
     await open();
-    fireEvent.press(await screen.findByRole('button', { name: 'Tamamladım' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Tamamladım' }));
     await waitFor(() => expect(mockDb.rpcCalls).toEqual([{ fn: 'complete_lesson', args: { p_lesson_id: 'l1' } }]));
     expect(await screen.findByRole('button', { name: 'Sonraki ders' })).toBeTruthy();
     expect(screen.getByText(/Eğitimde %33 ilerledin/)).toBeTruthy();
     expect(mockToast).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'Tamamladım' })).toBeNull();
-    fireEvent.press(screen.getByRole('button', { name: 'Sonraki ders' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Sonraki ders' }));
     expect(replace).toHaveBeenCalledWith('Lesson', { courseId: 'c1', lessonId: 'l2' });
   });
 
@@ -205,14 +205,14 @@ describe('Gelişim — ders', () => {
     seedCourse();
     mockDb.course_progress = [{ user_id: 'u1', course_id: 'c1', completed_lesson_ids: ['l3'], percent: 33, completed_at: null }];
     await open('l3');
-    fireEvent.press(await screen.findByRole('button', { name: 'Eğitime dön' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Eğitime dön' }));
     expect(navigate).toHaveBeenCalledWith('CourseDetail', { courseId: 'c1' });
   });
 
   it('a failed completion keeps "Tamamladım" available and names the error; no primary button is ever disabled', async () => {
     seedCourse(); mockDb.fail = ['rpc'];
     await open();
-    fireEvent.press(await screen.findByRole('button', { name: 'Tamamladım' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Tamamladım' }));
     await waitFor(() => expect(mockToast).toHaveBeenCalledWith('Bu ders artık yayında değil.', 'danger'));
     expect(screen.getByRole('button', { name: 'Tamamladım' })).toBeTruthy();
     expect(screen.queryAllByRole('button').filter((b) => b.props.accessibilityState?.disabled)).toHaveLength(0);
@@ -224,9 +224,9 @@ describe('Gelişim — kurs listesi, dokunma', () => {
   it('opens the detail and saves from the card', async () => {
     mockDb.courses = [course('c1', 'Arduino’ya giriş')];
     await mount(<CourseListScreen {...props('CourseList')} />);
-    fireEvent.press(await screen.findByRole('button', { name: /Arduino’ya giriş/ }));
+    await fireEvent.press(await screen.findByRole('button', { name: /Arduino’ya giriş/ }));
     expect(navigate).toHaveBeenCalledWith('CourseDetail', { courseId: 'c1' });
-    fireEvent.press(screen.getByRole('button', { name: 'Kaydet' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Kaydet' }));
     expect(mockSaveToggle).toHaveBeenCalledWith('c1');
   });
 });

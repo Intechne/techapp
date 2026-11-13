@@ -74,7 +74,7 @@ describe('Ayarlar', () => {
     await openSettings();
     expect(screen.getByText(/ayse@example\.com/)).toBeTruthy();
     expect(screen.queryByDisplayValue('ayse@example.com')).toBeNull();
-    fireEvent.press(screen.getByRole('button', { name: 'Çıkış yap' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Çıkış yap' }));
     await waitFor(() => expect(mockSignOut).toHaveBeenCalledTimes(1));
   });
 
@@ -83,7 +83,7 @@ describe('Ayarlar', () => {
     await openSettings();
     const sw = screen.getByRole('switch', { name: 'Dokunsal geri bildirim' });
     expect(sw.props.value ?? sw.props.accessibilityState?.checked).toBe(true);
-    fireEvent(sw, 'valueChange', false);
+    await fireEvent(sw, 'valueChange', false);
     expect(mockUpdatePrefs).toHaveBeenCalledWith({ haptics: false });
     expect(mockHapticsFlag).not.toHaveBeenCalled();
   });
@@ -92,7 +92,7 @@ describe('Ayarlar', () => {
     ['Bildirimler', 'NotificationSettings'], ['Gizlilik\\.', 'Privacy'], ['Rıza merkezi', 'ConsentCenter'],
   ])('the %s row opens %s', async (name, route) => {
     await openSettings();
-    fireEvent.press(screen.getByRole('button', { name: new RegExp(`^${name}`) }));
+    await fireEvent.press(screen.getByRole('button', { name: new RegExp(`^${name}`) }));
     expect(navigate).toHaveBeenCalledWith(route);
   });
 
@@ -100,7 +100,7 @@ describe('Ayarlar', () => {
     ['Destek', WEB_PATHS.support], ['Gizlilik politikası', WEB_PATHS.privacy], ['Kullanım koşulları', WEB_PATHS.terms], ['Hesap silme', WEB_PATHS.deleteAccount],
   ])('Yardım / Yasal: %s opens WEB_ORIGIN + %s', async (name, path) => {
     await openSettings();
-    fireEvent.press(screen.getByRole('button', { name: new RegExp(`^${name}`) }));
+    await fireEvent.press(screen.getByRole('button', { name: new RegExp(`^${name}`) }));
     expect(mockOpen.mock.calls.map((c) => (c as unknown[])[0])).toEqual([WEB_ORIGIN + path]);
   });
 
@@ -113,7 +113,7 @@ describe('Ayarlar', () => {
   it('a failed link toasts instead of failing silently', async () => {
     mockOpen.mockImplementationOnce(async (...a: unknown[]) => { (a[1] as () => void)(); });
     await openSettings();
-    fireEvent.press(screen.getByRole('button', { name: /^Destek/ }));
+    await fireEvent.press(screen.getByRole('button', { name: /^Destek/ }));
     await waitFor(() => expect(mockToast).toHaveBeenCalledWith('Bağlantı açılamadı.', 'danger'));
   });
 
@@ -125,9 +125,9 @@ describe('Ayarlar', () => {
 
   it('deleting the account asks first, then runs the existing deleteAccount flow', async () => {
     await openSettings();
-    fireEvent.press(screen.getByRole('button', { name: 'Hesabımı sil' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Hesabımı sil' }));
     expect(mockDelete).not.toHaveBeenCalled();
-    fireEvent.press(await screen.findByRole('button', { name: 'Evet, hesabımı sil' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Evet, hesabımı sil' }));
     await waitFor(() => expect(mockDelete).toHaveBeenCalledTimes(1));
   });
 });
@@ -136,7 +136,7 @@ describe('Bildirim ayarları', () => {
   it('reflects the server value and saves through set_notification_preferences', async () => {
     await openNotif();
     const sw = await screen.findByRole('switch', { name: 'Etkinlik hatırlatmaları' });
-    fireEvent(sw, 'valueChange', false);
+    await fireEvent(sw, 'valueChange', false);
     await waitFor(() => expect(mockSetReminders).toHaveBeenCalledWith(false));
   });
 
@@ -151,7 +151,7 @@ describe('Bildirim ayarları', () => {
   it('a failed save shows the COPY message', async () => {
     mockPrefsFail = true;
     await openNotif();
-    fireEvent(await screen.findByRole('switch', { name: 'Etkinlik hatırlatmaları' }), 'valueChange', false);
+    await fireEvent(await screen.findByRole('switch', { name: 'Etkinlik hatırlatmaları' }), 'valueChange', false);
     await waitFor(() => expect(mockToast).toHaveBeenCalledWith('Bildirim tercihin kaydedilemedi. Yeniden dener misin?', 'danger'));
   });
 });
@@ -162,7 +162,7 @@ describe('Gizlilik', () => {
     const sw = await screen.findByRole('switch', { name: 'Profilimi keşfe aç' });
     expect(screen.getByText(DISCOVERABLE_HELP)).toBeTruthy();
     expect(DISCOVERABLE_HELP).toMatch(/kaptanı ya da mentoru olduğun takımların sayfasında herkese görünür/);
-    fireEvent(sw, 'valueChange', true);
+    await fireEvent(sw, 'valueChange', true);
     await waitFor(() => expect(mockSetDiscoverable).toHaveBeenCalledWith('u1', true));
   });
 
@@ -184,14 +184,14 @@ describe('Gizlilik', () => {
   it('the server rule discoverable_requires_adult shows its COPY message', async () => {
     mockSetDiscoverable.mockImplementationOnce(async () => { throw { code: 'PT403', message: 'discoverable_requires_adult' }; });
     await openPrivacy();
-    fireEvent(await screen.findByRole('switch', { name: 'Profilimi keşfe aç' }), 'valueChange', true);
+    await fireEvent(await screen.findByRole('switch', { name: 'Profilimi keşfe aç' }), 'valueChange', true);
     expect(await screen.findByText('Profilini keşifte göstermek şimdilik 18 yaş ve üzeri için açık.')).toBeTruthy();
   });
 
   it('hosts the CV share card and links to the consent center', async () => {
     await openPrivacy();
     expect(await screen.findByText('Dijital CV bağlantın')).toBeTruthy();
-    fireEvent.press(screen.getByRole('button', { name: /^Rıza merkezi/ }));
+    await fireEvent.press(screen.getByRole('button', { name: /^Rıza merkezi/ }));
     expect(navigate).toHaveBeenCalledWith('ConsentCenter');
     expect(within(screen.getByTestId('privacy-screen')).queryByText(/KVKK/)).toBeNull();
   });

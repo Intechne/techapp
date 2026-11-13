@@ -46,3 +46,8 @@ jest.mock('@react-native/virtualized-lists/Lists/VirtualizedList', () => {
   }
   return { __esModule: true, ...actual, default: ActVirtualizedList };
 });
+
+// The default analytics sink prints each event with console.debug while __DEV__ is true, which is every jest run.
+// Tests have no use for that stream, so the default sink is swapped for a silent one (a test may still install its own).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+(require('./src/lib/analytics') as typeof import('./src/lib/analytics')).setAnalyticsSink({ track: () => {} });
