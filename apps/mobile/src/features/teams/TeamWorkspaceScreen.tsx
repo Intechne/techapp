@@ -1,17 +1,18 @@
 import React, { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Avatar, Button, Card, Chip, EmptyState, ErrorState, IconButton, Input, LoadingSkeleton, Modal, Notice, ResponsiveGrid, Screen, SegmentedControl, Select, Tag, Text, TextButton, colors, space, useToast } from '../../design-system';
+import { AppHeader, Avatar, Button, Card, Chip, EmptyState, ErrorState, IconButton, Input, LoadingSkeleton, Modal, Notice, ResponsiveGrid, Screen, SegmentedControl, Select, StatusBadge, Tag, Text, TextButton, colors, radius, recruitmentPostStatusView, space, useToast } from '../../design-system';
 import { toAppError } from '../../lib/errors';
 import type { CommunityStackParamList } from '../../navigation/types';
 import { useSession } from '../auth/SessionProvider';
-import { decideJoin, fetchRoster, fetchTasks, fetchTeam, leaveTeam, removeMember, setMemberRole, setMemberTitle, setTaskStatus, teamKeys, type RosterEntry, type TeamTask } from './api';
+import { decideJoin, decideRecruitmentApplication, fetchAllPosts, fetchPostApplications, fetchRoster, fetchTasks, fetchTeam, leaveTeam, removeMember, setMemberRole, setMemberTitle, setRecruitmentPostOpen, setTaskStatus, teamKeys, type RosterEntry, type TeamTask } from './api';
 import { ROLE_LABEL, ROLE_OPTIONS, ROLE_TONE, TASK_ADVANCE_LABEL, TASK_STATUS_LABEL } from './labels';
 import { TaskCard } from './TaskCard';
-import { TASK_ORDER, canAdvanceTask, groupTasks, isOverdue, nextStatus, onlyMine, permissionsFor, type TeamRole } from './logic';
+import { formatDate } from '../../lib/dates';
+import { TASK_ORDER, canAdvanceTask, groupTasks, isOverdue, isPostOpen, nextStatus, onlyMine, permissionsFor, type TeamRole } from './logic';
 
-type Tab = 'Görevler' | 'Üyeler' | 'İstekler';
+type Tab = 'Görevler' | 'Üyeler' | 'İstekler' | 'İlanlar';
 
 export function TeamWorkspaceScreen({ navigation, route }: NativeStackScreenProps<CommunityStackParamList, 'TeamWorkspace'>) {
   const { teamId } = route.params;
@@ -28,6 +29,11 @@ export function TeamWorkspaceScreen({ navigation, route }: NativeStackScreenProp
   const roster = useQuery({ queryKey: teamKeys.roster(teamId), queryFn: () => fetchRoster(teamId), enabled: !!userId, retry: false });
   const tasks = useQuery({ queryKey: teamKeys.tasks(teamId), queryFn: () => fetchTasks(teamId), enabled: roster.isSuccess });
 
+  // Open roles: managers also see closed ones and the applications waiting for a decision (RLS: members read all posts of their team, managers the applications).
+  const posts = useQuery({ queryKey: teamKeys.allPosts(teamId), queryFn: () => fetchAllPosts(teamId), enabled: roster.isSuccess && permissionsFor(roster.data.find((r) => r.user_id === userId) ?? null).canManage });
+  const postIds = (posts.data ?? []).map((p) => p.id);
+  const applications = useQuery({ queryKey: [...teamKeys.postApplications(teamId), postIds], queryFn: () => fetchPostApplications(postIds), enabled: posts.isSuccess });
+
   const me = roster.data?.find((r) => r.user_id === userId) ?? null;
   const perms = permissionsFor(me);
   const active = useMemo(() => (roster.data ?? []).filter((r) => r.status === 'active'), [roster.data]);
@@ -39,6 +45,14 @@ export function TeamWorkspaceScreen({ navigation, route }: NativeStackScreenProp
 
   const refreshTeam = () => qc.invalidateQueries({ queryKey: ['teams'] });
   const onError = (e: unknown) => toast.show(toAppError(e).message, 'danger');
+  const togglePost = useMutation({
+    mutationFn: (v: { id: string; open: boolean }) => setRecruitmentPostOpen(v.id, v.open),
+    onSuccess: async (_d, v) => { await qc.invalidateQueries({ queryKey: ['teams', teamId] }); toast.show(v.open ? 'İlan yeniden açıldı.' : 'İlan kapatıldı.', 'success'); }, onError,
+  });
+  const decideApplication = useMutation({
+    mutationFn: (v: { id: string; accept: boolean }) => decideRecruitmentApplication(v.id, v.accept),
+    onSuccess: async (_d, v) => { await qc.invalidateQueries({ queryKey: ['teams'] }); toast.show(v.accept ? 'Takıma eklendi.' : 'Başvuru reddedildi.', v.accept ? 'success' : 'neutral'); }, onError,
+  });
   const advance = useMutation({ mutationFn: (t: TeamTask) => setTaskStatus(t.id, nextStatus(t.status)!), onSuccess: () => qc.invalidateQueries({ queryKey: teamKeys.tasks(teamId) }), onError });
   const decide = useMutation({ mutationFn: (v: { id: string; accept: boolean }) => decideJoin(v.id, v.accept), onSuccess: async (_d, v) => { await refreshTeam(); toast.show(v.accept ? 'Takıma eklendi.' : 'İstek reddedildi.', v.accept ? 'success' : 'neutral'); }, onError });
   const changeRole = useMutation({ mutationFn: (v: { id: string; role: TeamRole }) => setMemberRole(v.id, v.role), onSuccess: async () => { setRoleTarget(null); await refreshTeam(); toast.show('Rol güncellendi.', 'success'); } });
@@ -62,7 +76,7 @@ export function TeamWorkspaceScreen({ navigation, route }: NativeStackScreenProp
     );
   }
 
-  const tabs: readonly Tab[] = perms.canManage ? ['Görevler', 'Üyeler', 'İstekler'] : ['Görevler', 'Üyeler'];
+  const tabs: readonly Tab[] = perms.canManage ? ['Görevler', 'Üyeler', 'İstekler', 'İlanlar'] : ['Görevler', 'Üyeler'];
   const taskCard = (t: TeamTask) => {
     const label = TASK_ADVANCE_LABEL[t.status];
     return (
@@ -147,6 +161,52 @@ export function TeamWorkspaceScreen({ navigation, route }: NativeStackScreenProp
         </View>
       )}
 
+
+      {tab === 'İlanlar' && perms.canManage && (
+        <View style={{ marginTop: space[4], gap: space[3] }}>
+          {posts.isPending ? <LoadingSkeleton variant="row" rowLines={{ title: 1, secondary: 1, footnote: 'none', status: true }} /> : posts.isError ? <ErrorState error={toAppError(posts.error)} onRetry={() => void posts.refetch()} />
+            : posts.data.length === 0 ? <EmptyState icon="plus" title="Henüz açık rol ilanı yok" body="Takıma katılacak kişileri bir ilanla çağır; ilan takım sayfanda görünür, başvurular burada toplanır." actionLabel="İlan aç" onAction={() => navigation.navigate('RecruitmentPostEditor', { teamId })} />
+              : (<>
+                {posts.data.map((p) => {
+                  const isOpen = isPostOpen(p);
+                  const waiting = (applications.data ?? []).filter((a) => a.post_id === p.id);
+                  return (
+                    <Card key={p.id} style={{ gap: space[3] }}>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[2] }}>
+                        <StatusBadge view={recruitmentPostStatusView[isOpen ? 'open' : 'closed']} />
+                        {!!p.role_label && <Tag label={p.role_label} />}
+                      </View>
+                      <Text variant="cardTitle" breakStrategy="words">{p.title}</Text>
+                      {!!p.closes_at && <Text variant="caption" color="textSecondary">Son başvuru: {formatDate(p.closes_at)}</Text>}
+                      <View style={{ flexDirection: 'row', gap: space[4], flexWrap: 'wrap' }}>
+                        <TextButton label="Düzenle" accessibilityLabel={`${p.title}: düzenle`} onPress={() => navigation.navigate('RecruitmentPostEditor', { teamId, postId: p.id })} />
+                        <TextButton label={p.is_open ? 'İlanı kapat' : 'İlanı yeniden aç'} accessibilityLabel={`${p.title}: ${p.is_open ? 'ilanı kapat' : 'ilanı yeniden aç'}`}
+                          onPress={() => togglePost.mutate({ id: p.id, open: !p.is_open })} />
+                      </View>
+                      {waiting.length > 0 && (
+                        <View style={{ gap: space[3] }}>
+                          <Text variant="label">{waiting.length} başvuru karar bekliyor</Text>
+                          {waiting.map((a) => (
+                            <View key={a.id} style={styles.application}>
+                              <Text variant="caption" color="textSecondary">Başvuru · {formatDate(a.created_at)}</Text>
+                              {a.message ? <Text variant="bodySmall" color="textSecondary">“{a.message}”</Text> : <Text variant="caption" color="textSecondary">Not eklenmemiş.</Text>}
+                              <View style={{ flexDirection: 'row', gap: space[2] }}>
+                                <Button label="Kabul et" accessibilityLabel={`${p.title}: başvuruyu kabul et`} style={{ flex: 1 }} loading={decideApplication.isPending && decideApplication.variables?.id === a.id && decideApplication.variables.accept} onPress={() => decideApplication.mutate({ id: a.id, accept: true })} />
+                                <Button kind="secondary" label="Reddet" accessibilityLabel={`${p.title}: başvuruyu reddet`} style={{ flex: 1 }} loading={decideApplication.isPending && decideApplication.variables?.id === a.id && !decideApplication.variables.accept} onPress={() => decideApplication.mutate({ id: a.id, accept: false })} />
+                              </View>
+                            </View>
+                          ))}
+                          <Text variant="caption" color="textSecondary">Başvuranın adı, kabul ettiğinde Üyeler sekmesinde görünür.</Text>
+                        </View>
+                      )}
+                    </Card>
+                  );
+                })}
+                <Button kind="secondary" icon="plus" label="İlan ekle" onPress={() => navigation.navigate('RecruitmentPostEditor', { teamId })} />
+              </>)}
+        </View>
+      )}
+
       <Modal visible={!!roleTarget} title={`${roleTarget?.display_name ?? 'Üye'} için rol`} onClose={() => setRoleTarget(null)}>
         <Select label="Rol" options={ROLE_OPTIONS} value={roleDraft} onChange={setRoleDraft} />
         {changeRole.error && <Notice tone="danger">{toAppError(changeRole.error).message}</Notice>}
@@ -178,3 +238,7 @@ export function TeamWorkspaceScreen({ navigation, route }: NativeStackScreenProp
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  application: { gap: space[2], padding: space[3], borderRadius: radius.control, backgroundColor: colors.canvas },
+});

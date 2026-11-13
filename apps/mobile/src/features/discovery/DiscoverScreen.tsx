@@ -14,7 +14,7 @@ import { fetchEventsPage } from '../events/api';
 import { isRegistrationClosed, toEventPoster } from '../events/labels';
 import { OPPORTUNITY_CARD_COLUMNS, type OpportunityCardRow } from '../opportunities/api';
 import { OPPORTUNITY_ROW_LINES, toOpportunityRow } from '../opportunities/labels';
-import { teamIcon } from '../teams/labels';
+import { categoryIcon } from '../teams/categoryIcon';
 import { usePrefs } from '../onboarding/PrefsProvider';
 import { TEAM_PUBLIC_COLUMNS } from '../teams/api';
 import { pickFeatured } from './featured';
@@ -154,7 +154,7 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
         <>
           <SectionHeader title="Birlikte üretenler" actionLabel="Tümünü gör" onAction={() => navigation.getParent()?.navigate('CommunityTab')} />
           <MiniCardGrid>
-            {p.teams.slice(0, 2).map((t) => <MiniCard key={t.id} icon={teamIcon(t)} title={t.name} body={t.tagline ?? undefined} onPress={() => openTeam(t.id)} />)}
+            {p.teams.slice(0, 2).map((t) => <MiniCard key={t.id} icon={categoryIcon(t.category_key, t.kind)} title={t.name} body={t.tagline ?? undefined} onPress={() => openTeam(t.id)} />)}
           </MiniCardGrid>
         </>
       )}

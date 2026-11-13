@@ -7,7 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { CommunityScreen } from '../CommunityScreen';
 import { TeamDetailScreen } from '../../teams/TeamDetailScreen';
 import { TeamWorkspaceScreen } from '../../teams/TeamWorkspaceScreen';
-import { teamIcon } from '../../teams/labels';
+import { categoryIcon } from '../../teams/categoryIcon';
 
 const team = (id: string, name: string, over: Record<string, unknown> = {}) => ({
   id, name, kind: 'team', tagline: null, category: null, city: null, about: null, member_count: 3, is_demo: false, accepts_join_requests: true, ...over,
@@ -30,10 +30,15 @@ jest.mock('../../teams/api', () => ({
   fetchMyTeams: (...a: unknown[]) => (mockFetchMyTeams as unknown as (...x: unknown[]) => unknown)(...a),
   fetchTeam: async () => mockTeam,
   fetchOpenPosts: async () => mockPosts,
+  fetchTeamProfile: async () => ({ member_count: 0, role_counts: { captain: 0, mentor: 0, member: 0 }, leaders: [], projects_count: 0, events: [] }),
+  fetchTeamProjects: async () => [],
+  fetchMyRecruitmentApplications: async () => [],
   fetchMyMembership: async () => mockMembership,
   fetchRoster: async () => mockRoster,
   fetchTasks: async () => mockTasks,
 }));
+// useFocusEffect needs a navigation container (TeamDetail resumes a guest's apply intent on focus).
+jest.mock('@react-navigation/native', () => ({ useFocusEffect: () => {} }));
 jest.mock('../../auth/SessionProvider', () => ({ useSession: () => ({ userId: mockUser }) }));
 
 const navigate = jest.fn();
@@ -134,11 +139,11 @@ describe('Topluluk ana — takım kartları', () => {
     expect(await screen.findByText(/^12\.000\+ üye · Mühendislik/)).toBeTruthy();
   });
 
-  it('robot glyph only for a robotics category', () => {
-    expect(teamIcon({ kind: 'team', category: 'Robotik' })).toBe('robot');
-    expect(teamIcon({ kind: 'team', category: 'Yazılım' })).not.toBe('robot');
-    expect(teamIcon({ kind: 'team', category: null })).not.toBe('robot');
-    expect(teamIcon({ kind: 'community', category: 'Üretici topluluğu' })).not.toBe('robot');
+  it('the icon comes from category_key: robot only for robotics, never from the free-text category', () => {
+    expect(categoryIcon('robotics', 'team')).toBe('robot');
+    expect(categoryIcon('software', 'team')).not.toBe('robot');
+    expect(categoryIcon(undefined, 'team')).not.toBe('robot');
+    expect(categoryIcon('other', 'community')).toBe('community');
   });
 });
 
@@ -148,8 +153,9 @@ describe('Takım profili', () => {
     await detail();
     expect(await screen.findByText(/(^|· )1 üye/)).toBeTruthy();
     expect(screen.queryByText('Hakkında')).toBeNull();
-    expect(screen.queryByText('Açık roller')).toBeNull();
-    expect(screen.queryByText(/açık rol yok/)).toBeNull();
+    // "Açık roller" is the one section that stays when empty: a single explanatory line instead of a hole.
+    expect(await screen.findByText('Açık roller')).toBeTruthy();
+    expect(screen.getByText(/Şu an açık rol yok/)).toBeTruthy();
   });
 
   it('0 members is stated plainly', async () => {

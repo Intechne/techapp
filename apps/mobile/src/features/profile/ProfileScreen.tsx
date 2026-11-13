@@ -25,7 +25,7 @@ import { CvShareCard } from './CvShareCard';
 import { ProvenanceBadge } from './ProvenanceBadge';
 import { CHECKIN_ROLES } from '../checkin/api';
 import { fetchMyTeams, teamKeys } from '../teams/api';
-import { teamIcon } from '../teams/labels';
+import { categoryIcon } from '../teams/categoryIcon';
 
 const SEGMENTS = ['Deneyimler', 'Katılımlar', 'Takımlar'] as const;
 /** A Yaklaşan row: two-line title, date, status under the text on phones (approved Q6). */
@@ -202,7 +202,7 @@ export function ProfileScreen({ navigation, route }: NativeStackScreenProps<Prof
                   <View style={{ marginBottom: space[5] }}>
                     <SectionHeader title="Bekleyen istekler" />
                     <ResponsiveGrid>{pendingTeams.map((m) => (
-                      <RowCard key={m.id} leading={{ kind: 'icon', icon: teamIcon(m.team) }} title={m.team.name}
+                      <RowCard key={m.id} leading={{ kind: 'icon', icon: categoryIcon(m.team.category_key, m.team.kind) }} title={m.team.name}
                         trailing={{ kind: 'status', view: membershipStatusView.pending }} isDemo={m.team.is_demo}
                         onPress={() => navigation.getParent()?.navigate('CommunityTab', { screen: 'TeamDetail', params: { teamId: m.team_id } })} />
                     ))}</ResponsiveGrid>

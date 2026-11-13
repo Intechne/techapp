@@ -48,6 +48,12 @@ export const membershipStatusView = {
   pending: { label: 'İSTEĞİN BEKLİYOR', tone: 'apricot', icon: 'clock' },
 } as const satisfies Record<string, StatusView>;
 
+/** A team's recruitment post as its managers see it: open to applications or not. */
+export const recruitmentPostStatusView = {
+  open: { label: 'AÇIK', tone: 'moss', icon: 'check' },
+  closed: { label: 'KAPALI', tone: 'neutral' },
+} as const satisfies Record<string, StatusView>;
+
 export const volunteerStatusView = {
   pending: { label: 'GÖNÜLLÜ BAŞVURUN DEĞERLENDİRİLİYOR', tone: 'iris', icon: 'clock' },
   approved: { label: 'GÖNÜLLÜ EKİPTESİN', tone: 'moss', icon: 'check' },

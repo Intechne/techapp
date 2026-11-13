@@ -9,7 +9,8 @@ const SRC = join(__dirname, '..', '..', '..');
 const MIGRATIONS = join(SRC, '..', '..', '..', 'supabase', 'migrations');
 const MIGRATION = join(MIGRATIONS, '20261112000300_hide_creator_columns.sql');
 // Later migrations add columns with their own explicit grant on teams (20261113000100: cover_path, cover_blurhash).
-const LATER_GRANTS = [join(MIGRATIONS, '20261113000100_covers.sql')];
+// and 20261113000200: category_key).
+const LATER_GRANTS = [join(MIGRATIONS, '20261113000100_covers.sql'), join(MIGRATIONS, '20261113000200_team_profile.sql')];
 
 function sourceFiles(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {

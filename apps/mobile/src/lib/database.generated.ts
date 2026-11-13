@@ -1,4 +1,6 @@
 // NOTE: covers fields (cover_path, cover_blurhash, set_cover) hand-patched — regenerate with db:types after db push.
+// NOTE: team profile (migration 20261113000200: teams.category_key, team_projects, upsert_team_project, delete_team_project,
+// team_public_profile, create_team.p_category_key) hand-patched — regenerate with db:types after db push.
 export type Json =
   | string
   | number
@@ -1815,6 +1817,50 @@ export type Database = {
           },
         ]
       }
+      team_projects: {
+        Row: {
+          cover_path: string | null
+          created_at: string
+          id: string
+          summary: string | null
+          team_id: string
+          title: string
+          updated_at: string
+          url: string | null
+          year: number | null
+        }
+        Insert: {
+          cover_path?: string | null
+          created_at?: string
+          id?: string
+          summary?: string | null
+          team_id: string
+          title: string
+          updated_at?: string
+          url?: string | null
+          year?: number | null
+        }
+        Update: {
+          cover_path?: string | null
+          created_at?: string
+          id?: string
+          summary?: string | null
+          team_id?: string
+          title?: string
+          updated_at?: string
+          url?: string | null
+          year?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_projects_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_tasks: {
         Row: {
           assignee_id: string | null
@@ -1873,6 +1919,7 @@ export type Database = {
           about: string | null
           accepts_join_requests: boolean
           category: string | null
+          category_key: string
           city: string | null
           cover_blurhash: string | null
           cover_path: string | null
@@ -1895,6 +1942,7 @@ export type Database = {
           about?: string | null
           accepts_join_requests?: boolean
           category?: string | null
+          category_key?: string
           city?: string | null
           cover_blurhash?: string | null
           cover_path?: string | null
@@ -1917,6 +1965,7 @@ export type Database = {
           about?: string | null
           accepts_join_requests?: boolean
           category?: string | null
+          category_key?: string
           city?: string | null
           cover_blurhash?: string | null
           cover_path?: string | null
@@ -2210,6 +2259,7 @@ export type Database = {
       create_team: {
         Args: {
           p_category?: string
+          p_category_key?: string
           p_kind?: Database["public"]["Enums"]["team_kind"]
           p_name: string
           p_tagline?: string
@@ -2218,6 +2268,7 @@ export type Database = {
           about: string | null
           accepts_join_requests: boolean
           category: string | null
+          category_key: string
           city: string | null
           cover_blurhash: string | null
           cover_path: string | null
@@ -2343,6 +2394,7 @@ export type Database = {
         }
       }
       event_eligibility: { Args: { p_event_id: string }; Returns: Json }
+      delete_team_project: { Args: { p_project_id: string }; Returns: undefined }
       get_participation_card: {
         Args: { p_registration_id: string }
         Returns: Json
@@ -2708,6 +2760,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      team_public_profile: { Args: { p_team_id: string }; Returns: Json }
       team_roster: {
         Args: { p_team_id: string }
         Returns: {
@@ -2722,6 +2775,33 @@ export type Database = {
       }
       unregister_device: { Args: { p_install_id: string }; Returns: number }
       volunteer_event_brief: { Args: { p_event_id: string }; Returns: Json }
+      upsert_team_project: {
+        Args: {
+          p_project_id: string | null
+          p_summary: string | null
+          p_team_id: string
+          p_title: string
+          p_url: string | null
+          p_year: number | null
+        }
+        Returns: {
+          cover_path: string | null
+          created_at: string
+          id: string
+          summary: string | null
+          team_id: string
+          title: string
+          updated_at: string
+          url: string | null
+          year: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "team_projects"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       withdraw_application: {
         Args: { p_application_id: string }
         Returns: {

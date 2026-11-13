@@ -1,4 +1,4 @@
-import { canAdvanceTask, groupTasks, onlyMine, isOverdue, isoToDisplayDate, nextStatus, parseDueDate, permissionsFor, type TaskLike } from '../logic';
+import { canAdvanceTask, groupTasks, onlyMine, isOverdue, isoToDisplayDate, nextStatus, parseDueDate, permissionsFor, validatePost, validateProject, type TaskLike } from '../logic';
 
 const today = new Date(2026, 8, 19);
 const task = (o: Partial<TaskLike>): TaskLike => ({ id: 'x', status: 'todo', due_date: null, assignee_id: null, created_at: '2026-09-01T00:00:00Z', completed_at: null, ...o });
@@ -63,5 +63,47 @@ describe('teams logic', () => {
     expect(parseDueDate('01.01.1999').ok).toBe(false);
     expect(isoToDisplayDate('2026-11-05')).toBe('05.11.2026');
     expect(isoToDisplayDate(null)).toBe('');
+  });
+});
+
+describe('project form (mirrors the CHECKs of team_projects)', () => {
+  const ok = { title: 'Otonom Şasi v2', summary: '', year: '', url: '' };
+  it('accepts a title with nothing else; trims; year and url are optional', () => {
+    expect(validateProject({ ...ok, title: '  Şasi  ' })).toEqual({ ok: true, value: { title: 'Şasi', summary: '', year: null, url: '' } });
+  });
+  it('title 3–120 after trimming', () => {
+    expect(validateProject({ ...ok, title: ' ab ' })).toMatchObject({ ok: false, errors: { title: expect.any(String) } });
+    expect(validateProject({ ...ok, title: 'a'.repeat(121) }).ok).toBe(false);
+    expect(validateProject({ ...ok, title: 'a'.repeat(120) }).ok).toBe(true);
+  });
+  it('summary ≤ 600', () => {
+    expect(validateProject({ ...ok, summary: 'x'.repeat(601) })).toMatchObject({ ok: false, errors: { summary: expect.any(String) } });
+    expect(validateProject({ ...ok, summary: 'x'.repeat(600) }).ok).toBe(true);
+  });
+  it('year 2000–2100, whole number', () => {
+    expect(validateProject({ ...ok, year: '2026' })).toMatchObject({ ok: true, value: { year: 2026 } });
+    for (const year of ['1999', '2101', '20.5', 'abc', '2026a']) expect(validateProject({ ...ok, year })).toMatchObject({ ok: false, errors: { year: expect.any(String) } });
+  });
+  it('url: https only, a host, no whitespace, ≤ 500', () => {
+    expect(validateProject({ ...ok, url: 'https://takim.example/proje?id=1#a' }).ok).toBe(true);
+    for (const url of ['http://takim.example', 'javascript:alert(1)', 'https://', 'https://a b.example', 'HTTPS://takim.example', 'takim.example', `https://a.example/${'x'.repeat(500)}`]) {
+      expect([url, validateProject({ ...ok, url }).ok]).toEqual([url, false]);
+    }
+  });
+});
+
+describe('recruitment post form (mirrors recruitment_posts CHECKs)', () => {
+  const ok = { title: 'Mekanik ekibine katıl', roleLabel: '', description: '', skills: '', closesAt: '' };
+  it('title 3–120, role label ≤ 60, description ≤ 2000, skills ≤ 12 (comma separated, trimmed, empties dropped)', () => {
+    expect(validatePost({ ...ok, skills: ' CAD, ,Şasi ,' })).toMatchObject({ ok: true, value: { skills: ['CAD', 'Şasi'], closesAt: null } });
+    expect(validatePost({ ...ok, title: 'ab' }).ok).toBe(false);
+    expect(validatePost({ ...ok, roleLabel: 'x'.repeat(61) }).ok).toBe(false);
+    expect(validatePost({ ...ok, description: 'x'.repeat(2001) }).ok).toBe(false);
+    expect(validatePost({ ...ok, skills: Array.from({ length: 13 }, (_, i) => `s${i}`).join(',') })).toMatchObject({ ok: false, errors: { skills: expect.any(String) } });
+  });
+  it('closing date is a real GG.AA.YYYY date or empty, and becomes the end of that day', () => {
+    expect(validatePost({ ...ok, closesAt: '31.02.2027' }).ok).toBe(false);
+    const r = validatePost({ ...ok, closesAt: '05.12.2027' });
+    expect(r.ok && r.value.closesAt).toMatch(/^2027-12-05T/);
   });
 });

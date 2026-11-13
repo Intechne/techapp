@@ -1,4 +1,4 @@
-import type { TechIconName } from '../../design-system';
+import type { applicationStatusView } from '../../design-system';
 import type { TaskPriority, TaskStatus, TeamRole } from './logic';
 
 export const TASK_STATUS_LABEL: Record<TaskStatus, string> = { todo: 'Yapılacak', doing: 'Devam ediyor', done: 'Tamamlandı' };
@@ -21,9 +21,7 @@ export const ROLE_OPTIONS: readonly { value: TeamRole; label: string; descriptio
 ];
 
 export const KIND_LABEL = { team: 'TAKIM', community: 'TOPLULUK' } as const;
-/**
- * Robot glyph only for a robotics category (icon meaning table); other teams get the team glyph, communities the
- * community glyph. Stand-in for Faz 3b's `categoryIcon`.
- */
-export const teamIcon = (t: { kind: 'team' | 'community'; category: string | null }): TechIconName =>
-  /robot/i.test(t.category ?? '') ? 'robot' : t.kind === 'team' ? 'team' : 'community';
+
+/** A recruitment application is read through the same status wording as every other application (Status.tsx). */
+export const RECRUITMENT_STATUS: Record<'submitted' | 'accepted' | 'rejected' | 'withdrawn', keyof typeof applicationStatusView> =
+  { submitted: 'submitted', accepted: 'accepted', rejected: 'declined', withdrawn: 'withdrawn' };

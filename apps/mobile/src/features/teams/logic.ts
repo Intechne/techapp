@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 /** Pure helpers for the teams feature. Nothing here grants anything: it only interprets what the server reported. */
 export type TaskStatus = 'todo' | 'doing' | 'done';
 export type TaskPriority = 'low' | 'normal' | 'high';
@@ -57,3 +59,46 @@ export function parseDueDate(input: string): DueDateResult {
   return { ok: true, iso: `${m[3]}-${m[2]}-${m[1]}` };
 }
 export const isoToDisplayDate = (iso: string | null): string => (iso ? iso.slice(0, 10).split('-').reverse().join('.') : '');
+
+// ------------------------------------------------------------------ project / post forms
+export type FormResult<Raw extends object, Value> = { ok: true; value: Value } | { ok: false; errors: Partial<Record<keyof Raw, string>> };
+
+/** Same pattern as team_projects_url_check: https only, a host, no whitespace or control characters. */
+const HTTPS_URL = /^https:\/\/[^\s\u0000-\u001f\u007f/?#]+([/?#][^\s\u0000-\u001f\u007f]*)?$/;
+const projectSchema = z.object({
+  title: z.string().trim().min(3, 'Proje adı en az 3 karakter olmalı.').max(120, 'Proje adı en fazla 120 karakter olabilir.'),
+  summary: z.string().max(600, 'Özet en fazla 600 karakter olabilir.'),
+  year: z.string().trim().refine((v) => v === '' || (/^\d{4}$/.test(v) && Number(v) >= 2000 && Number(v) <= 2100), 'Yılı 2000 ile 2100 arasında, dört haneli yaz.'),
+  url: z.string().trim().max(500, 'Bağlantı en fazla 500 karakter olabilir.').refine((v) => v === '' || HTTPS_URL.test(v), 'Bağlantı https:// ile başlamalı ve boşluk içermemeli.'),
+});
+export interface ProjectForm { title: string; summary: string; year: string; url: string }
+
+export function validateProject(raw: ProjectForm): FormResult<ProjectForm, { title: string; summary: string; year: number | null; url: string }> {
+  const r = projectSchema.safeParse(raw);
+  if (!r.success) {
+    const errors: Partial<Record<keyof ProjectForm, string>> = {};
+    for (const issue of r.error.issues) errors[issue.path[0] as keyof ProjectForm] ??= issue.message;
+    return { ok: false, errors };
+  }
+  return { ok: true, value: { title: r.data.title, summary: r.data.summary.trim(), year: r.data.year === '' ? null : Number(r.data.year), url: r.data.url } };
+}
+
+export interface PostForm { title: string; roleLabel: string; description: string; skills: string; closesAt: string }
+export function validatePost(raw: PostForm): FormResult<PostForm, { title: string; roleLabel: string; description: string; skills: string[]; closesAt: string | null }> {
+  const errors: Partial<Record<keyof PostForm, string>> = {};
+  const title = raw.title.trim();
+  if (title.length < 3 || title.length > 120) errors.title = 'İlan başlığı 3 ile 120 karakter arasında olmalı.';
+  if (raw.roleLabel.trim().length > 60) errors.roleLabel = 'Rol adı en fazla 60 karakter olabilir.';
+  if (raw.description.trim().length > 2000) errors.description = 'Açıklama en fazla 2000 karakter olabilir.';
+  const skills = raw.skills.split(',').map((s) => s.trim()).filter(Boolean);
+  if (skills.length > 12) errors.skills = 'En fazla 12 beceri yazabilirsin.';
+  const due = parseDueDate(raw.closesAt);
+  if (!due.ok) errors.closesAt = due.error;
+  if (Object.keys(errors).length || !due.ok) return { ok: false, errors };
+  // Applications close at the end of the chosen day, Istanbul time (UTC+3 all year).
+  return { ok: true, value: { title, roleLabel: raw.roleLabel.trim(), description: raw.description.trim(), skills, closesAt: due.iso ? `${due.iso}T23:59:59+03:00` : null } };
+}
+
+/** A post takes applications while it is switched on and its closing date (if any) has not passed. The server applies the same rule. */
+export const isPostOpen = (p: { is_open: boolean; closes_at: string | null }, now: number = Date.now()): boolean =>
+  p.is_open && (!p.closes_at || new Date(p.closes_at).getTime() > now);

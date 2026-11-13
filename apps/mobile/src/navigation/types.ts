@@ -27,6 +27,8 @@ export type CommunityStackParamList = {
   TeamDetail: { teamId: string };
   TeamWorkspace: { teamId: string };
   TeamTaskEditor: { teamId: string; taskId?: string };
+  TeamProjectEditor: { teamId: string; projectId?: string };
+  RecruitmentPostEditor: { teamId: string; postId?: string };
   CreateTeam: undefined;
 };
 export type ProfileStackParamList = SharedEventParamList & {

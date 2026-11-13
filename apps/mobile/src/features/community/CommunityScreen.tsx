@@ -7,7 +7,8 @@ import { toAppError } from '../../lib/errors';
 import type { CommunityStackParamList } from '../../navigation/types';
 import { useSession } from '../auth/SessionProvider';
 import { fetchMyTeams, fetchTeams, teamKeys } from '../teams/api';
-import { ROLE_NAME, teamIcon } from '../teams/labels';
+import { ROLE_NAME } from '../teams/labels';
+import { categoryIcon } from '../teams/categoryIcon';
 
 const SEGMENTS = ['Takımlar', 'Topluluklar'] as const;
 const MEMBER = { one: 'üye', other: 'üye' };
@@ -38,7 +39,7 @@ export function CommunityScreen({ navigation }: NativeStackScreenProps<Community
 
       {!!myTeam && (
         <View style={styles.shortcut}>
-          <RowCard leading={{ kind: 'icon', icon: teamIcon(myTeam.team) }} title={myTeam.team.name}
+          <RowCard leading={{ kind: 'icon', icon: categoryIcon(myTeam.team.category_key, myTeam.team.kind) }} title={myTeam.team.name}
             secondary={metaJoin(['Takımım', ROLE_NAME[myTeam.role], active.length > 1 ? `+${active.length - 1} takım daha` : null])}
             trailing={{ kind: 'chevron' }} onPress={() => navigation.navigate('TeamWorkspace', { teamId: myTeam.team_id })} />
           {active.length > 1 && (
@@ -57,7 +58,7 @@ export function CommunityScreen({ navigation }: NativeStackScreenProps<Community
             : (
               <ResponsiveGrid>
                 {list.data.map((t) => (
-                  <RowCard key={t.id} leading={{ kind: 'icon', icon: teamIcon(t) }} title={t.name} secondary={t.tagline ?? undefined}
+                  <RowCard key={t.id} leading={{ kind: 'icon', icon: categoryIcon(t.category_key, t.kind) }} title={t.name} secondary={t.tagline ?? undefined}
                     footnote={metaJoin([formatCount(t.member_count, MEMBER), t.category, t.city])} isDemo={t.is_demo}
                     trailing={{ kind: 'chevron' }} onPress={() => navigation.navigate('TeamDetail', { teamId: t.id })} />
                 ))}

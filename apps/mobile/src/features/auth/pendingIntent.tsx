@@ -5,6 +5,7 @@ export type PendingIntent =
   | { type: 'register_event'; eventId: string }
   | { type: 'apply_opportunity'; opportunityId: string }
   | { type: 'volunteer_event'; eventId: string }
+  | { type: 'apply_recruitment'; teamId: string; postId: string }
   | { type: 'bookmark'; targetType: 'event' | 'opportunity'; targetId: string };
 
 interface Api { set: (intent: PendingIntent) => void; consume: <T extends PendingIntent['type']>(type: T) => Extract<PendingIntent, { type: T }> | null; clear: () => void }

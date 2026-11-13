@@ -67,3 +67,13 @@ export const checkInResultSchema = z.object({
   result: z.enum(['checked_in', 'already_checked_in']), registration_id: z.string(), checked_in_at: z.string(), holder_name: z.string().nullable(),
 });
 export type CheckInResult = z.infer<typeof checkInResultSchema>;
+
+/** `team_public_profile(p_team_id)`: counts and the adult captains/mentors who chose to be discoverable. Never user ids. */
+export const teamPublicProfileSchema = z.object({
+  member_count: z.number(),
+  role_counts: z.object({ captain: z.number(), mentor: z.number(), member: z.number() }),
+  leaders: z.array(z.object({ display_name: z.string(), role: z.enum(['captain', 'mentor']) })),
+  projects_count: z.number(),
+  events: z.array(z.object({ id: z.string(), title: z.string(), starts_at: z.string().nullable().optional() })),
+});
+export type TeamPublicProfile = z.infer<typeof teamPublicProfileSchema>;
