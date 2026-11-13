@@ -25,8 +25,10 @@ const KINDS: Record<string, { target: TargetType | null; probe: TargetType | nul
   'team_join.accepted': { target: 'team', probe: 'team', open: (id) => ({ tab: 'CommunityTab', screen: 'TeamDetail', params: { teamId: id } }) },
   'team_join.rejected': { target: 'team', probe: 'team', open: (id) => ({ tab: 'CommunityTab', screen: 'TeamDetail', params: { teamId: id } }) },
   // Team registration (20261113000700). The team's captains / mentors and its accepted members get these; all of them can read the
-  // status screen (team_registration_detail). `.invited` and `.guardian_expired` are for the INVITED member, whose screen (TeamInvite,
-  // where they answer or are told the guardian lapsed) is Faz 3a Task 6: until it exists they have no route (row read, "gone" message).
+  // status screen (team_registration_detail). `.invited` opens the invite screen (the notification carries the team registration id,
+  // the screen finds the member's invite by it); `.guardian_expired` goes to the status screen (the member is still on the team).
+  'team_registration.invited': { target: 'team_event_registration', probe: 'team_event_registration', open: (id) => ({ tab: 'EventsTab', screen: 'TeamInvite', params: { teamRegistrationId: id } }) },
+  'team_registration.guardian_expired': { target: 'team_event_registration', probe: 'team_event_registration', open: (id) => teamRegistrationStatus(id) },
   'team_registration.confirmed': { target: 'team_event_registration', probe: 'team_event_registration', open: (id) => teamRegistrationStatus(id) },
   'team_registration.member_declined': { target: 'team_event_registration', probe: 'team_event_registration', open: (id) => teamRegistrationStatus(id) },
   'team_registration.expired': { target: 'team_event_registration', probe: 'team_event_registration', open: (id) => teamRegistrationStatus(id) },

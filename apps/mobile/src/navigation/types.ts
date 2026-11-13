@@ -11,6 +11,8 @@ export type SharedEventParamList = {
   /** Takım kaydı (kaptan veya mentor), behind features.teamRegistration. `teamRegistrationId`: edit that registration's roster. */
   TeamRegistration: { eventId: string; teamRegistrationId?: string };
   TeamRegistrationStatus: { teamRegistrationId: string };
+  /** Üye daveti (Katılımlarım opens it by member id; a notification only has the team registration id), behind features.teamRegistration. */
+  TeamInvite: { memberId?: string; teamRegistrationId?: string };
   ParticipationCard: { registrationId: string };
   MyRegistrations: undefined;
   VolunteerHub: { eventId: string };

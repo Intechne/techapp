@@ -648,6 +648,7 @@ export type Database = {
           status: Database["public"]["Enums"]["registration_status"]
           status_reason: string | null
           team_id: string | null
+          team_registration_id: string | null
           ticket_version: number
           updated_at: string
           user_id: string
@@ -663,6 +664,7 @@ export type Database = {
           status: Database["public"]["Enums"]["registration_status"]
           status_reason?: string | null
           team_id?: string | null
+          team_registration_id?: string | null
           ticket_version?: number
           updated_at?: string
           user_id: string
@@ -678,6 +680,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["registration_status"]
           status_reason?: string | null
           team_id?: string | null
+          team_registration_id?: string | null
           ticket_version?: number
           updated_at?: string
           user_id?: string
@@ -2290,6 +2293,7 @@ export type Database = {
           status: Database["public"]["Enums"]["registration_status"]
           status_reason: string | null
           team_id: string | null
+          team_registration_id: string | null
           ticket_version: number
           updated_at: string
           user_id: string
@@ -2599,6 +2603,7 @@ export type Database = {
           status: Database["public"]["Enums"]["registration_status"]
           status_reason: string | null
           team_id: string | null
+          team_registration_id: string | null
           ticket_version: number
           updated_at: string
           user_id: string

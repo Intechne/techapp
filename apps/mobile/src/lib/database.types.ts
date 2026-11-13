@@ -105,3 +105,19 @@ export const teamRegistrationDetailSchema = z.object({
   })),
 });
 export type TeamRegistrationDetail = z.infer<typeof teamRegistrationDetailSchema>;
+
+/** my_team_registration_invites (20261113000700): one row per pending invite of the signed-in member. */
+export const teamInviteSchema = z.object({
+  member_id: z.string(), team_registration_id: z.string(), state: z.string(), team_status: teamRegistrationStatus,
+  hold_expires_at: z.string().nullable(),
+  event: z.object({ id: z.string(), title: z.string(), starts_at: z.string() }),
+  team: z.object({ id: z.string(), name: z.string() }),
+});
+export type TeamInvite = z.infer<typeof teamInviteSchema>;
+
+/** respond_team_registration: the member's own registration is null when they declined. */
+export const teamRespondSchema = z.object({
+  member_state: z.string(), registration_id: z.string().nullable(), registration_status: registrationStatus.nullable(), team_status: teamRegistrationStatus,
+  hold_expires_at: z.string().nullable().optional(),
+});
+export type TeamRespondResult = z.infer<typeof teamRespondSchema>;

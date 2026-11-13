@@ -24,3 +24,11 @@ export const TEAM_STATUS_HEADLINE = {
   rejected: { title: 'Bu sefer olmadı.', body: 'Takımın bu etkinlik için uygun bulunmadı.' },
   expired: { title: 'Takım kaydının süresi doldu.', body: 'Kadro zamanında tamamlanmadığı için takım yeri serbest bırakıldı. Kayıtlar açıksa yeniden deneyebilirsin.' },
 } as const;
+
+/** Team status as one lowercase clause, for "Takımın: <ad> · <durum>" (the badge wording lives in Status.tsx). */
+export const TEAM_STATUS_CLAUSE = {
+  pending_members: 'üyeler bekleniyor', pending_review: 'değerlendirmede', confirmed: 'onaylandı', waitlisted: 'bekleme listesinde',
+  cancelled: 'iptal edildi', rejected: 'uygun bulunmadı', expired: 'süresi doldu',
+} as const;
+
+export const TEAM_INVITE_CONSENT = 'Kabul edersen katılımın senin adına kaydedilir; 18 yaşından küçüksen velinden onay isteyeceğiz.';

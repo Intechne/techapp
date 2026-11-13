@@ -3,14 +3,16 @@ import { FlatList, RefreshControl, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Button, Card, EmptyState, ErrorState, LoadingSkeleton, MetadataRow, Notice, OfflineLabel, RowCard, Text, colors, layout, registrationStatusView, space, type RowLines } from '../../design-system';
-import { formatDateRange, formatLastUpdated } from '../../lib/dates';
+import { AppHeader, Button, Card, EmptyState, ErrorState, LoadingSkeleton, MetadataRow, Notice, OfflineLabel, RowCard, Text, colors, layout, registrationStatusView, space, teamMemberStepView, type RowLines } from '../../design-system';
+import { formatDateRange, formatDateTime, formatLastUpdated } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
+import { features } from '../../lib/features';
 import type { SharedEventParamList } from '../../navigation/types';
 import { useSession } from '../auth/SessionProvider';
 import { eventKeys, fetchMyRegistrations } from './api';
 import { dropCards, isNetworkClassError, listCards } from './offlineCard';
 import { placeLabel } from './labels';
+import { fetchMyTeamInvites, teamRegistrationKeys } from '../teamRegistration/api';
 
 const SLOW_LOAD_MS = 3000;
 /** A Katılımlarım row: two-line title, date · place, status under the text on phones (approved Q6). */
@@ -20,6 +22,9 @@ const Separator = () => <View style={{ height: space[3] }} />;
 export function MyRegistrationsScreen({ navigation }: NativeStackScreenProps<SharedEventParamList, 'MyRegistrations'>) {
   const { userId } = useSession();
   const q = useQuery({ queryKey: eventKeys.myRegistrations(userId), queryFn: () => fetchMyRegistrations(userId!), enabled: !!userId });
+  // Team invites (flag on only): the section exists only while there is one. A failed read shows nothing here; the invite stays reachable from its notification.
+  const invites = useQuery({ queryKey: teamRegistrationKeys.invites(userId), queryFn: fetchMyTeamInvites, enabled: features.teamRegistration && !!userId, retry: false });
+  const pendingInvites = features.teamRegistration ? invites.data ?? [] : [];
   // Registrations the server lists as not confirmed must not keep an offline card (cancelled elsewhere, rejected, expired).
   const notConfirmed = (q.data ?? []).filter((r) => r.status !== 'confirmed').map((r) => r.id).join(',');
   useEffect(() => {
@@ -63,7 +68,18 @@ export function MyRegistrationsScreen({ navigation }: NativeStackScreenProps<Sha
         keyExtractor={(r) => r.id}
         contentContainerStyle={{ paddingHorizontal: layout.gutter, paddingBottom: space[8] }}
         refreshControl={<RefreshControl refreshing={q.isRefetching} onRefresh={() => void q.refetch()} tintColor={colors.primary} />}
-        ListHeaderComponent={<View style={{ marginBottom: space[4], gap: space[3] }}><Text variant="title">Attığın adımlar.</Text>{staleOffline && <Notice tone="info">Bağlantı yok. Liste en son yüklendiği hâliyle duruyor.</Notice>}</View>}
+        ListHeaderComponent={<View style={{ marginBottom: space[4], gap: space[3] }}><Text variant="title">Attığın adımlar.</Text>{staleOffline && <Notice tone="info">Bağlantı yok. Liste en son yüklendiği hâliyle duruyor.</Notice>}
+          {pendingInvites.length > 0 && (
+            <View style={{ gap: space[3], marginTop: space[2] }}>
+              <Text variant="section">Takım davetleri</Text>
+              {pendingInvites.map((inv) => (
+                <RowCard key={inv.member_id} leading={{ kind: 'icon', icon: 'team' }} title={inv.event.title}
+                  secondary={`${inv.team.name} · ${formatDateTime(inv.event.starts_at)}`}
+                  trailing={{ kind: 'status', view: teamMemberStepView.invited }}
+                  onPress={() => navigation.navigate('TeamInvite', { memberId: inv.member_id })} />
+              ))}
+            </View>
+          )}</View>}
         ItemSeparatorComponent={Separator}
         renderItem={({ item }) => (
           <RowCard leading={{ kind: 'icon', icon: 'ticket' }} title={item.event.title}

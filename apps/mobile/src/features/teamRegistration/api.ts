@@ -1,6 +1,7 @@
 import { getSupabase } from '../../lib/supabase';
 import { parsePayload, toAppError } from '../../lib/errors';
-import { teamRegistrationDetailSchema, type TeamRegistrationDetail } from '../../lib/database.types';
+import { z } from 'zod';
+import { teamInviteSchema, teamRegistrationDetailSchema, teamRespondSchema, type TeamInvite, type TeamRegistrationDetail, type TeamRespondResult } from '../../lib/database.types';
 import type { Database } from '../../lib/database.generated';
 import { fetchRoster, type RosterEntry } from '../teams/api';
 
@@ -9,6 +10,7 @@ export type TeamEventRegistrationRow = Database['public']['Functions']['submit_t
 export const teamRegistrationKeys = {
   all: ['teamRegistrations'] as const,
   detail: (id: string) => ['teamRegistrations', 'detail', id] as const,
+  invites: (userId: string | null) => ['teamRegistrations', 'invites', userId] as const,
   roster: (teamId: string) => ['teamRegistrations', 'roster', teamId] as const,
 };
 
@@ -45,4 +47,20 @@ export async function cancelTeamRegistration(teamRegistrationId: string): Promis
   const { data, error } = await getSupabase().rpc('cancel_team_registration', { p_team_registration_id: teamRegistrationId });
   if (error) throw toAppError(error);
   return data;
+}
+
+/** The signed-in member's pending invites. Only called with features.teamRegistration on. */
+export async function fetchMyTeamInvites(): Promise<TeamInvite[]> {
+  const { data, error } = await getSupabase().rpc('my_team_registration_invites');
+  if (error) throw toAppError(error);
+  return parsePayload(z.array(teamInviteSchema), data ?? []);
+}
+
+/** The member answers for themselves (the server refuses anyone else). One key per attempt: a retry cannot create a second registration. */
+export async function respondTeamRegistration(input: { memberId: string; accept: boolean; idempotencyKey: string }): Promise<TeamRespondResult> {
+  const { data, error } = await getSupabase().rpc('respond_team_registration', {
+    p_member_id: input.memberId, p_accept: input.accept, p_idempotency_key: input.idempotencyKey,
+  });
+  if (error) throw toAppError(error);
+  return parsePayload(teamRespondSchema, data);
 }

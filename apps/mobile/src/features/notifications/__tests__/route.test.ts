@@ -60,9 +60,13 @@ describe('notificationRoute — team registration kinds (target team_event_regis
   it.each(['team_registration.confirmed', 'team_registration.member_declined', 'team_registration.expired'])('%s → the team registration status', (kind) => {
     expect(notificationRoute(n(kind, 'team_event_registration'))).toEqual(status);
   });
-  it.each(['team_registration.invited', 'team_registration.guardian_expired'])('%s → no route yet (the member screen is Task 6)', (kind) => {
-    expect(notificationRoute(n(kind, 'team_event_registration'))).toBeNull();
-    expect(notificationProbe(n(kind, 'team_event_registration'))).toBeNull();
+  it('team_registration.invited → the invite screen, found by the team registration id the notification carries', () => {
+    expect(notificationRoute(n('team_registration.invited', 'team_event_registration'))).toEqual({ tab: 'EventsTab', screen: 'TeamInvite', params: { teamRegistrationId: ID } });
+    expect(notificationProbe(n('team_registration.invited', 'team_event_registration'))).toBe('team_event_registration');
+  });
+  it('team_registration.guardian_expired → the team registration status (the member is still on the team)', () => {
+    expect(notificationRoute(n('team_registration.guardian_expired', 'team_event_registration'))).toEqual(status);
+    expect(notificationProbe(n('team_registration.guardian_expired', 'team_event_registration'))).toBe('team_event_registration');
   });
   it('a team registration kind with another target type has no route', () => {
     expect(notificationRoute(n('team_registration.confirmed', 'event_registration'))).toBeNull();
