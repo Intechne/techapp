@@ -9,9 +9,6 @@ import { useReducedMotion } from '../useReducedMotion';
 import { CircuitArt, circuitArtHeight } from './cards/CircuitArt';
 import { cardLayout } from './cards/metrics';
 
-/** Ink scrim over a cover photo that carries light text: dark enough for white text even on a white photo (contrast >= 4.5). */
-export const COVER_SCRIM = 0.72;
-
 /** What is drawn when there is no cover, or it does not load: the approved Open Circuit poster (type pad + one trace on the tone ground). */
 export interface CoverFallback { tone: Tone; icon: TechIconName; line: string; /** Detail layout only: the type label above the line. */ eyebrow?: string }
 
@@ -69,17 +66,30 @@ export function CoverImage({ path, blurhash, size, aspect, fallback, detail, lar
 }
 
 /**
- * Image layer for surfaces that bring their own background and text (vitrin hero, team cover, row-card tile): fills the
- * parent, draws nothing when there is no cover or it fails (the surface underneath stays as it was). `scrim` darkens it
- * with the ink tone so light text on top stays readable whatever the photo is.
+ * Image layer for a surface that brings its own background (row-card tile): fills the parent, draws nothing when there is
+ * no cover or it fails (the surface underneath stays as it was). Never carries text: text on a photo is not allowed.
  */
-export function CoverFill({ path, blurhash, size, scrim }: { path: string | null; blurhash: string | null; size: CoverSize; scrim?: number }) {
+export function CoverFill({ path, blurhash, size }: { path: string | null; blurhash: string | null; size: CoverSize }) {
   const { url, fail, transition } = useCover(path, size);
   if (!url) return null;
   return (
     <View testID="cover-fill" style={StyleSheet.absoluteFill} pointerEvents="none">
       <Picture url={url} blurhash={blurhash} transition={transition} onError={fail} />
-      {scrim !== undefined && <View style={[StyleSheet.absoluteFill, { backgroundColor: tones.ink.bg, opacity: scrim }]} />}
+    </View>
+  );
+}
+
+/**
+ * Photo block for split layouts (vitrin hero, team cover): the full-size photo at `aspect`, with the text panel BELOW it,
+ * on its own brand-colour ground, so text never sits on a photo. No cover or a failed load = renders nothing and the
+ * panel alone is the card, exactly as without a cover.
+ */
+export function CoverBanner({ path, blurhash, aspect = 16 / 10 }: { path: string | null; blurhash: string | null; aspect?: number }) {
+  const { url, fail, transition } = useCover(path, 'full');
+  if (!url) return null;
+  return (
+    <View testID="cover-banner" style={{ width: '100%', aspectRatio: aspect, overflow: 'hidden' }}>
+      <Picture url={url} blurhash={blurhash} transition={transition} onError={fail} />
     </View>
   );
 }

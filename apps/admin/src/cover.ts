@@ -12,7 +12,19 @@ import { encode } from 'blurhash';
 export const COVER_OBJECT_RE = /^(events|opportunities|teams)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(-640)?\.webp$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
+/** The bucket limit: every ENCODED file we upload (full and 640 px copy) must be <= 2 MB. */
 export const MAX_COVER_BYTES = 2 * 1024 * 1024;
+/**
+ * What a person may pick. A phone photo is routinely 5-12 MB; the 2 MB limit applies to what we upload, not to what we read.
+ * The input cap only keeps a pathological file from being read at all.
+ */
+export const MAX_INPUT_BYTES = 25 * 1024 * 1024;
+/**
+ * Decoded size guard (~40 megapixels = ~160 MB of RGBA). Chosen over decoding with `resizeWidth`: resizeWidth also
+ * ENLARGES small images and gives the browser no way to refuse, whereas the guard refuses the rare absurd image
+ * (e.g. a stitched panorama) with a clear message after a single decode, before any canvas is allocated.
+ */
+export const MAX_PIXELS = 40_000_000;
 export const FULL_WIDTH = 1600;
 export const THUMB_WIDTH = 640;
 const SOURCE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -23,7 +35,7 @@ export class CoverError extends Error {
   constructor(public code: CoverErrorCode, message?: string) { super(message ?? code); this.name = 'CoverError'; }
 }
 export const COVER_ERROR_COPY: Record<CoverErrorCode, string> = {
-  too_large: 'Görsel 2 MB’dan büyük. Daha küçük bir dosya seç.',
+  too_large: 'Görsel çok büyük: dosya en fazla 25 MB ve 40 megapiksel olabilir; yüklenecek kopya 2 MB’ın altına inebilmeli. Daha küçük bir görsel seç.',
   bad_type: 'Yalnızca JPEG, PNG veya WebP görsel yüklenebilir.',
   decode_failed: 'Görsel açılamadı. Başka bir dosya dene.',
   encode_failed: 'Bu tarayıcı görseli WebP’ye çeviremedi. Güncel bir tarayıcı dene.',
@@ -38,7 +50,7 @@ export const thumbPathOf = (path: string) => path.replace(/\.webp$/, '-640.webp'
 
 export function assertCoverFile(file: Pick<File, 'type' | 'size'>): void {
   if (!SOURCE_TYPES.includes(file.type)) throw new CoverError('bad_type');
-  if (file.size > MAX_COVER_BYTES) throw new CoverError('too_large');
+  if (file.size > MAX_INPUT_BYTES) throw new CoverError('too_large');
 }
 
 export interface PreparedCover { full: Blob; thumb: Blob; blurhash: string }
@@ -81,6 +93,7 @@ export async function prepareCover(file: File): Promise<PreparedCover> {
   assertCoverFile(file);
   let bitmap: ImageBitmap;
   try { bitmap = await createImageBitmap(file); } catch { throw new CoverError('decode_failed'); }
+  if (bitmap.width * bitmap.height > MAX_PIXELS) { bitmap.close(); throw new CoverError('too_large'); }
   try {
     const full = await render(bitmap, FULL_WIDTH);
     const thumb = await render(bitmap, THUMB_WIDTH);

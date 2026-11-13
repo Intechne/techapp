@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import sql from '../../../supabase/migrations/20261113000100_covers.sql?raw';
-import { COVER_OBJECT_RE, CoverError, MAX_COVER_BYTES, assertCoverFile, coverObjectPath, removeCover, replaceCover, type CoverClient } from './cover';
+import { COVER_OBJECT_RE, COVER_ERROR_COPY, CoverError, MAX_COVER_BYTES, MAX_INPUT_BYTES, MAX_PIXELS, assertCoverFile, coverObjectPath, prepareCover, removeCover, replaceCover, type CoverClient } from './cover';
 
 const OWNER = '11111111-2222-4333-8444-555555555555';
 const ID = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
@@ -33,14 +33,69 @@ describe('coverObjectPath', () => {
 
 describe('assertCoverFile', () => {
   const file = (type: string, size: number) => new File([new Uint8Array(size)], 'k', { type });
-  it('accepts jpeg, png and webp up to 2 MB', () => {
+  it('accepts jpeg, png and webp up to the 25 MB input cap (a phone photo is more than 2 MB)', () => {
     for (const t of ['image/jpeg', 'image/png', 'image/webp']) expect(() => assertCoverFile(file(t, 1000))).not.toThrow();
-    expect(() => assertCoverFile(file('image/png', MAX_COVER_BYTES))).not.toThrow();
+    expect(() => assertCoverFile(file('image/jpeg', 8 * 1024 * 1024))).not.toThrow();
+    expect(() => assertCoverFile(file('image/png', MAX_INPUT_BYTES))).not.toThrow();
   });
-  it('rejects > 2 MB as too_large and other types as bad_type', () => {
-    expect(() => assertCoverFile(file('image/png', MAX_COVER_BYTES + 1))).toThrowError(expect.objectContaining({ code: 'too_large' }));
+  it('rejects > 25 MB as too_large and other types as bad_type', () => {
+    expect(() => assertCoverFile(file('image/png', MAX_INPUT_BYTES + 1))).toThrowError(expect.objectContaining({ code: 'too_large' }));
     expect(() => assertCoverFile(file('application/pdf', 10))).toThrowError(expect.objectContaining({ code: 'bad_type' }));
     expect(() => assertCoverFile(file('image/svg+xml', 10))).toThrowError(expect.objectContaining({ code: 'bad_type' }));
+  });
+  it('the too_large copy states the real limits', () => {
+    expect(COVER_ERROR_COPY.too_large).toMatch(/25 MB/);
+    expect(COVER_ERROR_COPY.too_large).toMatch(/40 megapiksel/);
+    expect(COVER_ERROR_COPY.too_large).toMatch(/2 MB/);
+  });
+});
+
+describe('prepareCover (browser APIs stubbed)', () => {
+  const webp = (size: number, type = 'image/webp') => new Blob([new Uint8Array(size)], { type });
+  let encodes: number;
+  function stub(opts: { w?: number; h?: number; blob?: () => Blob }) {
+    encodes = 0;
+    const close = vi.fn();
+    vi.stubGlobal('createImageBitmap', async () => ({ width: opts.w ?? 4000, height: opts.h ?? 2500, close }));
+    vi.stubGlobal('OffscreenCanvas', class {
+      constructor(public width: number, public height: number) {}
+      getContext() { return { drawImage() {}, getImageData: (_x: number, _y: number, w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4).fill(128) }) }; }
+      async convertToBlob() { encodes += 1; return (opts.blob ?? (() => webp(1000)))(); }
+    });
+    return { close };
+  }
+  const input = () => new File([new Uint8Array(10)], 'p.jpg', { type: 'image/jpeg' });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('returns two webp blobs and a blurhash', async () => {
+    const { close } = stub({});
+    const r = await prepareCover(input());
+    expect(r.full.type).toBe('image/webp'); expect(r.thumb.type).toBe('image/webp');
+    expect(r.blurhash).toMatch(/^[0-9A-Za-z#$%*+,.:;=?@[\]^_{|}~-]{6,100}$/);
+    expect(close).toHaveBeenCalled();
+  });
+  it('a browser that cannot encode WebP (hands back png) is encode_failed, nothing is returned', async () => {
+    stub({ blob: () => webp(1000, 'image/png') });
+    await expect(prepareCover(input())).rejects.toMatchObject({ code: 'encode_failed' });
+  });
+  it('steps the quality down three times, then gives up with too_large', async () => {
+    stub({ blob: () => webp(MAX_COVER_BYTES + 1) });
+    await expect(prepareCover(input())).rejects.toMatchObject({ code: 'too_large' });
+    expect(encodes).toBe(3);
+  });
+  it('steps down and succeeds when a lower quality fits', async () => {
+    let n = 0;
+    stub({ blob: () => webp(++n <= 2 ? MAX_COVER_BYTES + 1 : 1000) });
+    await expect(prepareCover(input())).resolves.toBeTruthy();
+  });
+  it('refuses an image above the pixel guard before allocating any canvas', async () => {
+    const { close } = stub({ w: 9000, h: Math.ceil(MAX_PIXELS / 9000) + 1 });
+    await expect(prepareCover(input())).rejects.toMatchObject({ code: 'too_large' });
+    expect(encodes).toBe(0); expect(close).toHaveBeenCalled();
+  });
+  it('an undecodable file is decode_failed', async () => {
+    vi.stubGlobal('createImageBitmap', async () => { throw new Error('bad'); });
+    await expect(prepareCover(input())).rejects.toMatchObject({ code: 'decode_failed' });
   });
 });
 

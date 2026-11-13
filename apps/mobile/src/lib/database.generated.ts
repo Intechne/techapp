@@ -1,3 +1,4 @@
+// NOTE: covers fields (cover_path, cover_blurhash, set_cover) hand-patched — regenerate with db:types after db push.
 export type Json =
   | string
   | number

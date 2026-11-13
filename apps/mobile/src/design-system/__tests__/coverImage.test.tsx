@@ -1,7 +1,7 @@
 import React from 'react';
 import { AccessibilityInfo, StyleSheet } from 'react-native';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { CoverImage, HeroCard, Poster, PosterCard, RowCard, radius, space } from '..';
+import { act, render, screen, within } from '@testing-library/react-native';
+import { CoverImage, HeroCard, Poster, PosterCard, RowCard, radius, semantic, space } from '..';
 import { toEventPoster, type EventWithOrg } from '../../features/events/labels';
 import { toOpportunityRow } from '../../features/opportunities/labels';
 
@@ -113,12 +113,27 @@ describe('where covers are used', () => {
     await render(<RowCard leading={{ kind: 'image', path: PATH, blurhash: null, fallbackIcon: 'opportunity' }} title="Staj" />);
     expect(uri(screen.getByTestId('cover-image'))).toBe(`${BASE}/events/${OWNER}/${FILE}-640.webp`);
   });
-  it('vitrin hero shows the full image under a scrim; without a cover it is the plain block', async () => {
-    const { unmount } = await render(<HeroCard category="HACKATHON" title="Üretenler anlatıyor." cover={{ path: PATH, blurhash: null }} />);
+  it('vitrin hero with a cover: photo block on top, Iris text panel below, no scrim', async () => {
+    await render(<HeroCard category="HACKATHON" title="Üretenler anlatıyor." meta="21 Kasım" cta="Detayları gör" cover={{ path: PATH, blurhash: null }} />);
     expect(uri(screen.getByTestId('cover-image'))).toBe(`${BASE}/${PATH}`);
-    unmount();
-    await render(<HeroCard category="HACKATHON" title="Üretenler anlatıyor." cover={{ path: null, blurhash: null }} />);
+    const banner = screen.getByTestId('cover-banner'), panel = screen.getByTestId('hero-panel');
+    expect(banner).toBeTruthy();
+    expect(banner.parent).toBe(panel.parent); // siblings: two separate blocks
+    expect(within(banner).queryByText('HACKATHON')).toBeNull(); // no text on the photo
+    expect(within(panel).getByText('HACKATHON')).toBeTruthy();
+    expect(screen.queryByTestId('cover-fill')).toBeNull();
+    expect(JSON.stringify(screen.toJSON())).not.toContain('"opacity":0.72');
+    expect(StyleSheet.flatten(screen.getByRole('button').props.style as never)).toMatchObject({ backgroundColor: semantic.light.action.primary });
+  });
+  it('vitrin hero without a cover (or a failed one) is the plain Iris block', async () => {
+    const { unmount } = await render(<HeroCard category="HACKATHON" title="Üretenler anlatıyor." cover={{ path: null, blurhash: null }} />);
     expect(screen.queryByTestId('cover-image')).toBeNull();
+    expect(screen.queryByTestId('cover-banner')).toBeNull();
+    await unmount();
+    await render(<HeroCard category="HACKATHON" title="Üretenler anlatıyor." cover={{ path: PATH, blurhash: null }} />);
+    await act(async () => { screen.getByTestId('cover-image').props.onError({ nativeEvent: { error: 'x' } }); });
+    expect(screen.queryByTestId('cover-banner')).toBeNull();
+    expect(screen.getByTestId('hero-panel')).toBeTruthy();
   });
   it('space token sanity (tokens only)', () => { expect(space[4]).toBeGreaterThan(0); });
 });

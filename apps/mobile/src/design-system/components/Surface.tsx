@@ -4,7 +4,7 @@ import { LARGE_TEXT_FONT_SCALE, colors, radius, semantic, space } from '../token
 import { Text } from '../Text';
 import { TechIcon, type TechIconName } from '../TechIcon';
 import { TextButton } from './Button';
-import { COVER_SCRIM, CoverFill } from './CoverImage';
+import { CoverBanner } from './CoverImage';
 
 const sem = semantic.light;
 
@@ -33,7 +33,7 @@ interface HeroCardProps {
   accent?: string;
   meta?: string;
   cta?: string;
-  /** Event cover (full size) behind the text, under an ink scrim. No cover or a failed load = the plain Iris block with its orbit. */
+  /** Event cover: the photo (full size, 16:10) on top, the Iris text panel below it. No cover or a failed load = the plain Iris block. */
   cover?: { path: string | null; blurhash: string | null };
   onPress?: () => void;
 }
@@ -73,20 +73,21 @@ export function HeroCard({ category, title, accent, meta, cta, cover, onPress }:
   const parts = accent && title.includes(accent) ? title.split(accent) : [title];
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={heroAccessibilityLabel(title, meta)} onPress={onPress}
-      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
       style={({ pressed }) => [styles.hero, pressed && { backgroundColor: sem.action.primaryPressed }]}>
-      <HeroOrbit cardWidth={width} fontScale={fontScale} />
-      {cover && <CoverFill path={cover.path} blurhash={cover.blurhash} size="full" scrim={COVER_SCRIM} />}
-      <View style={styles.heroRule}><View style={styles.rule} /><Text variant="eyebrow" color="white">{category}</Text></View>
-      <Text variant="title" color="white" breakStrategy="words" numberOfLines={HERO_TITLE_LINES} accessibilityRole="text" style={{ marginTop: space[6], maxWidth: '78%' }}>
-        {parts[0]}{accent && parts.length > 1 && <Text variant="title" color="lime" accessibilityRole="text">{accent}</Text>}{parts[1]}
-      </Text>
-      {meta && <Text variant="caption" color="white" numberOfLines={HERO_META_LINES} style={{ marginTop: space[3], opacity: 0.85 }}>{meta}</Text>}
-      {cta && (
-        <View style={styles.heroCta}>
-          <Text variant="label" color="ink">{cta}</Text><TechIcon name="arrow" size={18} />
-        </View>
-      )}
+      {cover && <CoverBanner path={cover.path} blurhash={cover.blurhash} />}
+      <View testID="hero-panel" style={styles.heroPanel} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+        <HeroOrbit cardWidth={width} fontScale={fontScale} />
+        <View style={styles.heroRule}><View style={styles.rule} /><Text variant="eyebrow" color="white">{category}</Text></View>
+        <Text variant="title" color="white" breakStrategy="words" numberOfLines={HERO_TITLE_LINES} accessibilityRole="text" style={{ marginTop: space[6], maxWidth: '78%' }}>
+          {parts[0]}{accent && parts.length > 1 && <Text variant="title" color="lime" accessibilityRole="text">{accent}</Text>}{parts[1]}
+        </Text>
+        {meta && <Text variant="caption" color="white" numberOfLines={HERO_META_LINES} style={{ marginTop: space[3], opacity: 0.85 }}>{meta}</Text>}
+        {cta && (
+          <View style={styles.heroCta}>
+            <Text variant="label" color="ink">{cta}</Text><TechIcon name="arrow" size={18} />
+          </View>
+        )}
+      </View>
     </Pressable>
   );
 }
@@ -138,7 +139,8 @@ export function Notice({ tone = 'info', title, children }: { tone?: NoticeTone; 
 
 const styles = StyleSheet.create({
   card: { backgroundColor: sem.bg.surface, borderRadius: radius.card, borderWidth: 1, borderColor: sem.border.default, overflow: 'hidden' },
-  hero: { backgroundColor: sem.action.primary, borderRadius: radius.hero, padding: space[5], minHeight: 236, overflow: 'hidden' },
+  hero: { backgroundColor: sem.action.primary, borderRadius: radius.hero, overflow: 'hidden' },
+  heroPanel: { padding: space[5], minHeight: 236, overflow: 'hidden' },
   heroRule: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
   rule: { width: 24, height: 1, backgroundColor: colors.white, opacity: 0.7 },
   heroCta: {

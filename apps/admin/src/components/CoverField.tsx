@@ -23,6 +23,7 @@ export function CoverField({ entity, entityId, ownerId, coverPath, published, on
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   useEffect(() => () => { if (pending) URL.revokeObjectURL(pending.preview); }, [pending]);
 
   const done = (path: string | null, cleanupFailed: boolean) => {
@@ -47,7 +48,7 @@ export function CoverField({ entity, entityId, ownerId, coverPath, published, on
   };
   const remove = async () => {
     if (!coverPath) return;
-    setError(null); setNote(null); setBusy(true);
+    setConfirmRemove(false); setError(null); setNote(null); setBusy(true);
     try { const r = await removeCover(client, { entity, entityId, ownerId, oldPath: coverPath }); done(null, r.cleanupFailed); }
     catch (e) { setError(message(e)); } finally { setBusy(false); }
   };
@@ -68,8 +69,17 @@ export function CoverField({ entity, entityId, ownerId, coverPath, published, on
           : <><label className="btn secondary" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}>{coverPath ? 'Kapağı değiştir' : 'Kapak seç'}
                 <input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} style={{ display: 'none' }}
                   onChange={(e) => { void choose(e.target.files?.[0]); e.target.value = ''; }} /></label>
-              {coverPath && <button type="button" className="btn secondary" disabled={busy} onClick={() => void remove()}>Kapağı kaldır</button>}</>}
+              {coverPath && !confirmRemove && <button type="button" className="btn secondary" disabled={busy} onClick={() => setConfirmRemove(true)}>Kapağı kaldır</button>}</>}
       </div>
+      {confirmRemove && !pending && (
+        <div className="notice warn" role="alertdialog" aria-label="Kapağı kaldırmayı onayla">
+          Kapak kaldırılacak ve görsel dosyaları silinecek.{published && ' Bu içerik yayında: kaldırmak içeriği yeniden onaya gönderir; onaylanana kadar yayından kalkar.'}
+          <div className="row" style={{ marginTop: 10 }}>
+            <button type="button" className="btn danger" disabled={busy} onClick={() => void remove()}>Evet, kaldır</button>
+            <button type="button" className="btn secondary" disabled={busy} onClick={() => setConfirmRemove(false)}>Vazgeç</button>
+          </div>
+        </div>
+      )}
       {error && <div className="notice err" role="alert">{error}</div>}
       {note && <div className="notice ok" role="status">{note}</div>}
     </div>
