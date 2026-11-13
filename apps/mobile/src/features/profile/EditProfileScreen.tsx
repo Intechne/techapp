@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Button, Card, Checkbox, Chip, ErrorState, Input, LoadingSkeleton, Notice, Screen, Select, Text, TextArea, space, useToast } from '../../design-system';
+import { AppHeader, Button, Card, Chip, ErrorState, Input, LoadingSkeleton, Notice, Screen, Select, Text, TextArea, space, useToast } from '../../design-system';
 import { toAppError } from '../../lib/errors';
 import type { EducationStage, ProfileRow } from '../../lib/database.types';
 import type { ProfileStackParamList } from '../../navigation/types';
-import { useAccountState } from '../auth/SessionProvider';
 import { EDUCATION_STAGES } from '../onboarding/options';
 import { useMyBirthDate, useMyProfile, useUpdateProfile } from './api';
 import { MAX_SKILLS, addSkill, emptyToNull, toInputDate } from './logic';
@@ -19,14 +18,12 @@ export function EditProfileScreen({ navigation }: NativeStackScreenProps<Profile
 
 /** Mounted once the profile is loaded, so the fields start from server values instead of being synced in an effect. */
 function EditProfileForm({ initial, navigation }: { initial: ProfileRow; navigation: NativeStackScreenProps<ProfileStackParamList, 'EditProfile'>['navigation'] }) {
-  const birth = useMyBirthDate(); const account = useAccountState();
+  const birth = useMyBirthDate();
   const save = useUpdateProfile(); const toast = useToast();
   const [headline, setHeadline] = useState(initial.headline ?? ''); const [bio, setBio] = useState(initial.bio ?? ''); const [city, setCity] = useState(initial.city ?? '');
   const [stage, setStage] = useState<EducationStage | null>(initial.education_stage); const [skills, setSkills] = useState<string[]>(initial.skills ?? []);
   const [skillInput, setSkillInput] = useState(''); const [skillError, setSkillError] = useState<string | undefined>();
-  const [discoverable, setDiscoverable] = useState(initial.discoverable);
 
-  const isMinor = account.data?.is_minor === true;
   const commitSkill = () => {
     const result = addSkill(skills, skillInput);
     setSkillError(result.error); setSkills(result.skills);
@@ -34,7 +31,7 @@ function EditProfileForm({ initial, navigation }: { initial: ProfileRow; navigat
   };
   const submit = () => {
     const pending = skillInput.trim() ? addSkill(skills, skillInput).skills : skills;
-    save.mutate({ headline: emptyToNull(headline), bio: emptyToNull(bio), city: emptyToNull(city), education_stage: stage, skills: pending, discoverable: isMinor ? false : discoverable },
+    save.mutate({ headline: emptyToNull(headline), bio: emptyToNull(bio), city: emptyToNull(city), education_stage: stage, skills: pending },
       { onSuccess: () => { toast.show('Profilin güncellendi.', 'success'); navigation.goBack(); } });
   };
 
@@ -63,12 +60,7 @@ function EditProfileForm({ initial, navigation }: { initial: ProfileRow; navigat
           )}
         </View>
 
-        {isMinor ? (
-          <Notice tone="info" title="Profilin keşfe kapalı">18 yaşından küçük kullanıcıların profilleri başkaları tarafından bulunamaz. Bu ayar 18 yaşında açılabilir hâle gelir.</Notice>
-        ) : (
-          <Checkbox checked={discoverable} onChange={setDiscoverable} label="Profilimi keşfe aç"
-            description="Açarsan giriş yapmış diğer kullanıcılar adını, başlığını ve “profilimde göster” dediğin deneyimleri görebilir. İletişim bilgilerin ve doğum tarihin hiçbir zaman görünmez." />
-        )}
+        <Text variant="caption" color="textSecondary">Profilinin keşfedilebilir olup olmayacağını Ayarlar’daki Gizlilik bölümünden seçersin.</Text>
         {save.error && <Notice tone="danger" title="Profilin kaydedilmedi">{toAppError(save.error).message}</Notice>}
       </View>
     </Screen>

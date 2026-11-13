@@ -1,5 +1,5 @@
 import React, { forwardRef, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import { Pressable, StyleSheet, Switch, TextInput, View, type TextInputProps } from 'react-native';
 import { colors, fonts, layout, radius, space, type } from '../tokens';
 import { Text } from '../Text';
 import { TechIcon } from '../TechIcon';
@@ -67,6 +67,20 @@ export function Checkbox({ label, description, checked, onChange, error }: Toggl
   );
 }
 
+/** On / off setting: label and plain-language helper on the left, a native switch on the right. The switch carries the label and its state. */
+export function SwitchRow({ label, description, value, onValueChange }: { label: string; description?: string; value: boolean; onValueChange: (next: boolean) => void }) {
+  return (
+    <View style={styles.switchRow}>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text variant="label" breakStrategy="words">{label}</Text>
+        {description && <Text variant="caption" color="textSecondary">{description}</Text>}
+      </View>
+      <Switch value={value} onValueChange={onValueChange} accessibilityLabel={label}
+        trackColor={{ false: colors.borderStrong, true: colors.primary }} thumbColor={colors.white} />
+    </View>
+  );
+}
+
 export function Radio({ label, description, checked, onChange }: ToggleProps) {
   return (
     <Pressable accessibilityRole="radio" accessibilityState={{ checked }} onPress={() => onChange(true)} style={[styles.radioCard, checked && styles.radioCardChecked]}>
@@ -110,6 +124,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border, backgroundColor: colors.surface, paddingHorizontal: space[4],
   },
   searchInput: { flex: 1, fontFamily: fonts.body, fontSize: type.body.fontSize, color: colors.ink, minHeight: layout.touchTarget },
+  switchRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: layout.touchTarget + space[2], paddingVertical: space[2] },
   toggleRow: { flexDirection: 'row', gap: space[3], minHeight: layout.touchTarget, alignItems: 'flex-start', paddingVertical: space[2] },
   box: { width: 24, height: 24, borderRadius: radius.small, borderWidth: 1.5, borderColor: colors.borderStrong, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
   boxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },

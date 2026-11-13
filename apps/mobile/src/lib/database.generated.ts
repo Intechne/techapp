@@ -1255,6 +1255,24 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          event_reminders: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          event_reminders?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          event_reminders?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           body: string | null
@@ -2436,6 +2454,7 @@ export type Database = {
       }
       mark_notifications_read: { Args: { p_ids?: string[] }; Returns: number }
       my_account_state: { Args: never; Returns: Json }
+      set_notification_preferences: { Args: { p_event_reminders: boolean }; Returns: Database["public"]["Tables"]["notification_preferences"]["Row"] }
       my_cv: { Args: never; Returns: Json }
       public_cv: { Args: { p_token: string }; Returns: Json }
       register_device: {

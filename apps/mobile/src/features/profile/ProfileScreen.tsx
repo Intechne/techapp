@@ -1,27 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
-  AppHeader, Avatar, Button, Card, Divider, EmptyState, ErrorState, IconButton, LoadingSkeleton, MetadataRow, Modal, Notice, ResponsiveGrid, RowCard, Screen,
+  AppHeader, Avatar, Button, Card, Divider, EmptyState, ErrorState, IconButton, LoadingSkeleton, MetadataRow, Notice, ResponsiveGrid, RowCard, Screen,
   SegmentedControl, SectionHeader, TextButton, checkedInRegistrationView, formatCount, membershipStatusView, metaJoin, registrationStatusView,
-  LARGE_TEXT_FONT_SCALE, Tag, TechIcon, Text, colors, radius, space, useToast, type RowLines, type TechIconName,
+  LARGE_TEXT_FONT_SCALE, Tag, TechIcon, Text, colors, radius, space, type RowLines, type TechIconName,
 } from '../../design-system';
 import { formatDate, formatDateTime } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
 import type { ProfileStackParamList } from '../../navigation/types';
-import { deleteAccount, signOut } from '../auth/authService';
 import { useAccountState, useSession } from '../auth/SessionProvider';
-import { usePrefs } from '../onboarding/PrefsProvider';
-import { PERSONAL_PREFS_RESET } from '../../lib/localPrefs';
-import { usePendingIntent } from '../auth/pendingIntent';
 import { eventKeys, fetchMyRegistrations } from '../events/api';
 import { useMyCv } from './api';
 import { profileStats } from './profileStats';
 import type { CvExperience } from './cvSchema';
 import { EDUCATION_LABEL, KIND_ICON, KIND_LABEL, TEAM_ROLE_LABEL } from './labels';
 import { formatRange } from './logic';
-import { CvShareCard } from './CvShareCard';
 import { ProvenanceBadge } from './ProvenanceBadge';
 import { CHECKIN_ROLES } from '../checkin/api';
 import { fetchMyTeams, teamKeys } from '../teams/api';
@@ -68,12 +63,9 @@ function ExperienceCard({ item, onPress }: { item: CvExperience; onPress: () => 
 }
 
 export function ProfileScreen({ navigation, route }: NativeStackScreenProps<ProfileStackParamList, 'ProfileHome'>) {
-  const { userId, session } = useSession();
+  const { userId } = useSession();
   const { fontScale } = useWindowDimensions();
   const account = useAccountState();
-  const toast = useToast();
-  const { update } = usePrefs();
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [segment, setSegment] = useState<(typeof SEGMENTS)[number]>(route.params?.segment ?? 'Deneyimler');
   // "Tüm takımların" on Topluluk lands here with the Takımlar segment selected. The param is applied once and cleared, so the
   // same request works again after the user switched segments by hand.
@@ -88,9 +80,6 @@ export function ProfileScreen({ navigation, route }: NativeStackScreenProps<Prof
   const cv = useMyCv();
   // Same key as Katılımlarım, so the cache is shared and nothing extra is fetched when both are visited.
   const regs = useQuery({ queryKey: eventKeys.myRegistrations(userId), queryFn: () => fetchMyRegistrations(userId!), enabled: !!userId });
-  const intent = usePendingIntent();
-  const out = useMutation({ mutationFn: signOut, onSuccess: () => { intent.clear(); toast.show('Çıkış yapıldı.'); }, onError: (e) => toast.show(toAppError(e).message, 'danger') });
-  const del = useMutation({ mutationFn: deleteAccount, onSuccess: () => { setConfirmDelete(false); intent.clear(); update(PERSONAL_PREFS_RESET); toast.show('Hesabın silindi.'); } });
 
   if (!userId) {
     return (
@@ -116,7 +105,7 @@ export function ProfileScreen({ navigation, route }: NativeStackScreenProps<Prof
   return (
     <Screen wide header={<AppHeader brand right={<IconButton icon="edit" accessibilityLabel="Profili düzenle" onPress={() => navigation.navigate('EditProfile')} />} />} refreshing={cv.isRefetching} onRefresh={() => { void cv.refetch(); void account.refetch(); void regs.refetch(); }}>
       {cv.isPending ? <LoadingSkeleton cards={2} variant="row" rowLines={UPCOMING_ROW_LINES} /> : cv.isError ? <ErrorState error={toAppError(cv.error)} onRetry={() => void cv.refetch()} /> : (() => {
-        const { profile, experiences, participations, volunteering, teams, share_token: shareToken } = cv.data;
+        const { profile, experiences, participations, volunteering, teams } = cv.data;
         const stats = profileStats(cv.data, regs.data ?? [], new Date());
         const verifiedCount = stats.verified;
         const subtitle = [profile.city, profile.education_stage ? EDUCATION_LABEL[profile.education_stage] : null].filter(Boolean).join(' · ');
@@ -226,8 +215,6 @@ export function ProfileScreen({ navigation, route }: NativeStackScreenProps<Prof
               <Text variant="caption" color="textSecondary">Beceriler kendi beyanındır; bir kurum tarafından ölçülmüş ya da doğrulanmış değildir.</Text>
             </View>
 
-            <View style={{ marginTop: space[5], maxWidth: 560 }}><CvShareCard token={shareToken} name={profile.display_name} /></View>
-
             <View style={{ marginTop: space[7] }}>
             <ResponsiveGrid maxColumns={2}>
               <RowCard leading={{ kind: 'icon', icon: 'ticket' }} title="Katılımlarım" secondary="Kayıt durumların ve katılım kartların" trailing={{ kind: 'chevron' }} onPress={() => navigation.navigate('MyRegistrations')} />
@@ -240,22 +227,11 @@ export function ProfileScreen({ navigation, route }: NativeStackScreenProps<Prof
         );
       })()}
 
+      {/* One entry for everything account-related: Hesap, bildirim ayarları, gizlilik, rıza, yardım. Reachable even when the CV failed to load. */}
       <Divider />
-      <View testID="account-section">
-      <Text variant="section">Hesap</Text>
-      {!!session?.user.email && <Text variant="caption" color="textSecondary" style={{ marginTop: space[1] }}>{`${session.user.email} ile giriş yaptın`}</Text>}
-      <View style={{ gap: space[3], marginTop: space[3], maxWidth: 480 }}>
-        <Button kind="secondary" label="Çıkış yap" loading={out.isPending} onPress={() => out.mutate()} />
-        <Button kind="danger" label="Hesabımı sil" onPress={() => setConfirmDelete(true)} />
+      <View style={{ maxWidth: 560 }}>
+        <RowCard leading={{ kind: 'icon', icon: 'settings' }} title="Ayarlar" secondary="Hesap, bildirimler, gizlilik ve yardım" trailing={{ kind: 'chevron' }} onPress={() => navigation.navigate('Settings')} />
       </View>
-      </View>
-
-      <Modal visible={confirmDelete} title="Hesabını silelim mi?" onClose={() => setConfirmDelete(false)}>
-        <Text variant="bodySmall" color="textSecondary">Profilin, deneyimlerin, kayıtların ve başvuruların sunucudan silinir. Bu işlem geri alınamaz.</Text>
-        {del.error && <Notice tone="danger" title="Hesabın silinmedi">{toAppError(del.error).message}</Notice>}
-        <Button kind="danger" label="Evet, hesabımı sil" loading={del.isPending} onPress={() => del.mutate()} />
-        <Button kind="secondary" label="Vazgeç" onPress={() => setConfirmDelete(false)} />
-      </Modal>
     </Screen>
   );
 }

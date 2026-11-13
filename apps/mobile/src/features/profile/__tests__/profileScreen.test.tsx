@@ -67,10 +67,17 @@ describe('Profil üst kartı', () => {
     expect(within(card).getByText(/Robotik meraklısı/)).toBeTruthy();
   });
 
-  it('e-mail is not on the identity card; it shows in the Hesap section as account context', async () => {
+  it('the account section moved to Ayarlar: Profil holds no e-mail, sign-out or delete, only one "Ayarlar" entry', async () => {
     await open();
-    expect(within(screen.getByTestId('identity-card')).queryByText('ayse@example.com')).toBeNull();
-    expect(within(screen.getByTestId('account-section')).getByText(/ayse@example\.com/)).toBeTruthy();
+    expect(screen.queryByText(/ayse@example\.com/)).toBeNull();
+    expect(screen.queryByTestId('account-section')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Çıkış yap' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Hesabımı sil' })).toBeNull();
+    expect(screen.queryByText('Dijital CV bağlantın')).toBeNull();
+    const entries = screen.getAllByRole('button', { name: /^Ayarlar\./ });
+    expect(entries).toHaveLength(1);
+    fireEvent.press(entries[0]!);
+    expect(navigate).toHaveBeenCalledWith('Settings');
   });
 
   it('the edit action sits in the header bar, not in the identity card (the name gets the full width)', async () => {
@@ -94,9 +101,8 @@ describe('Profil üst kartı', () => {
     } finally { Object.defineProperty(Platform, 'OS', { value: OS, configurable: true }); }
   });
 
-  it('shows Kaydedilenler and Bildirimler, and still no dead entry for a module that does not exist yet (Ayarlar)', async () => {
+  it('shows Kaydedilenler and Bildirimler entries (Ayarlar has its own test above)', async () => {
     await open();
-    expect(screen.queryByText(/Ayarlar/)).toBeNull();
     await fireEvent.press(screen.getByText('Kaydedilenler'));
     expect(navigate).toHaveBeenCalledWith('Saved');
     await fireEvent.press(screen.getByText('Bildirimler'));

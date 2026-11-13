@@ -41,6 +41,10 @@ export type ProfileStackParamList = SharedEventParamList & {
   ExperienceEditor: { experienceId?: string };
   ExperienceDetail: { experienceId: string };
   Notifications: undefined;
+  Settings: undefined;
+  NotificationSettings: undefined;
+  Privacy: undefined;
+  ConsentCenter: undefined;
 };
 
 export type MainTabParamList = {

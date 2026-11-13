@@ -57,7 +57,7 @@ function useInvalidateProfile() {
   return () => Promise.all([qc.invalidateQueries({ queryKey: myProfileKey(userId) }), qc.invalidateQueries({ queryKey: accountStateKey(userId) })]);
 }
 
-export interface ProfilePatch { headline: string | null; bio: string | null; city: string | null; education_stage: EducationStage | null; skills: string[]; discoverable: boolean }
+export interface ProfilePatch { headline: string | null; bio: string | null; city: string | null; education_stage: EducationStage | null; skills: string[] }
 
 export function useUpdateProfile() {
   const { userId } = useSession(); const invalidate = useInvalidateProfile();

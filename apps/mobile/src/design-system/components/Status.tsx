@@ -31,6 +31,12 @@ export const guardianStatusView: Record<GuardianStatus | 'not_sent', StatusView>
   revoked: { label: 'ONAY GERİ ÇEKİLDİ', tone: 'neutral' },
 };
 
+/** A row of the consent center: given and still in force, or withdrawn. */
+export const consentStatusView = {
+  active: { label: 'GEÇERLİ', tone: 'moss', icon: 'check' },
+  withdrawn: { label: 'GERİ ÇEKİLDİ', tone: 'neutral' },
+} as const satisfies Record<string, StatusView>;
+
 export const applicationStatusView = {
   draft: { label: 'TASLAK', tone: 'neutral' },
   submitted: { label: 'GÖNDERİLDİ', tone: 'iris' },
