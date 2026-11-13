@@ -556,9 +556,9 @@ begin
     perform pg_temp.t_rec('26 team member reads own team row + roster (3), organiser owner reads the roster (2) (control, MUST PASS)',
                           false, sqlstate || ' ' || sqlerrm);
   end;
-  perform pg_temp.t_fail('26a anon cannot read team_event_registrations (no grant → 0 rows)', 'anon', null,
+  perform pg_temp.t_fail('26a anon cannot read team_event_registrations → permission denied (no grant)', 'anon', null,
     'select count(*) from public.team_event_registrations', '^42501');
-  perform pg_temp.t_fail('26a anon cannot read team_event_registration_members (no grant → 0 rows)', 'anon', null,
+  perform pg_temp.t_fail('26a anon cannot read team_event_registration_members → permission denied (no grant)', 'anon', null,
     'select count(*) from public.team_event_registration_members', '^42501');
   begin
     v_n := pg_temp.t_val('authenticated', v_other, format('select count(*)::text from public.team_event_registrations where id = %L', v_tr_reg))::int

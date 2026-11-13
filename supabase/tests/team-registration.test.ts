@@ -5,7 +5,7 @@
 // clients have no write path to either table; the counters are server-owned.
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { admin, asAnon, asUser, createOrg, createTeam, createTeamEvent, createUser, expectFail, register } from './helpers';
+import { admin, asAnon, asService, asUser, createOrg, createTeam, createTeamEvent, createUser, expectFail, register } from './helpers';
 
 const PERMISSION_DENIED = /permission denied/;
 const LIVE_REG = `status in ('pending_guardian', 'pending_review', 'confirmed', 'waitlisted')`;
@@ -81,6 +81,39 @@ describe('team registration · schema', () => {
     const applicant = await createUser();
     await admin(`insert into public.team_memberships (team_id, user_id, role, status) values ($1, $2, 'member', 'pending')`, [teamA, applicant]);
     expect(count(await asUser(applicant, (q) => q(`select id from public.team_event_registration_members`)))).toBe(0);
+  });
+
+  it('teammates see only the live roster (invited/accepted); a declined or removed member still sees their own row; staff and platform admins see every state', async () => {
+    const reviewer = await createUser(); const pa = await createUser();
+    const org = await createOrg({ [reviewer]: 'reviewer' }); const event = await createTeamEvent(org);
+    await admin(`insert into public.platform_admins (user_id) values ($1)`, [pa]);
+    const captain = await createUser(); const decliner = await createUser({ age: 16 }); const removed = await createUser(); const bench = await createUser();
+    const team = await createTeam(captain, [decliner, removed, bench]);
+    const reg = await teamRegistration(event, team, captain, [captain, decliner, removed]);
+    const [capRow, declinedRow, removedRow] = reg.members;
+    await admin(`update public.team_event_registration_members set state = 'declined', responded_at = now() where id = $1`, [declinedRow]);
+    await admin(`update public.team_event_registration_members set state = 'removed' where id = $1`, [removedRow]);
+    const visible = async (user: string) =>
+      (await asUser(user, (q) => q(`select id from public.team_event_registration_members where team_registration_id = $1`, [reg.id]))).rows.map((r) => r.id).sort();
+
+    for (const teammate of [captain, bench]) expect(await visible(teammate)).toEqual([capRow]);
+    expect(await visible(decliner)).toEqual([capRow, declinedRow].sort());
+    expect(await visible(removed)).toEqual([capRow, removedRow].sort());
+    for (const full of [reviewer, pa]) expect(await visible(full)).toEqual([...reg.members].sort());
+  });
+
+  it('an API caller inserting an event gets zero counters (cannot create a "full" event); the service role keeps its values', async () => {
+    const editor = await createUser(); const org = await createOrg({ [editor]: 'editor' });
+    const cols = `(id, organization_id, slug, title, summary, type, format, status, starts_at, ends_at, registration_closes_at,
+                   registration_mode, capacity, team_capacity, seats_taken, waitlist_count, teams_taken, team_waitlist_count)`;
+    const vals = `($1, $2, $3, 'Sahte Dolu Etkinlik', 'Özet', 'workshop', 'in_person', $4, now() + interval '7 days',
+                   now() + interval '7 days 6 hours', now() + interval '6 days', 'both', 5, 3, 5, 2, 3, 1)`;
+    const byEditor = randomUUID();
+    await asUser(editor, (q) => q(`insert into public.events ${cols} values ${vals}`, [byEditor, org, `ev-${byEditor.slice(0, 8)}`, 'draft']));
+    expect(await counters(byEditor)).toEqual({ seats_taken: 0, waitlist_count: 0, teams_taken: 0, team_waitlist_count: 0 });
+    const byService = randomUUID();
+    await asService((q) => q(`insert into public.events ${cols} values ${vals}`, [byService, org, `ev-${byService.slice(0, 8)}`, 'published']));
+    expect(await counters(byService)).toEqual({ seats_taken: 5, waitlist_count: 2, teams_taken: 3, team_waitlist_count: 1 });
   });
 
   it('the event organisation’s owner|admin|reviewer|checkin_staff and platform admins read; editors and other organisations do not', async () => {

@@ -18,11 +18,13 @@
 --
 -- Privacy (Global Constraints): team members include minors. Rows are readable only by (a) active members of the registered
 -- team (the same circle that already sees team_roster), (b) the event organisation's owner|admin|reviewer|checkin_staff,
--- (c) platform admins; plus a person's own roster row. anon has no grant at all. No table here stores a name, e-mail, birth
+-- (c) platform admins; plus a person's own roster row (any state). Teammates see only the LIVE roster (invited/accepted):
+-- someone else's declined/removed row stays with that person, staff and platform admins. anon has no grant at all. No table here stores a name, e-mail, birth
 -- date or guardian detail — only ids and states. Clients have NO insert/update/delete grant on either table.
 --
 -- Counters are server-owned: app.protect_event_columns now also locks teams_taken / team_waitlist_count (403
--- event_counters_locked) unless app.counter_write is on (set only inside app.recount_event / app.recount_team_event).
+-- event_counters_locked) unless app.counter_write is on (set only inside app.recount_event / app.recount_team_event); on
+-- INSERT an API caller's four counters are forced to 0 (app.zero_event_counters_on_insert; service role / migrations unchanged).
 -- Critical fields: team_min_size, team_max_size join app.event_critical_fields(); a team_capacity DECREASE (or a limit where
 -- there was none) is critical exactly like capacity; more team seats / no limit is logged as an after-approval edit.
 --
@@ -138,8 +140,8 @@ alter table public.team_event_registration_members enable row level security;
 create policy team_event_registrations_select on public.team_event_registrations for select to authenticated
   using (app.is_team_registration_member(id) or app.is_team_registration_staff(id) or app.is_platform_admin());
 create policy team_event_registration_members_select on public.team_event_registration_members for select to authenticated
-  using (user_id = (select auth.uid())
-         or app.is_team_registration_member(team_registration_id)
+  using (user_id = (select auth.uid())                                   -- own row, any state
+         or (state in ('invited', 'accepted') and app.is_team_registration_member(team_registration_id))  -- teammates: live roster only
          or app.is_team_registration_staff(team_registration_id)
          or app.is_platform_admin());
 -- No write policies, and no write grants: every change goes through SECURITY DEFINER RPCs (Tasks 2–4).
@@ -300,6 +302,20 @@ begin
   return new;
 end $$;
 
+-- INSERT: an API caller (org editor) cannot create an event that is already "full". The UPDATE guard above never sees an
+-- insert, and no recount runs until the first registration change, so forged counters would stick. The service role and the
+-- migration/seed path (no auth.uid()) keep the values they give.
+create or replace function app.zero_event_counters_on_insert() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if (select auth.uid()) is not null then
+    new.seats_taken := 0; new.waitlist_count := 0; new.teams_taken := 0; new.team_waitlist_count := 0;
+  end if;
+  return new;
+end $$;
+create trigger events_counters_on_insert before insert on public.events
+  for each row execute function app.zero_event_counters_on_insert();
+
 -- ---------------------------------------------------------------- critical fields
 -- Team size limits decide who may take part → critical. team_capacity follows capacity: fewer (or a new limit) is critical,
 -- more or none is a logged edit (content_text_fields).
@@ -361,6 +377,6 @@ end $$;
 -- app.* functions get the default PUBLIC execute grant at creation (0001's bulk revoke ran before they existed). The two
 -- read helpers are called by the RLS policies as the caller → authenticated only.
 revoke execute on function app.is_team_registration_member(uuid), app.is_team_registration_staff(uuid),
-  app.recount_team_event(uuid), app.team_registrations_recount()
+  app.recount_team_event(uuid), app.team_registrations_recount(), app.zero_event_counters_on_insert()
   from public, anon, authenticated, service_role;
 grant execute on function app.is_team_registration_member(uuid), app.is_team_registration_staff(uuid) to authenticated;
