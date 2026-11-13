@@ -52,15 +52,23 @@ function ReportForm({ subject, userId, onClose, onSignIn }: { subject: ReportSub
           <Button label="Giriş yap" iconRight="arrow" onPress={() => { onClose(); onSignIn(); }} />
         </>
       ) : (
-        <>
-          <Text variant="bodySmall" color="textSecondary">Neden bildirdiğini seç. Bildirimi yalnızca sen ve platform yöneticileri görebilir; içeriğin sahibi bildireni göremez.</Text>
-          <Select label="Neden bildiriyorsun?" options={REPORT_REASONS} value={reason} onChange={(r) => { setReason(r); setMissing(false); }} />
-          {missing && <Notice tone="warning">Bir neden seç.</Notice>}
-          <TextArea label="Eklemek istediğin bir şey var mı? (isteğe bağlı)" value={details} onChangeText={setDetails} maxLength={REPORT_DETAILS_MAX} placeholder="Ne gördün? Kısaca yazabilirsin." style={{ minHeight: 96 }} />
-          {error && <Notice tone={already ? 'info' : 'danger'} title={already ? undefined : 'Bildirimin gönderilmedi'}>{error.message}</Notice>}
-          {already ? <Button kind="secondary" label="Tamam" onPress={onClose} />
-            : <Button label="Bildirimi gönder" loading={send.isPending} onPress={submit} />}
-        </>
+        already ? (
+          // The honest answer is the whole sheet: nothing left to choose.
+          <>
+            <Notice tone="info">{error!.message}</Notice>
+            <Button kind="secondary" label="Tamam" onPress={onClose} />
+          </>
+        ) : (
+          <>
+            <Text variant="bodySmall" color="textSecondary">Neden bildirdiğini seç. Bildirimi yalnızca sen ve platform yöneticileri görebilir; içeriğin sahibi bildireni göremez.</Text>
+            <Select label="Neden bildiriyorsun?" options={REPORT_REASONS} value={reason} onChange={(r) => { setReason(r); setMissing(false); }} />
+            <TextArea label="Eklemek istediğin bir şey var mı? (isteğe bağlı)" value={details} onChangeText={setDetails} maxLength={REPORT_DETAILS_MAX} placeholder="Ne gördün? Kısaca yazabilirsin." style={{ minHeight: 96 }} />
+            {/* Right above the button: the list is long and the sheet is scrolled to the button when it is pressed. */}
+            {error && <Notice tone="danger" title="Bildirimin gönderilmedi">{error.message}</Notice>}
+            {missing && <Notice tone="warning">Bir neden seç.</Notice>}
+            <Button label="Bildirimi gönder" loading={send.isPending} onPress={submit} />
+          </>
+        )
       )}
     </>
   );

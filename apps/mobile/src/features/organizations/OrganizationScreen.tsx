@@ -45,7 +45,7 @@ export function OrganizationScreen({ navigation, route }: Props) {
       <View style={styles.head}>
         {/* No logo upload exists yet (only covers): the mark, never initials or a broken image. */}
         <View testID="org-logo-fallback" accessible={false} style={styles.logo}><TechIcon name="mark" size={32} color={colors.primary} /></View>
-        <Text variant="title" breakStrategy="words" style={{ flexShrink: 1 }}>{o.name}</Text>
+        <Text variant="title" breakStrategy="words" style={{ flex: 1, minWidth: 0 }}>{o.name}</Text>
       </View>
       <View style={styles.tags}>
         {verified ? <Tag tone="moss" icon="verified" label="DOĞRULANMIŞ KURUM" /> : <Tag tone="neutral" label="HENÜZ DOĞRULANMADI" />}
