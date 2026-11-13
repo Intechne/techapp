@@ -32,9 +32,9 @@ export const learningKeys = {
   eventCourses: (eventId: string) => ['learning', 'event-courses', eventId] as const,
 };
 
-/** Published courses only (RLS says the same; the filter keeps the intent readable and the query plan indexed). */
+/** Published courses that have lessons: a course with none leads nowhere, so lists never offer it (a deep link or saved row still opens the detail, which says "Dersler yakında"). */
 export async function fetchCourses(limit = 100): Promise<CourseCard[]> {
-  const { data, error } = await getSupabase().from('courses').select(COURSE_COLUMNS).eq('status', 'published').order('published_at', { ascending: false }).limit(limit);
+  const { data, error } = await getSupabase().from('courses').select(COURSE_COLUMNS).eq('status', 'published').gt('lesson_count', 0).order('published_at', { ascending: false }).limit(limit);
   if (error) throw toAppError(error);
   return data as unknown as CourseCard[];
 }
@@ -64,7 +64,7 @@ export async function fetchMyProgress(userId: string): Promise<CourseProgress[]>
 export async function fetchEventCourses(eventId: string): Promise<CourseCard[]> {
   const { data, error } = await getSupabase().from('event_courses').select(`course:courses(${COURSE_COLUMNS})`).eq('event_id', eventId);
   if (error) throw toAppError(error);
-  return ((data ?? []) as unknown as { course: CourseCard | null }[]).map((r) => r.course).filter((c): c is CourseCard => !!c);
+  return ((data ?? []) as unknown as { course: CourseCard | null }[]).map((r) => r.course).filter((c): c is CourseCard => !!c && c.lesson_count > 0);
 }
 /** Idempotent on the server; returns the progress row with the server-computed percent. */
 export async function completeLesson(lessonId: string): Promise<CourseProgress> {

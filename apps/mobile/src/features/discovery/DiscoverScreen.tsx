@@ -58,7 +58,7 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
   const filters = useMemo(() => ({ type: 'all' as const, topicInterestIds: topicIds, search: submitted, registrationOpenOnly: !submitted }), [topicIds, submitted]);
   const events = useQuery({ queryKey: ['discover', 'events', filters], queryFn: () => fetchEventsPage(filters, null), enabled: topic === 'all' || interests.isSuccess });
   const preview = useQuery({ queryKey: ['discover', 'preview'], queryFn: fetchPreview });
-  // Gelişim: two published courses; the section exists only while there are any (a failed request just leaves it out).
+  // Gelişim: two published courses; the section exists only while there are any. A failed request is reported (inline Notice below), never hidden.
   const courses = useQuery({ queryKey: learningKeys.preview(), queryFn: () => fetchCourses(2) });
 
   const items = events.data?.items ?? [];
@@ -87,12 +87,18 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
   const courseList = submitted ? [] : courses.data ?? [];
   const hasRest = !!p && (p.opportunities.length > 0 || p.teams.length > 0 || courseList.length > 0);
   // Every section hides when it has nothing; only when all of them are empty does one empty state stand in for the page.
-  const allEmpty = events.isSuccess && upcoming.length === 0 && !filteredTopic && preview.isSuccess && !courses.isPending && !hasRest;
+  const allEmpty = events.isSuccess && upcoming.length === 0 && !filteredTopic && preview.isSuccess && !courses.isPending && !courses.isError && !hasRest;
 
   // Nothing else on the page could render, and the secondary query is what failed: say so instead of showing a blank page.
   const previewFailedAlone = preview.isError && events.isSuccess && upcoming.length === 0 && !filteredTopic;
   const previewFailedInline = preview.isError && !submitted && !previewFailedAlone;
   const interestsFailed = topic !== 'all' && interests.isError;
+  // A failed Gelişim request is told, not hidden. When the preview already failed alone its ErrorState retries both.
+  const coursesFailedInline = courses.isError && !submitted && !previewFailedAlone && !interestsFailed;
+  const sectionsFailed = (previewFailedInline && !interestsFailed ? 1 : 0) + (coursesFailedInline ? 1 : 0);
+  const failedTitle = sectionsFailed > 1 ? 'Bazı bölümler yüklenemedi' : previewFailedInline && !interestsFailed ? 'Fırsatlar ve takımlar yüklenemedi' : 'Gelişim yüklenemedi';
+  const failedError = previewFailedInline && !interestsFailed ? preview.error : courses.error;
+  const retryFailed = () => { if (previewFailedInline) void preview.refetch(); if (coursesFailedInline) void courses.refetch(); };
 
   return (
     <Screen header={<><AppHeader brand right={<><NotificationBell onPress={() => navigation.navigate('Notifications')} /><IconButton icon="ticket" accessibilityLabel="Katılımlarım" onPress={() => navigation.navigate('MyRegistrations')} /></>} />{offline && <OfflineBanner />}</>}
@@ -113,7 +119,7 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
       {allEmpty ? (
         <EmptyState icon="discover" title="Şu an yayında içerik yok" body="İlgi alanlarını genişlet; yeni etkinlik ve fırsatlar eklendikçe burada görünür." />
       ) : interestsFailed ? <ErrorState error={toAppError(interests.error)} onRetry={() => void interests.refetch()} />
-        : previewFailedAlone ? <ErrorState error={toAppError(preview.error)} onRetry={() => void preview.refetch()} />
+        : previewFailedAlone ? <ErrorState error={toAppError(preview.error)} onRetry={() => { void preview.refetch(); void courses.refetch(); }} />
         : events.isPending ? <LoadingSkeleton variant="poster" />
         : events.isError && !events.data ? <ErrorState error={toAppError(events.error)} onRetry={() => void events.refetch()} />
           : upcoming.length === 0 ? (filteredTopic && (
@@ -136,10 +142,10 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
             </>
           )}
 
-      {previewFailedInline && !interestsFailed && (
+      {sectionsFailed > 0 && (
         <View style={{ marginTop: space[7], gap: space[2], alignItems: 'flex-start' }}>
-          <Notice tone="warning" title="Fırsatlar ve takımlar yüklenemedi">{toAppError(preview.error).message}</Notice>
-          <TextButton label="Tekrar dene" onPress={() => void preview.refetch()} />
+          <Notice tone="warning" title={failedTitle}>{toAppError(failedError).message}</Notice>
+          <TextButton label="Tekrar dene" onPress={retryFailed} />
         </View>
       )}
       {!allEmpty && !submitted && !events.isPending && preview.isPending && (

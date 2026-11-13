@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, BookmarkButton, Button, DemoTag, Divider, ErrorState, LoadingSkeleton, MetadataRow, Notice, Poster, RowCard, Screen, Tag, Text, colors, lessonDoneView, radius, space } from '../../design-system';
+import { AppHeader, BookmarkButton, Button, DemoTag, Divider, ErrorState, LoadingSkeleton, MetadataRow, Notice, Poster, RowCard, Screen, Tag, Text, colors, keepNumbersTogether, lessonDoneView, metaJoin, radius, space } from '../../design-system';
 import { toAppError } from '../../lib/errors';
 import type { SharedLearningParamList } from '../../navigation/types';
 import { useBookmarks } from '../saved/useBookmarks';
@@ -60,7 +60,7 @@ export function CourseDetailScreen({ navigation, route }: NativeStackScreenProps
 
       {progress.data && started && (
         <View style={{ marginTop: space[5], gap: space[2] }}>
-          <Text variant="label">{`${doneCount} / ${list.length || c.lesson_count} ders · %${progress.data.percent}`}</Text>
+          <Text variant="label">{keepNumbersTogether(metaJoin([`${doneCount} / ${list.length || c.lesson_count} ders`, `%${progress.data.percent}`]))}</Text>
           <ProgressBar percent={progress.data.percent} label={`Eğitim ilerlemesi, yüzde ${progress.data.percent}`} />
         </View>
       )}

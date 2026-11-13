@@ -12,7 +12,7 @@ import { useSession } from '../auth/SessionProvider';
 import { usePendingIntent } from '../auth/pendingIntent';
 import { useBookmarks } from '../saved/useBookmarks';
 import { fetchEventCourses, learningKeys } from '../learning/api';
-import { courseMeta, levelLabel } from '../learning/labels';
+import { courseMeta } from '../learning/labels';
 import { eventKeys, fetchEligibility, fetchEvent } from './api';
 import { primaryBlocker } from './detailBlocker';
 import { VolunteerSection } from '../volunteers/VolunteerSection';
@@ -133,7 +133,7 @@ export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<
         <><Divider /><Text variant="section">Bu etkinliğe hazırlan</Text>
           <View style={{ gap: space[3], marginTop: space[3] }}>
             {courses.data.map((c) => (
-              <RowCard key={c.id} leading={{ kind: 'icon', icon: 'learn' }} title={c.title} secondary={`${levelLabel(c.level)} · ${courseMeta(c)}`} isDemo={c.is_demo}
+              <RowCard key={c.id} leading={{ kind: 'icon', icon: 'learn' }} title={c.title} secondary={courseMeta(c)} isDemo={c.is_demo}
                 trailing={{ kind: 'chevron' }} onPress={() => navigation.navigate('CourseDetail', { courseId: c.id })} />
             ))}
           </View></>

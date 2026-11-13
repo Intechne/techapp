@@ -33,7 +33,7 @@ jest.mock('../api', () => ({
 let mockCourses: unknown[] = [];
 jest.mock('../../learning/api', () => ({
   fetchEventCourses: async () => mockCourses,
-  learningKeys: { eventCourses: (id: string) => ['learning', 'event-courses', id] },
+  learningKeys: jest.requireActual('../../learning/api').learningKeys,
 }));
 jest.mock('../../auth/SessionProvider', () => ({ useSession: () => ({ userId: 'u1' }) }));
 jest.mock('../../../lib/analytics', () => ({ track: jest.fn() }));

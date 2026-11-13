@@ -48,7 +48,7 @@ function mockBuilder(table: string) {
     if (data.pending || data.pendingTables.includes(table)) return new Promise(() => {}).then(resolve);
     // Like the server: honours `gt` filters, and an events page is 10 rows (PAGE_SIZE) + 1.
     let rows = (data as unknown as Record<string, Record<string, string>[]>)[table] ?? [];
-    for (const [col, v] of gts) rows = rows.filter((r) => Date.parse(r[col]!) > Date.parse(v));
+    for (const [col, v] of gts) rows = rows.filter((r) => (col.endsWith('_at') ? Date.parse(r[col]!) > Date.parse(v) : Number(r[col]) > Number(v)));
     if (table === 'events') rows = rows.slice(0, 11);
     return Promise.resolve({ data: rows, error: null }).then(resolve);
   };
@@ -172,6 +172,37 @@ describe('Keşfet ana — bölüm hiyerarşisi', () => {
     await renderScreen();
     await screen.findByText('Gelişim');
     expect(screen.queryByText('Şu an yayında içerik yok')).toBeNull();
+  });
+
+  it('a course without lessons is not offered (server filter lesson_count > 0)', async () => {
+    data.events = [event('e1', 'Etkinlik')];
+    data.courses = [{ ...course('c0', 'Derssiz kurs'), lesson_count: 0 }, course('c1', 'Arduino’ya giriş')];
+    await renderScreen();
+    await screen.findByText('Gelişim');
+    expect(screen.getByText('Arduino’ya giriş')).toBeTruthy();
+    expect(screen.queryByText('Derssiz kurs')).toBeNull();
+    expect(queryCalls).toContainEqual({ table: 'courses', method: 'gt', args: ['lesson_count', 0] });
+  });
+
+  it('courses request fails with empty events and preview: no false EmptyState; Notice + retry refetches courses', async () => {
+    data.errorTables = ['courses'];
+    await renderScreen();
+    expect(await screen.findByText('Gelişim yüklenemedi')).toBeTruthy();
+    expect(screen.queryByText('Şu an yayında içerik yok')).toBeNull();
+    data.errorTables = []; data.courses = [course('c1', 'Arduino’ya giriş')];
+    const before = calls.filter((c) => c.table === 'courses').length;
+    await fireEvent.press(screen.getByText('Tekrar dene'));
+    expect(await screen.findByText('Arduino’ya giriş')).toBeTruthy();
+    expect(calls.filter((c) => c.table === 'courses').length).toBeGreaterThan(before);
+    expect(screen.queryByText('Gelişim yüklenemedi')).toBeNull();
+  });
+
+  it('preview and courses both fail: one Notice for several sections', async () => {
+    data.events = [event('e1', 'Etkinlik'), event('e2', 'Etkinlik iki')];
+    data.errorTables = ['courses', 'opportunities'];
+    await renderScreen();
+    expect(await screen.findByText('Bazı bölümler yüklenemedi')).toBeTruthy();
+    expect(screen.getAllByText('Tekrar dene')).toHaveLength(1);
   });
 
   it('hides an empty section; the rest stay', async () => {

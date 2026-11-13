@@ -5,6 +5,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { CourseListScreen } from '../CourseListScreen';
 import { CourseDetailScreen } from '../CourseDetailScreen';
 import { LessonScreen } from '../LessonScreen';
+import { courseMeta } from '../labels';
+import { fetchEventCourses } from '../api';
 
 jest.mock('@react-navigation/native', () => ({ ...jest.requireActual('@react-navigation/native'), useFocusEffect: (cb: () => void) => jest.requireActual('react').useEffect(cb, [cb]) }));
 let mockUser: string | null = 'u1';
@@ -23,19 +25,21 @@ const lesson = (id: string, courseId: string, sort: number, title: string, body 
 
 const mockDb: { courses: Row[]; lessons: Row[]; course_progress: Row[]; fail: string[]; rpcCalls: { fn: string; args: Row }[] } = { courses: [], lessons: [], course_progress: [], fail: [], rpcCalls: [] };
 const mockOrders: { table: string; col: string }[] = [];
+const mockCalls: { table: string; filters: [string, unknown][] }[] = [];
 
 function mockBuilder(table: string) {
-  const filters: [string, unknown][] = []; let orderCol: string | null = null; let mode: 'many' | 'single' | 'maybe' = 'many'; let selected = '';
+  const filters: [string, unknown][] = []; mockCalls.push({ table, filters }); let orderCol: string | null = null; let mode: 'many' | 'single' | 'maybe' = 'many'; let selected = '';
   const b: Record<string, unknown> = {};
   b.select = (cols: string) => { selected = cols; return b; };
   b.eq = (c: string, v: unknown) => { filters.push([c, v]); return b; };
+  b.gt = (c: string, v: number) => { filters.push([`>${c}`, v]); return b; };
   b.in = () => b; b.limit = () => b; b.overrideTypes = () => b;
   b.order = (c: string) => { orderCol = c; mockOrders.push({ table, col: c }); return b; };
   b.single = () => { mode = 'single'; return b; };
   b.maybeSingle = () => { mode = 'maybe'; return b; };
   b.then = (resolve: (v: unknown) => unknown) => {
     if (mockDb.fail.includes(table)) return Promise.resolve({ data: null, error: { message: 'boom', code: 'PT500' } }).then(resolve);
-    let rows = ((mockDb as unknown as Record<string, Row[]>)[table] ?? []).filter((r) => filters.every(([c, v]) => r[c] === v));
+    let rows = ((mockDb as unknown as Record<string, Row[]>)[table] ?? []).filter((r) => filters.every(([c, v]) => (c.startsWith('>') ? Number(r[c.slice(1)]) > Number(v) : r[c] === v)));
     // Like the server: published only, and ordering is the server's job.
     if (table === 'courses') rows = rows.filter((r) => r.status === 'published');
     if (orderCol) { const c = orderCol; rows = [...rows].sort((a, z) => Number(a[c]) - Number(z[c])); }
@@ -76,7 +80,7 @@ const props = (name: string, params?: Row) => ({ navigation: nav, route: { key: 
 beforeEach(() => {
   mockUser = 'u1'; mockSavedIds = new Set();
   Object.assign(mockDb, { courses: [], lessons: [], course_progress: [], fail: [], rpcCalls: [] });
-  mockOrders.length = 0;
+  mockOrders.length = 0; mockCalls.length = 0;
   for (const m of [navigate, replace, parentNavigate, mockToast, mockSaveToggle, mockIntent.set, mockIntent.consume, mockIntent.clear]) m.mockReset();
   mockIntent.consume.mockReturnValue(null);
 });
@@ -95,11 +99,24 @@ describe('Gelişim — kurs listesi', () => {
     expect(screen.queryByText('Taslak kurs')).toBeNull();
     expect(screen.getByText(/3 ders · 45 dk/)).toBeTruthy();
   });
-  it('a course without lessons yet says "Dersler yakında", not "0 ders"', async () => {
-    mockDb.courses = [course('c1', 'Boş kurs', { lesson_count: 0, estimated_minutes: null })];
+  it('a course without lessons is not listed', async () => {
+    mockDb.courses = [course('c0', 'Boş kurs', { lesson_count: 0 }), course('c1', 'Dolu kurs')];
     await mount(<CourseListScreen {...props('CourseList')} />);
-    expect(await screen.findByText(/Dersler yakında/)).toBeTruthy();
-    expect(screen.queryByText(/0 ders/)).toBeNull();
+    expect(await screen.findByText('Dolu kurs')).toBeTruthy();
+    expect(screen.queryByText('Boş kurs')).toBeNull();
+  });
+  it('a guest makes no course_progress request', async () => {
+    mockUser = null; mockDb.courses = [course('c1', 'Dolu kurs')];
+    await mount(<CourseListScreen {...props('CourseList')} />);
+    await screen.findByText('Dolu kurs');
+    expect(mockCalls.some((c) => c.table === 'course_progress')).toBe(false);
+  });
+  it('own progress is read filtered by user_id', async () => {
+    mockDb.courses = [course('c1', 'Dolu kurs')];
+    await mount(<CourseListScreen {...props('CourseList')} />);
+    await screen.findByText('Dolu kurs');
+    await waitFor(() => expect(mockCalls.some((c) => c.table === 'course_progress')).toBe(true));
+    expect(mockCalls.filter((c) => c.table === 'course_progress').every((c) => c.filters.some(([k, v]) => k === 'user_id' && v === 'u1'))).toBe(true);
   });
   it('empty: says so', async () => {
     await mount(<CourseListScreen {...props('CourseList')} />);
@@ -177,7 +194,8 @@ describe('Gelişim — ders', () => {
     fireEvent.press(await screen.findByRole('button', { name: 'Tamamladım' }));
     await waitFor(() => expect(mockDb.rpcCalls).toEqual([{ fn: 'complete_lesson', args: { p_lesson_id: 'l1' } }]));
     expect(await screen.findByRole('button', { name: 'Sonraki ders' })).toBeTruthy();
-    expect(mockToast).toHaveBeenCalledWith(expect.stringContaining('%33'));
+    expect(screen.getByText(/Eğitimde %33 ilerledin/)).toBeTruthy();
+    expect(mockToast).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'Tamamladım' })).toBeNull();
     fireEvent.press(screen.getByRole('button', { name: 'Sonraki ders' }));
     expect(replace).toHaveBeenCalledWith('Lesson', { courseId: 'c1', lessonId: 'l2' });
@@ -210,5 +228,22 @@ describe('Gelişim — kurs listesi, dokunma', () => {
     expect(navigate).toHaveBeenCalledWith('CourseDetail', { courseId: 'c1' });
     fireEvent.press(screen.getByRole('button', { name: 'Kaydet' }));
     expect(mockSaveToggle).toHaveBeenCalledWith('c1');
+  });
+});
+
+describe('courseMeta', () => {
+  it('binds the separator to the previous token (no line starts with a dot)', () => {
+    expect(courseMeta({ lesson_count: 4, estimated_minutes: 45 })).toBe('4 ders\u00A0· 45 dk');
+    expect(courseMeta({ lesson_count: 0, estimated_minutes: null })).toBe('Dersler yakında');
+  });
+});
+
+describe('fetchEventCourses', () => {
+  it('drops a linked course that has no lessons', async () => {
+    (mockDb as unknown as Record<string, Row[]>).event_courses = [
+      { event_id: 'e1', course: course('c1', 'Dolu') }, { event_id: 'e1', course: course('c0', 'Boş', { lesson_count: 0 }) }, { event_id: 'e2', course: course('c2', 'Başka') },
+    ];
+    expect((await fetchEventCourses('e1')).map((c) => c.title)).toEqual(['Dolu']);
+    delete (mockDb as unknown as Record<string, Row[]>).event_courses;
   });
 });

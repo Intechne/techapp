@@ -1,4 +1,4 @@
-import { tones, type Tone } from '../../design-system';
+import { metaJoin, tones, type Tone } from '../../design-system';
 
 export const LEVEL_LABEL: Record<string, string> = { beginner: 'Başlangıç', intermediate: 'Orta', advanced: 'İleri' };
 export const levelLabel = (level: string): string => LEVEL_LABEL[level] ?? 'Başlangıç';
@@ -14,7 +14,7 @@ export function minutesLabel(minutes: number | null): string | null {
 export const lessonCountLabel = (n: number): string => (n > 0 ? `${n} ders` : 'Dersler yakında');
 /** "3 ders · 45 dk"; the duration is left out when the course has none. */
 export const courseMeta = (c: { lesson_count: number; estimated_minutes: number | null }): string =>
-  [lessonCountLabel(c.lesson_count), minutesLabel(c.estimated_minutes)].filter(Boolean).join(' · ');
+  metaJoin([lessonCountLabel(c.lesson_count), minutesLabel(c.estimated_minutes)]);
 
 /** The server stores the tone as free text within a check constraint; anything unexpected falls back to moss. */
 export const toTone = (t: string): Tone => (t in tones ? (t as Tone) : 'moss');

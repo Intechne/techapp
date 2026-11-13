@@ -6,7 +6,7 @@ import { toAppError } from '../../lib/errors';
 import type { SharedLearningParamList } from '../../navigation/types';
 import { useBookmarks } from '../saved/useBookmarks';
 import { fetchCourses, learningKeys, useMyProgress } from './api';
-import { courseMeta, levelLabel } from './labels';
+import { courseMeta } from './labels';
 
 /** Gelişim > tüm eğitimler: published courses, newest first; own progress as a small tag, save on every card. */
 export function CourseListScreen({ navigation }: NativeStackScreenProps<SharedLearningParamList, 'CourseList'>) {
@@ -26,7 +26,7 @@ export function CourseListScreen({ navigation }: NativeStackScreenProps<SharedLe
                   const p = progress.data?.find((r) => r.course_id === c.id);
                   const view = p ? courseProgressView(p.percent, !!p.completed_at) : null;
                   return (
-                    <RowCard key={c.id} leading={{ kind: 'icon', icon: 'learn' }} title={c.title} secondary={c.summary} footnote={`${levelLabel(c.level)} · ${courseMeta(c)}`}
+                    <RowCard key={c.id} leading={{ kind: 'icon', icon: 'learn' }} title={c.title} secondary={c.summary} footnote={courseMeta(c)}
                       {...(view ? { footnoteTag: view } : {})} isDemo={c.is_demo}
                       trailing={{ kind: 'bookmark', saved: saves.ids.has(c.id), onToggle: () => saves.toggle(c.id) }}
                       onPress={() => navigation.navigate('CourseDetail', { courseId: c.id })} />

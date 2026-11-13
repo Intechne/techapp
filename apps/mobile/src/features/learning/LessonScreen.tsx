@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Button, ErrorState, LoadingSkeleton, Notice, Screen, Text, space, useToast } from '../../design-system';
+import { AppHeader, Button, ErrorState, LoadingSkeleton, Notice, Screen, Text, keepNumbersTogether, space, useToast } from '../../design-system';
 import { toAppError } from '../../lib/errors';
 import type { SharedLearningParamList } from '../../navigation/types';
 import { useSession } from '../auth/SessionProvider';
@@ -37,7 +37,6 @@ export function LessonScreen({ navigation, route }: NativeStackScreenProps<Share
       const key = learningKeys.progress(userId);
       qc.setQueryData<CourseProgress[]>(key, (rows) => [...(rows ?? []).filter((r) => r.course_id !== p.course_id), p]);
       void qc.invalidateQueries({ queryKey: key });
-      toast.show(p.completed_at ? 'Tamamladın. Eğitimi bitirdin.' : `Tamamladın. Eğitimde %${p.percent} ilerledin.`);
     } catch (e) {
       toast.show(toAppError(e).message, 'danger');
     } finally { running.current = false; setBusy(false); }
@@ -62,6 +61,7 @@ export function LessonScreen({ navigation, route }: NativeStackScreenProps<Share
   const index = list.findIndex((x) => x.id === lessonId);
   const next = index >= 0 ? list[index + 1] : undefined;
   const done = !!progress.data?.completed_lesson_ids.includes(lessonId);
+  const pct = progress.data?.percent;
   const paragraphs = splitLessonBody(l.body);
   const minutes = minutesLabel(l.estimated_minutes);
 
@@ -80,7 +80,7 @@ export function LessonScreen({ navigation, route }: NativeStackScreenProps<Share
           ? <Notice tone="info" title="Bu dersin metni henüz eklenmedi">Eğitime döndüğünde diğer dersleri açabilirsin.</Notice>
           : paragraphs.map((p, i) => <Text key={i} variant="body" selectable>{p}</Text>)}
       </View>
-      {done && <View style={{ marginTop: space[6] }}><Notice tone="success" title="Bu dersi tamamladın" /></View>}
+      {done && <View style={{ marginTop: space[6] }}><Notice tone="success" title="Bu dersi tamamladın">{progress.data?.completed_at ? 'Eğitimi bitirdin.' : pct !== undefined ? keepNumbersTogether(`Eğitimde %${pct} ilerledin.`) : undefined}</Notice></View>}
     </Screen>
   );
 }
