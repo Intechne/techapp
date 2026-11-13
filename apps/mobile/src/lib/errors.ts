@@ -88,6 +88,15 @@ const COPY: Record<string, string> = {
   recruitment_post_not_found: 'Bu ilan artık yayında değil.',
   recruitment_closed: 'Bu ilan şu an başvuru almıyor.',
   recruitment_application_not_pending: 'Bu başvuru artık karar beklemiyor.',
+  team_category_invalid: 'Listeden bir kategori seçer misin?',
+  // team projects (upsert_team_project / delete_team_project)
+  team_project_title_invalid: 'Proje adı 3 ile 120 karakter arasında olmalı.',
+  team_project_summary_too_long: 'Proje özeti en fazla 600 karakter olabilir. Biraz kısaltır mısın?',
+  team_project_year_invalid: 'Yılı 2000 ile 2100 arasında yaz.',
+  team_project_url_invalid: 'Bağlantı https:// ile başlamalı ve boşluk içermemeli.',
+  team_project_not_found: 'Bu proje bulunamadı ya da silinmiş.',
+  // 50 = the literal in public.upsert_team_project (supabase/migrations/20261113000200_team_profile.sql)
+  team_project_limit: 'Bir takım en fazla 50 proje ekleyebilir.',
   // covers (set_cover)
   cover_forbidden: 'Kapağı yalnızca takımın kaptanı değiştirebilir.',
   cover_path_forbidden: 'Bu görsel buraya bağlanamaz. Yeniden yükleyip dener misin?',

@@ -100,6 +100,7 @@ declare
   v_owner_a uuid; v_owner_b uuid; v_staff uuid; v_captain uuid; v_member uuid; v_team uuid; v_cap_m uuid; v_mem_m uuid;
   v_appl uuid; v_sc_event uuid; v_sc_user uuid; v_sc_reg uuid; v_sc_code text; v_post uuid;
   v_cv_event uuid; v_cv_path text;
+  v_pt_team uuid; v_pt_cap uuid; v_pt_minor uuid; v_pt_hidden uuid; v_pt_mem uuid; v_pt_proj uuid;
   v_out jsonb;
 begin
   -- ================================================================ CV
@@ -377,6 +378,58 @@ begin
                             false, sqlstate || ' ' || sqlerrm);
     end;
   end if;
+
+  -- 20261113000200: team profile — a minor's name never leaves the team; projects are written by captains/mentors via RPC only.
+  -- Team founded by a 16-year-old (captain); + an 18+ discoverable captain, an 18+ NON-discoverable mentor, an adult member.
+  v_pt_minor := pg_temp.t_user(16, 'Remote Reşit Olmayan Kaptan'); v_pt_cap := pg_temp.t_user(30, 'Remote Açık Kaptan');
+  v_pt_hidden := pg_temp.t_user(35, 'Remote Gizli Mentor'); v_pt_mem := pg_temp.t_user(20, 'Remote Üye');
+  perform pg_temp.t_val('authenticated', v_pt_cap,
+    format('update public.profiles set discoverable = true where id = %L returning id::text', v_pt_cap));
+  v_pt_team := (pg_temp.t_val('authenticated', v_pt_minor, $q$select (public.create_team('Remote Profil Takımı')).id::text$q$))::uuid;
+  insert into public.team_memberships (team_id, user_id, role, status)
+  values (v_pt_team, v_pt_cap, 'captain', 'active'), (v_pt_team, v_pt_hidden, 'mentor', 'active'), (v_pt_team, v_pt_mem, 'member', 'active');
+  begin
+    j := (pg_temp.t_val('anon', null, format('select public.team_public_profile(%L)::text', v_pt_team)))::jsonb;
+    perform pg_temp.t_rec('23 anon team_public_profile: only the 18+ discoverable captain is named (no minor, no hidden adult, no ids)',
+      j -> 'leaders' = '[{"display_name": "Remote Açık Kaptan", "role": "captain"}]'::jsonb
+        and j::text !~ '(Reşit Olmayan|Gizli Mentor|Remote Üye)'
+        and strpos(j::text, v_pt_minor::text) = 0 and strpos(j::text, v_pt_cap::text) = 0
+        and (j -> 'role_counts' ->> 'captain')::int + (j -> 'role_counts' ->> 'mentor')::int + (j -> 'role_counts' ->> 'member')::int
+            = (j ->> 'member_count')::int and (j ->> 'member_count')::int = 4,
+      j::text);
+  exception when others then
+    perform pg_temp.t_rec('23 anon team_public_profile: only the 18+ discoverable captain is named (no minor, no hidden adult, no ids)',
+                          false, sqlstate || ' ' || sqlerrm);
+  end;
+  begin
+    v_pt_proj := (pg_temp.t_val('authenticated', v_pt_cap, format(
+      $q$select (public.upsert_team_project(%L, null, 'Remote Proje', null, 2026, 'https://example.org/p')).id::text$q$, v_pt_team)))::uuid;
+    v_n := pg_temp.t_val('anon', null, format('select count(*)::text from public.team_projects where team_id = %L', v_pt_team))::int;
+    perform pg_temp.t_rec('23b captain adds a project via RPC; anon reads it on the active team (control)', v_n = 1, 'rows=' || v_n);
+  exception when others then
+    perform pg_temp.t_rec('23b captain adds a project via RPC; anon reads it on the active team (control)', false, sqlstate || ' ' || sqlerrm);
+  end;
+  perform pg_temp.t_fail('23c plain member upsert_team_project → 403', 'authenticated', v_pt_mem,
+    format($q$select public.upsert_team_project(%L, null, 'Üye projesi', null, 2026, null)$q$, v_pt_team), '^PT403 team_manage_forbidden');
+  perform pg_temp.t_fail('23d outsider upsert_team_project → 403', 'authenticated', v_other,
+    format($q$select public.upsert_team_project(%L, null, 'Dış proje', null, 2026, null)$q$, v_pt_team), '^PT403 team_manage_forbidden');
+  perform pg_temp.t_fail('23e captain direct insert into team_projects → permission denied', 'authenticated', v_pt_cap,
+    format($q$insert into public.team_projects (team_id, title) values (%L, 'Doğrudan')$q$, v_pt_team), '^42501');
+  perform pg_temp.t_fail('23f anon cannot call upsert_team_project', 'anon', null,
+    format($q$select public.upsert_team_project(%L, null, 'Anon', null, 2026, null)$q$, v_pt_team), '^42501');
+  perform pg_temp.t_fail('23g javascript: link → 422 team_project_url_invalid', 'authenticated', v_pt_cap,
+    format($q$select public.upsert_team_project(%L, null, 'Bağlantı', null, 2026, 'javascript:alert(1)')$q$, v_pt_team),
+    '^PT422 team_project_url_invalid');
+  update public.teams set moderation_status = 'suspended' where id = v_pt_team;
+  perform pg_temp.t_fail('23h suspended team: anon team_public_profile → 404', 'anon', null,
+    format('select public.team_public_profile(%L)', v_pt_team), '^PT404 team_not_found');
+  begin
+    v_n := pg_temp.t_val('anon', null, format('select count(*)::text from public.team_projects where team_id = %L', v_pt_team))::int
+         + pg_temp.t_val('authenticated', v_other, format('select count(*)::text from public.team_projects where team_id = %L', v_pt_team))::int;
+    perform pg_temp.t_rec('23i suspended team: anon and outsiders read 0 projects', v_n = 0, 'rows=' || v_n);
+  exception when others then
+    perform pg_temp.t_rec('23i suspended team: anon and outsiders read 0 projects', false, sqlstate || ' ' || sqlerrm);
+  end;
 
   -- ================================================================ report (always rolls back)
   select jsonb_build_object('pass', count(*) filter (where pass), 'fail', count(*) filter (where not pass),

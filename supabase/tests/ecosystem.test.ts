@@ -161,7 +161,9 @@ describe('opportunity applications', () => {
     expect((await asUser(editorA, (q) => q(`select id from public.applications`))).rowCount).toBe(0);
     expect((await asUser(revA, (q) => q(`select * from public.profile_private where user_id = $1`, [user]))).rowCount).toBe(0);
     expect((await asUser(revA, (q) => q(`select * from public.profiles where id = $1`, [user]))).rowCount).toBe(0);
-    expect((await asUser(revA, (q) => q(`select * from public.profiles`))).rowCount).toBe(1); // only their own
+    // only their own — among NON-discoverable profiles (18+ discoverable profiles are readable by design; other test files,
+    // e.g. team-profile.test.ts, create some in the shared database)
+    expect((await asUser(revA, (q) => q(`select id from public.profiles where not discoverable`))).rows.map((r) => r.id)).toEqual([revA]);
     await expectFail(asUser(revB, (q) => q(`select public.set_application_status($1, 'in_review')`, [app.id])), 403, 'application_review_forbidden');
     await expectFail(asUser(user, (q) => q(`select public.set_application_status($1, 'accepted')`, [app.id])), 403, 'application_review_forbidden');
   });

@@ -238,7 +238,8 @@ describe('pilot privacy · a 16-year-old team member', () => {
 // 20261112000300: who founded a team / wrote a recruitment post is a user UUID — for a minor founder, a handle that can later
 // be joined to their profile. The API roles read every column of teams and recruitment_posts EXCEPT created_by.
 // + cover_path, cover_blurhash granted in 20261113000100_covers (public content, like name/tagline).
-const TEAM_PUBLIC = 'id, organization_id, slug, name, kind, category, tagline, about, city, topic_interest_id, tone, accepts_join_requests, moderation_status, member_count, is_demo, created_at, updated_at, cover_path, cover_blurhash';
+// + category_key granted in 20261113000200_team_profile (public content, like category).
+const TEAM_PUBLIC = 'id, organization_id, slug, name, kind, category, tagline, about, city, topic_interest_id, tone, accepts_join_requests, moderation_status, member_count, is_demo, created_at, updated_at, cover_path, cover_blurhash, category_key';
 const POST_PUBLIC = 'id, team_id, title, role_label, description, skills, is_open, closes_at, created_at, updated_at';
 /** Columns the API roles must NOT read. Every other column must be granted (checked below), so a new column is a decision. */
 const CREATOR_DENIED: Record<string, string[]> = { teams: ['created_by'], recruitment_posts: ['created_by'] };

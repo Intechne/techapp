@@ -130,6 +130,7 @@ bu Expo/RN kod tabanından üretilemez** — ayrı bir proje gerektirir. Huawei 
    **Kapak görselleri (Faz 3b T4, 13 Kasım 2026) — istemci SONRA:** `20261112000300`'ün tersine, `cover_path` / `cover_blurhash` sütunlarını SELECT eden mobil ve admin kodu
    (`EVENT_PUBLIC_COLUMNS`, `OPPORTUNITY_PUBLIC_FIELDS`/`OPPORTUNITY_CARD_FIELDS`, `TEAM_PUBLIC_COLUMNS`) yalnızca `20261113000100_covers` hedef projede uygulandıktan **sonra** yayınlanır; önce yayınlanırsa
    her liste sorgusu "unknown column" ile kırılır. Sıra: (1) `000300` için sütun listeli istemci OTA/build → (2) `db push` `20261112000300` → (3) `db push` `20261113000100` (+ remote 22g ve 22k geçmeli) → (4) kapaklı istemci.
+   **Takım profili (Faz 3b T6, 13 Kasım 2026):** `20261113000200_team_profile`, `20261113000100_covers`'dan **sonra** (dosya sırası) uygulanır; `20261112000300`'ten önce uygulanırsa oradaki toplu revoke `teams.category_key` grant'ini düşürür. `category_key` / `team_projects` / `team_public_profile` kullanan istemci (T7) bu migration hedefte uygulandıktan sonra yayınlanır. Push sonrası remote regresyon 23–23i geçmeli.
    Bu dal (`feat/v5-product`) pilotun kullandığı `preview` kanalına **asla** OTA ile yayınlanmaz.
    (19 Eylül notu: o tarihte canlıda son 3 migration yoktu.) Uygulanmadan alınan production build, CV paylaşımı / gönüllü / unvan özellikleri kırık çıkar.
    `npx supabase link` (linkli) → `npx supabase db push` (DB parolası ya da `SUPABASE_ACCESS_TOKEN` gerekir) →
