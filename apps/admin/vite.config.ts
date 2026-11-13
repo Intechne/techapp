@@ -18,7 +18,7 @@ function csp(supabaseUrl: string | undefined): Plugin {
         "script-src 'self'",
         "style-src 'self' https://fonts.googleapis.com",
         'font-src https://fonts.gstatic.com',
-        "img-src 'self' data:",
+        `img-src 'self' data: blob: ${origin.origin}`,
         `connect-src ${origin.origin}`,
         "manifest-src 'self'",
         "base-uri 'none'",

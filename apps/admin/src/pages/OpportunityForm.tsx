@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { EDIT_ROLES, OPP_TYPE_LABEL, SHARED_FIELDS, fromLocalInput, numOrNull, orgsWith, slugify, supabase, toLocalInput, toUiError, type Account, type OpportunityInsert, type OpportunityRow, type OpportunityType } from '../lib';
+import { CoverField } from '../components/CoverField';
 import { CheckRow, ErrorNote, Field } from '../components/ui';
 
 interface Form { organization_id: string; title: string; slug: string; summary: string; description: string; type: OpportunityType; topic_interest_id: string; tone: string; city: string; is_remote: boolean;
@@ -15,6 +16,7 @@ export function OpportunityForm({ account, opportunityId }: { account: Account; 
   const [orgNames, setOrgNames] = useState<Record<string, string>>({});
   const [interests, setInterests] = useState<{ id: number; label_tr: string }[]>([]);
   const [status, setStatus] = useState<OpportunityRow['status']>('draft');
+  const [coverPath, setCoverPath] = useState<string | null>(null);
   const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -24,7 +26,7 @@ export function OpportunityForm({ account, opportunityId }: { account: Account; 
     if (!opportunityId) return;
     supabase.from('opportunities').select('*').eq('id', opportunityId).single().then(({ data: o, error: err }) => {
       if (err || !o) { setError(toUiError(err).message); return; }
-      setStatus(o.status);
+      setStatus(o.status); setCoverPath(o.cover_path);
       setForm({ organization_id: o.organization_id, title: o.title, slug: o.slug, summary: o.summary, description: o.description ?? '', type: o.type, topic_interest_id: o.topic_interest_id?.toString() ?? '', tone: o.tone,
         city: o.city ?? '', is_remote: o.is_remote, audience_note: o.audience_note ?? '', skills: o.skills.join(', '), min_age: o.min_age?.toString() ?? '', max_age: o.max_age?.toString() ?? '',
         guardian_required_under: o.guardian_required_under?.toString() ?? '', opens_at: toLocalInput(o.opens_at), closes_at: toLocalInput(o.closes_at), shared_fields: o.shared_fields,
@@ -75,6 +77,11 @@ export function OpportunityForm({ account, opportunityId }: { account: Account; 
           <Field label="Kart tonu"><select value={form.tone} onChange={(e) => set('tone', e.target.value)}><option value="iris">Iris</option><option value="moss">Moss</option><option value="apricot">Apricot</option><option value="ink">Ink</option></select></Field>
         </div>
         <Field label="Ödül / destek notu" help="Örn. “50.000 TL’ye kadar hibe” ya da “Aylık burs + mentorluk”. Kesin olmayan tutar yazma."><input maxLength={160} value={form.reward_note} onChange={(e) => set('reward_note', e.target.value)} /></Field>
+      </div>
+      <div className="card stack">
+        {opportunityId
+          ? <CoverField entity="opportunities" entityId={opportunityId} ownerId={form.organization_id} coverPath={coverPath} published={status === 'published'} onChanged={(p) => { setCoverPath(p); if (status === 'published') setStatus('in_review'); }} />
+          : <><h2>Kapak görseli</h2><p className="muted">Kapak görselini fırsatı taslak olarak kaydettikten sonra ekleyebilirsin.</p></>}
       </div>
       <div className="card stack"><h2>Tarihler ve yer</h2>
         <div className="grid2"><Field label="Başvuru açılışı (boşsa hemen)"><input type="datetime-local" value={form.opens_at} onChange={(e) => set('opens_at', e.target.value)} /></Field>

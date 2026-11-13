@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { CoverField } from '../components/CoverField';
 import { supabase, toUiError, type Account, type EventInsert, type EventRow } from '../lib';
 
 const TYPES: [EventRow['type'], string][] = [['hackathon', 'Hackathon'], ['competition', 'Yarışma'], ['workshop', 'Atölye'], ['conference', 'Konferans'], ['meetup', 'Buluşma'], ['social_impact', 'Sosyal etki'], ['training', 'Eğitim'], ['festival', 'Şenlik']];
@@ -24,6 +25,7 @@ export function EventForm({ account, eventId }: { account: Account; eventId?: st
   const [orgNames, setOrgNames] = useState<Record<string, string>>({});
   const [interests, setInterests] = useState<{ id: number; label_tr: string }[]>([]);
   const [status, setStatus] = useState<EventRow['status']>('draft');
+  const [coverPath, setCoverPath] = useState<string | null>(null);
   const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -33,7 +35,7 @@ export function EventForm({ account, eventId }: { account: Account; eventId?: st
     if (!eventId) return;
     supabase.from('events').select('*').eq('id', eventId).single().then(({ data: e, error: err }) => {
       if (err || !e) { setError(toUiError(err).message); return; }
-      setStatus(e.status);
+      setStatus(e.status); setCoverPath(e.cover_path);
       setForm({ organization_id: e.organization_id, title: e.title, slug: e.slug, poster_line: e.poster_line ?? '', summary: e.summary, description: e.description ?? '', type: e.type, format: e.format,
         topic_interest_id: e.topic_interest_id?.toString() ?? '', tone: e.tone, city: e.city ?? '', venue: e.venue ?? '', online_url: e.online_url ?? '', starts_at: toLocal(e.starts_at), ends_at: toLocal(e.ends_at),
         registration_opens_at: toLocal(e.registration_opens_at), registration_closes_at: toLocal(e.registration_closes_at), capacity: e.capacity?.toString() ?? '', waitlist_enabled: e.waitlist_enabled,
@@ -85,6 +87,11 @@ export function EventForm({ account, eventId }: { account: Account; eventId?: st
           <label>Konu<select value={form.topic_interest_id} onChange={(e) => set('topic_interest_id', e.target.value)}><option value="">Seçilmedi</option>{interests.map((i) => <option key={i.id} value={i.id}>{i.label_tr}</option>)}</select></label>
           <label>Afiş tonu<select value={form.tone} onChange={(e) => set('tone', e.target.value)}><option value="iris">Iris</option><option value="moss">Moss</option><option value="apricot">Apricot</option><option value="ink">Ink</option></select></label>
         </div></div>
+      <div className="card stack">
+        {eventId
+          ? <CoverField entity="events" entityId={eventId} ownerId={form.organization_id} coverPath={coverPath} published={status === 'published'} onChanged={(p) => { setCoverPath(p); if (status === 'published') setStatus('in_review'); }} />
+          : <><h2>Kapak görseli</h2><p className="muted">Kapak görselini etkinliği taslak olarak kaydettikten sonra ekleyebilirsin.</p></>}
+      </div>
       <div className="card stack"><h2>Zaman ve yer</h2>
         <div className="grid2">{T({ k: 'starts_at', label: 'Başlangıç', type: 'datetime-local', required: true })}{T({ k: 'ends_at', label: 'Bitiş', type: 'datetime-local', required: true })}
           {T({ k: 'registration_opens_at', label: 'Kayıt açılışı (boşsa hemen)', type: 'datetime-local' })}{T({ k: 'registration_closes_at', label: 'Son kayıt', type: 'datetime-local', required: true })}</div>
