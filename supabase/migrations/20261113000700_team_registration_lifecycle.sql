@@ -4,6 +4,8 @@
 -- 20261113000500_team_registration (tables, RLS, counters) and 20261113000600_team_registration_rpc (submit, promotion).
 -- User decisions 13 Nov 2026: seat hold = min(registration_closes_at, submitted_at + 7 days); the active captain OR the active
 -- mentor manages the registration (submit, roster edit, cancel) → otherwise 403 not_team_manager.
+-- User decisions 13 Nov 2026 (Task 3 review): (A) after registration closes the MINIMUM-SIZE rule applies (below);
+-- (B) a team that falls back to pending_members BEFORE close gets hold = least(registration_closes_at, now() + 7 days).
 --
 -- State machine (team row; seat-holding = pending_members | pending_review | confirmed):
 --   submit → pending_members (hold) | waitlisted (no seat)                                     [Task 2]
@@ -11,8 +13,16 @@
 --   pending_members ⇄ pending_review | confirmed   app.recompute_team_registration (derived, never set by a client):
 --        every row of the CURRENT roster version is 'accepted' with a 'confirmed' own registration and the roster size is within
 --        team_min_size..team_max_size → requires_review ? pending_review : confirmed (a confirmed team stays confirmed);
---        anything else → pending_members. Going BACK to pending_members refreshes the hold to
---        greatest(old hold, least(registration_closes_at, now() + 7 days)) — the seat is kept until then, never forever.
+--        anything else → pending_members. Going BACK to pending_members (only possible before close) sets the hold to
+--        least(registration_closes_at, now() + 7 days) — user decision B; the seat is kept until then, never forever.
+--   AFTER registration_closes_at (user decision A; nobody can accept or be added any more): a confirmed / pending_review team
+--        is judged by its READY members only (accepted + confirmed own registration; holes and invited rows are not counted).
+--        ready >= team_min_size → the status stays (cards stay valid); ready < team_min_size → pending_review with
+--        status_reason 'roster_below_min_after_close' — never auto-expired at close; the organiser decides (Task 4: approve
+--        as-is → status_reason 'approved_below_min_after_close', which recompute then leaves alone, or reject).
+--   pending_review 'roster_below_min_after_close' still undecided at the event's ends_at → expired ('review_not_decided') by
+--        the expiry job. EXPIRED, not cancelled: nobody decided, time ran out — the same meaning as a lapsed hold;
+--        'cancelled' is kept for an explicit act (manager cancel, event cancel). Member registrations are expired with it.
 --   pending_members (hold passed) → expired        app.expire_team_registrations (cron */10 + lazily in the RPCs)
 --   waitlisted (registration closed) → expired     same job (nobody can be promoted after close: M-6)
 --   live → cancelled                                cancel_team_registration (manager) | event cancelled (cascade)
@@ -41,16 +51,26 @@
 --   expire job       event (one at a time, ascending id) → team rows → member registrations
 --   leave / remove   events of the team's live registrations (ascending id; app.lock_team_registration_events) → teams row
 --                    (leave) → membership → [trigger] team row → member row → registration
---   guardian decide / revoke, cancel_event_registration: event → registration → [trigger] member row → team row (unchanged)
---   guardian expiry (cron): guardian request → event (NEW: locked for team-member registrations) → registration → [trigger]
---   account deletion: auth.users cascade → [trigger] event → team row (the cascade holds no event lock; nothing else to order)
+--   cancel_event_registration (unchanged): event → registration → [trigger] member row → team row → guardian request
+--   guardian_decide / guardian_revoke (unchanged, pilot functions): guardian request → event → registration → [trigger] …
+--                    — PRE-EXISTING order (request before event), the reverse of cancel_event_registration's; known issue,
+--                    recorded in IMPLEMENTATION-STATUS, not changed here.
+--   guardian expiry (cron, app.expire_guardian_requests): individual registrations as before (request FOR UPDATE SKIP LOCKED →
+--                    registration); team-member registrations: candidates read WITHOUT locks → event FOR UPDATE → request
+--                    FOR UPDATE SKIP LOCKED → registration → [trigger] — the cron never waits on a request someone holds.
+--   account deletion: the auth.users cascade locks the person's rows first, then [trigger] event → team row — the reverse of
+--                    the RPC order; known issue (rare: an account deletion racing a write on the same event), recorded.
 --
 -- Pilot-used functions changed here (create or replace; same signatures, grants kept). Individual registrations behave
 -- exactly as before — every new branch is guarded by team_registration_id IS NOT NULL / team rows:
 --   app.next_registration_status   review is skipped only for a registration that belongs to a team registration
---   app.expire_guardian_requests   also locks the event row first when the registration is a team member's
---   app.notify_registration_status registration.confirmed / registration.expired are not sent for team-member registrations
---                                  (team_registration.confirmed / .expired replace them; the card needs the TEAM confirmed)
+--   app.expire_guardian_requests   individual branch unchanged (+ team_registration_id IS NULL); a separate team branch
+--                                  locks the event before the request (see lock order)
+--   app.notify_registration_status for team-member registrations: no registration.confirmed (team_registration.confirmed
+--                                  replaces it: the card needs the TEAM confirmed), no registration.expired when the TEAM
+--                                  expired (status_reason team_registration_expired → team_registration.expired); a lapsed
+--                                  guardian request inside a team → team_registration.guardian_expired (team wording)
+--   app.queue_event_reminders (3b) a team member's registration gets the 24 h reminder only when the TEAM is confirmed
 --   public.get_participation_card, public.check_in_participant   + 409 team_registration_not_confirmed for team members
 --   app.event_cancel_cascade       also cancels the event's team rows (first, so the member trigger sees a dead team)
 --   public.leave_team, public.remove_team_member   lock the team's live-registration events before the membership row
@@ -68,15 +88,20 @@
 --   team_registration.member_declined  member row invited|accepted → declined (live team): active captains/mentors, not the
 --                                      decliner (leave / remove / roster drop stay silent, like active → left in 3b)
 --   team_registration.expired          team → expired: live roster members + active captains/mentors
--- Known gap (recorded): a cancel by the manager or a roster drop does not notify members (no kind in the plan).
+--   team_registration.guardian_expired a team member's own registration expired because the guardian request lapsed → that
+--                                      member (target = the team registration); the managers get member_declined
+-- Decision still open (before features.teamRegistration is turned on): .cancelled / .removed kinds for members whose team
+-- was cancelled by its manager or who were dropped / removed — not added (recorded in IMPLEMENTATION-STATUS).
 --
 -- Privacy: errors carry codes only; per-member failures of update_team_roster carry the offending member ids (JSON uuid
--- array) like submit. team_registration_detail goes to the registered team's ACTIVE members only (display names, role, state,
--- step); organisation staff use Task 4's list. No payload has an e-mail, a birth date or a guardian detail; 'step = guardian'
--- only says that a guardian's approval is awaited.
+-- array) like submit. team_registration_detail goes to the registered team's ACTIVE members (+ platform admins): display
+-- names, role, state, step. Plain members see only live rows (invited / accepted); the names of declined / removed members
+-- go only to the team's active captains / mentors and platform admins (same rule as the RLS on the roster rows).
+-- Organisation staff use Task 4's list. No payload has an e-mail, a birth date or a guardian detail; 'step = guardian' only
+-- says that a guardian's approval is awaited.
 --
 -- Deploy order (staging push HELD until after the Cezeri pilot, user approval): right after 20261113000600. Remote regression
--- 28–28e after the push.
+-- 28–28f after the push (25h: 18 kinds).
 
 -- ---------------------------------------------------------------- status of a member's own registration
 -- Guardian first (same rule as next_registration_status); no review: review is applied to the team.
@@ -164,6 +189,27 @@ begin
   select * into t from public.team_event_registrations where id = p_id for update;
   if t.status not in ('pending_members', 'pending_review', 'confirmed') then return; end if;
 
+  -- User decision A: after close a confirmed / pending_review team is judged by its ready members against team_min_size.
+  if now() >= e.registration_closes_at and t.status in ('pending_review', 'confirmed') then
+    if t.status_reason = 'approved_below_min_after_close' then return; end if;   -- the organiser accepted it as it is (Task 4)
+    select count(*) into v_ready
+      from public.team_event_registration_members m
+      join public.event_registrations r on r.id = m.registration_id
+     where m.team_registration_id = t.id and m.roster_version = t.roster_version
+       and m.state = 'accepted' and r.status = 'confirmed';
+    if v_ready >= e.team_min_size
+       or (t.status = 'pending_review' and t.status_reason = 'roster_below_min_after_close') then
+      return;
+    end if;
+    update public.team_event_registrations
+       set status = 'pending_review', status_reason = 'roster_below_min_after_close', confirmed_at = null
+     where id = t.id;
+    perform app.audit('system', 'team_registration.status_changed', 'team_event_registration', t.id, e.organization_id,
+                      jsonb_build_object('event_id', e.id, 'team_id', t.team_id, 'from', t.status, 'to', 'pending_review',
+                                         'reason', 'roster_below_min_after_close', 'ready', v_ready));
+    return;
+  end if;
+
   select count(*), count(*) filter (where m.state = 'accepted' and r.status = 'confirmed')
     into v_total, v_ready
     from public.team_event_registration_members m
@@ -182,8 +228,9 @@ begin
     status = v_next,
     status_reason = case when v_next = 'pending_members' then 'roster_incomplete' else 'members_ready' end,
     confirmed_at = case when v_next = 'confirmed' then now() end,
+    -- user decision B: a regression (before close) gets least(registration_closes_at, now() + 7 days)
     hold_expires_at = case when v_next = 'pending_members'
-                           then greatest(coalesce(t.hold_expires_at, now()), least(e.registration_closes_at, now() + interval '7 days'))
+                           then least(e.registration_closes_at, now() + interval '7 days')
                            else t.hold_expires_at end
    where id = t.id;
   perform app.audit('system', 'team_registration.status_changed', 'team_event_registration', t.id, e.organization_id,
@@ -217,7 +264,8 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------- expiry job
--- pending_members whose hold has passed, and waitlisted rows once registration has closed → expired; member registrations
+-- pending_members whose hold has passed, waitlisted rows once registration has closed, and pending_review
+-- 'roster_below_min_after_close' rows still undecided at the event's ends_at → expired; member registrations
 -- expired, pending guardian requests revoked, freed seats promoted. p_event narrows it to one event (the RPCs call it lazily
 -- under their own event lock). Returns the number of team rows expired.
 create or replace function app.expire_team_registrations(p_event uuid default null) returns int
@@ -228,7 +276,8 @@ begin
     select distinct t.event_id from public.team_event_registrations t join public.events ev on ev.id = t.event_id
      where (p_event is null or t.event_id = p_event)
        and ((t.status = 'pending_members' and t.hold_expires_at <= now())
-            or (t.status = 'waitlisted' and now() >= ev.registration_closes_at))
+            or (t.status = 'waitlisted' and now() >= ev.registration_closes_at)
+            or (t.status = 'pending_review' and t.status_reason = 'roster_below_min_after_close' and now() >= ev.ends_at))
      order by 1
   loop
     select * into e from public.events where id = v_event for update;               -- lock order 1
@@ -236,12 +285,15 @@ begin
       select * from public.team_event_registrations t
        where t.event_id = v_event
          and ((t.status = 'pending_members' and t.hold_expires_at <= now())
-              or (t.status = 'waitlisted' and now() >= e.registration_closes_at))
+              or (t.status = 'waitlisted' and now() >= e.registration_closes_at)
+              or (t.status = 'pending_review' and t.status_reason = 'roster_below_min_after_close' and now() >= e.ends_at))
        order by t.created_at, t.id for update
     loop
       -- the team row first: the member trigger then sees a dead team and leaves the member rows as history
       update public.team_event_registrations
-         set status = 'expired', status_reason = case when r.status = 'waitlisted' then 'registration_closed' else 'hold_expired' end
+         set status = 'expired',
+             status_reason = case r.status when 'waitlisted' then 'registration_closed'
+                                           when 'pending_review' then 'review_not_decided' else 'hold_expired' end
        where id = r.id;
       for v_reg in select id from public.event_registrations
                     where team_registration_id = r.id and status in ('pending_guardian', 'pending_review', 'confirmed')
@@ -258,26 +310,47 @@ begin
   return v_n;
 end $$;
 
--- Same as 0002, plus: a team member's registration locks its event row before it changes (the team trigger needs the event
--- lock first; the cron path holds none). Individual registrations are handled exactly as before.
+-- Same as 0002 for individual registrations (the loop only gains team_registration_id IS NULL). Team-member registrations
+-- (the team trigger needs the event lock first) go through a second branch: candidate events read without locks → event
+-- FOR UPDATE → each request FOR UPDATE SKIP LOCKED (re-checked) → registration.
 create or replace function app.expire_guardian_requests(p_event uuid default null) returns int
 language plpgsql security definer set search_path = '' as $$
-declare v_count int := 0; r record;
+declare v_count int := 0; r record; v_event uuid;
 begin
   for r in
-    select g.id, g.subject_id, er.event_id, er.team_registration_id from public.guardian_requests g
+    select g.id, g.subject_id from public.guardian_requests g
     join public.event_registrations er on er.id = g.subject_id and g.subject_type = 'event_registration'
     where g.status = 'pending' and g.expires_at <= now() and (p_event is null or er.event_id = p_event)
+      and er.team_registration_id is null
     for update of g skip locked
   loop
-    if r.team_registration_id is not null then
-      perform 1 from public.events where id = r.event_id for update;
-    end if;
     update public.guardian_requests set status = 'expired', token_hash = null where id = r.id;
     update public.event_registrations set status = 'expired', status_reason = 'guardian_request_expired'
       where id = r.subject_id and status = 'pending_guardian';
     perform app.audit('system', 'guardian_request.expired', 'guardian_request', r.id);
     v_count := v_count + 1;
+  end loop;
+
+  for v_event in
+    select distinct er.event_id from public.guardian_requests g
+    join public.event_registrations er on er.id = g.subject_id and g.subject_type = 'event_registration'
+    where g.status = 'pending' and g.expires_at <= now() and (p_event is null or er.event_id = p_event)
+      and er.team_registration_id is not null
+    order by 1
+  loop
+    perform 1 from public.events where id = v_event for update;                     -- lock order 1
+    for r in
+      select g.id, g.subject_id from public.guardian_requests g
+      join public.event_registrations er on er.id = g.subject_id and g.subject_type = 'event_registration'
+      where g.status = 'pending' and g.expires_at <= now() and er.event_id = v_event and er.team_registration_id is not null
+      for update of g skip locked
+    loop
+      update public.guardian_requests set status = 'expired', token_hash = null where id = r.id;
+      update public.event_registrations set status = 'expired', status_reason = 'guardian_request_expired'
+        where id = r.subject_id and status = 'pending_guardian';
+      perform app.audit('system', 'guardian_request.expired', 'guardian_request', r.id);
+      v_count := v_count + 1;
+    end loop;
   end loop;
   return v_count;
 end $$;
@@ -295,6 +368,11 @@ begin
        and exists (select 1 from public.team_event_registrations t where t.id = m.team_registration_id
                      and t.status in ('pending_members', 'pending_review', 'confirmed', 'waitlisted'));
     if found then perform app.bump_team_roster(new.team_registration_id); end if;
+  end if;
+  -- A path that REMOVED the member (leave / remove / roster drop) ends the registration afterwards and recomputes once itself,
+  -- on the final roster: recomputing here, half-way, would bounce a confirmed team (double notification, confirmed_at reset).
+  if exists (select 1 from public.team_event_registration_members m where m.registration_id = new.id and m.state = 'removed') then
+    return null;
   end if;
   perform app.recompute_team_registration(new.team_registration_id);
   return null;
@@ -380,10 +458,10 @@ language sql immutable set search_path = '' as $$
                'registration.expired', 'guardian.denied', 'guardian.revoked', 'application.status_changed', 'team_join.accepted', 'team_join.rejected',
                'team_join.requested', 'event.reminder_24h', 'event.cancelled',
                'team_registration.invited', 'team_registration.confirmed', 'team_registration.member_declined',
-               'team_registration.expired']::text[];
+               'team_registration.expired', 'team_registration.guardian_expired']::text[];
 $$;
 
--- Same as 20261113000400 + the four team-registration kinds (content title = the EVENT title).
+-- Same as 20261113000400 + the five team-registration kinds (content title = the EVENT title).
 create or replace function app.notification_copy(p_kind text, p_content_title text)
 returns table (title text, body text)
 language plpgsql immutable set search_path = '' as $$
@@ -414,20 +492,32 @@ begin
                                                   body := t || ' için bir üye katılamayacak. Kadroyu güncelleyebilirsin.';
     when 'team_registration.expired' then title := 'Takım kaydı tamamlanmadı.';
                                           body := t || ' için takım kaydının süresi doldu.';
+    when 'team_registration.guardian_expired' then title := 'Veli onayı zamanında gelmedi.';
+                                                   body := t || ' için takımdaki yerin kapandı. Takımın seni yeniden davet edebilir.';
     else raise exception using errcode = 'P0001', message = 'notification_kind_unknown', detail = coalesce(p_kind, '');
   end case;
   return next;
 end $$;
 
--- Same as 20261113000400, plus: a team member's own registration does not announce 'confirmed' (the card needs the TEAM
--- confirmed → team_registration.confirmed) nor 'expired' (team expiry → team_registration.expired; a lapsed guardian
--- request → the managers get team_registration.member_declined). Individual registrations: unchanged.
+-- Same as 20261113000400, plus, for a team member's own registration only: no 'confirmed' (the card needs the TEAM
+-- confirmed → team_registration.confirmed); no 'expired' when the TEAM expired (team_registration.expired is sent); a lapsed
+-- guardian request → team_registration.guardian_expired (the individual text "yeniden kaydolabilirsin" is wrong in a team).
+-- Individual registrations: unchanged.
 create or replace function app.notify_registration_status() returns trigger
 language plpgsql security definer set search_path = '' as $$
 declare v_kind text; v_type text := 'event_registration'; v_target uuid := new.id; v_title text;
 begin
-  if new.team_registration_id is not null and new.status in ('confirmed', 'expired') then return null; end if;
-  if new.status = 'confirmed' then
+  if new.team_registration_id is not null then
+    if new.status = 'confirmed' or (new.status = 'expired' and new.status_reason = 'team_registration_expired') then
+      return null;
+    end if;
+    if new.status = 'expired' then
+      v_kind := 'team_registration.guardian_expired'; v_type := 'team_event_registration'; v_target := new.team_registration_id;
+    end if;
+  end if;
+  if v_kind is not null then
+    null;
+  elsif new.status = 'confirmed' then
     v_kind := case when old.status = 'waitlisted' then 'registration.promoted' else 'registration.confirmed' end;
   elsif old.status = 'waitlisted' and new.status in ('pending_guardian', 'pending_review') then
     v_kind := 'registration.promoted_pending';
@@ -730,14 +820,20 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------- RPC: reads
--- The registered team's ACTIVE members only (the team_roster circle). Current roster version; display names, role, state, step.
+-- The registered team's ACTIVE members (the team_roster circle) + platform admins. Current roster version; display names,
+-- role, state, step. Declined / removed rows only for the team's active captains / mentors and platform admins.
 create or replace function public.team_registration_detail(p_team_registration_id uuid) returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
-declare v_uid uuid := (select auth.uid()); t public.team_event_registrations; e public.events; tm public.teams;
+declare
+  v_uid uuid := (select auth.uid()); t public.team_event_registrations; e public.events; tm public.teams; v_full boolean;
 begin
   if v_uid is null then perform app.fail(401, 'auth_required'); end if;
   select * into t from public.team_event_registrations where id = p_team_registration_id;
-  if not found or not app.is_team_registration_member(t.id) then perform app.fail(404, 'team_registration_not_found'); end if;
+  if not found or not (app.is_team_registration_member(t.id) or app.is_platform_admin()) then
+    perform app.fail(404, 'team_registration_not_found');
+  end if;
+  -- declined / removed rows (and their names): the team's active captains / mentors and platform admins only
+  v_full := app.is_team_manager(t.team_id) or app.is_platform_admin();
   select * into e from public.events where id = t.event_id;
   select * into tm from public.teams where id = t.team_id;
   return jsonb_build_object(
@@ -755,7 +851,8 @@ begin
         from public.team_event_registration_members m
         left join public.profiles p on p.id = m.user_id
         left join public.event_registrations r on r.id = m.registration_id
-       where m.team_registration_id = t.id and m.roster_version = t.roster_version), '[]'::jsonb),
+       where m.team_registration_id = t.id and m.roster_version = t.roster_version
+         and (v_full or m.state in ('invited', 'accepted'))), '[]'::jsonb),
     'can_edit', app.is_team_manager(t.team_id) and t.status in ('pending_members', 'pending_review', 'confirmed', 'waitlisted')
                 and e.status = 'published' and now() < e.registration_closes_at);
 end $$;
@@ -946,6 +1043,32 @@ begin
       'capacity', e.capacity,
       'team_capacity', e.team_capacity,
       'volunteers', (select count(*) from public.event_volunteers x where x.event_id = e.id and x.status = 'approved')));
+end $$;
+
+-- ---------------------------------------------------------------- 24 h reminder: team members only once the TEAM is confirmed
+-- Same as 20261113000400 + the team filter (a member whose team is not complete has no card; Task 4's exports need the
+-- same filter — ledger CARRY T4).
+create or replace function app.queue_event_reminders() returns int
+language plpgsql security definer set search_path = '' as $$
+declare v_n int;
+begin
+  with due as (
+    select distinct r.user_id, e.id as event_id, e.title
+      from public.event_registrations r join public.events e on e.id = r.event_id
+     where r.status = 'confirmed' and e.status = 'published'
+       and (r.team_registration_id is null
+            or exists (select 1 from public.team_event_registrations t where t.id = r.team_registration_id and t.status = 'confirmed'))
+       and e.starts_at >= now() + interval '23 hours' and e.starts_at < now() + interval '25 hours'
+       and not exists (select 1 from public.notification_preferences p where p.user_id = r.user_id and not p.event_reminders)
+  ), ins as (
+    insert into public.notifications (user_id, kind, title, body, target_type, target_id)
+    select d.user_id, 'event.reminder_24h', c.title, c.body, 'event', d.event_id
+      from due d cross join lateral app.notification_copy('event.reminder_24h', d.title) c
+    on conflict (user_id, kind, target_id) where kind = 'event.reminder_24h' do nothing
+    returning 1
+  )
+  select count(*) into v_n from ins;
+  return v_n;
 end $$;
 
 -- ---------------------------------------------------------------- grants

@@ -502,7 +502,7 @@ begin
   select count(*) into v_n from unnest(app.notification_kinds()) k, app.notification_copy(k, 'Remote İçerik') c
    where c.title || ' ' || c.body ~ '[@!]';
   select count(*) into i from unnest(app.notification_kinds()) k, app.notification_copy(k, 'Remote İçerik') c;
-  perform pg_temp.t_rec('25h notification_copy: every kind has copy, none contains @ or !', v_n = 0 and i = 17,  -- 13 + 4 team_registration.* (20261113000700)
+  perform pg_temp.t_rec('25h notification_copy: every kind has copy, none contains @ or !', v_n = 0 and i = 18,  -- 13 + 5 team_registration.* (20261113000700)
                         'kinds_with_copy=' || i || ' bad=' || v_n);
   begin
     select string_agg(k || '=' || c.title || ' ' || c.body, ' | ' order by k) into v_text
