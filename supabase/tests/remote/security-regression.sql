@@ -101,6 +101,7 @@ declare
   v_appl uuid; v_sc_event uuid; v_sc_user uuid; v_sc_reg uuid; v_sc_code text; v_post uuid;
   v_cv_event uuid; v_cv_path text;
   v_pt_team uuid; v_pt_cap uuid; v_pt_minor uuid; v_pt_hidden uuid; v_pt_mem uuid; v_pt_proj uuid; v_ra_post uuid; v_ra_app uuid; v_ra_by uuid; v_ra_cols text;
+  v_nt_team uuid; v_nt_id uuid; v_nt_cap uuid; v_nt_req uuid;
   v_out jsonb;
 begin
   -- ================================================================ CV
@@ -459,6 +460,65 @@ begin
     format('select * from public.team_recruitment_applications(%L)', v_ra_post), '^PT403 team_manage_forbidden');
   perform pg_temp.t_fail('24c anon cannot call team_recruitment_applications', 'anon', null,
     format('select * from public.team_recruitment_applications(%L)', v_ra_post), '^42501');
+
+  -- 20261113000400: in-app notifications — own rows only, no direct write path, copy without PII, preferences own-row, cron.
+  -- A fresh team (v_pt_team is suspended above): an adult captain, a 16-year-old requester → captain gets team_join.requested.
+  v_nt_cap := pg_temp.t_user(30, 'Remote Bildirim Kaptanı'); v_nt_req := pg_temp.t_user(16, 'Remote Bildirim İsteyen');
+  begin
+    v_nt_team := (pg_temp.t_val('authenticated', v_nt_cap, $q$select (public.create_team('Remote Bildirim Takımı')).id::text$q$))::uuid;
+    perform pg_temp.t_val('authenticated', v_nt_req, format($q$select (public.request_team_join(%L, 'Merhaba')).id::text$q$, v_nt_team));
+    select n.id, n.title || ' ' || coalesce(n.body, '') into v_nt_id, v_text from public.notifications n
+     where n.user_id = v_nt_cap and n.kind = 'team_join.requested' and n.target_id = v_nt_team;
+    perform pg_temp.t_rec('25 join request → captain gets team_join.requested with the team name, no requester name (control, MUST PASS)',
+      v_nt_id is not null and v_text ~ 'Remote Bildirim Takımı' and v_text !~ '(İsteyen|@)', coalesce(v_text, 'no row'));
+  exception when others then
+    perform pg_temp.t_rec('25 join request → captain gets team_join.requested with the team name, no requester name (control, MUST PASS)',
+                          false, sqlstate || ' ' || sqlerrm);
+  end;
+  begin
+    v_n := pg_temp.t_val('authenticated', v_other, format('select count(*)::text from public.notifications where user_id = %L', v_nt_cap))::int;
+    perform pg_temp.t_rec('25b another user reads 0 of my notifications', v_n = 0, 'rows=' || v_n);
+    v_n := pg_temp.t_val('authenticated', v_other, format('select public.mark_notifications_read(array[%L]::uuid[])::text', v_nt_id))::int;
+    select count(*) into i from public.notifications where id = v_nt_id and read_at is null;
+    perform pg_temp.t_rec('25c another user mark_notifications_read(my id) → 0, my row stays unread', v_n = 0 and i = 1,
+                          'marked=' || v_n || ' still_unread=' || i);
+  exception when others then
+    perform pg_temp.t_rec('25b/25c cross-user read/mark', false, sqlstate || ' ' || sqlerrm);
+  end;
+  perform pg_temp.t_fail('25d owner direct update of notifications → permission denied (never notification_read_only)', 'authenticated', v_nt_cap,
+    format('update public.notifications set read_at = now() where id = %L', v_nt_id), '^42501');
+  perform pg_temp.t_fail('25e user direct insert into notifications → permission denied', 'authenticated', v_nt_cap,
+    format($q$insert into public.notifications (user_id, kind, title) values (%L, 'registration.confirmed', 'Sahte')$q$, v_nt_cap), '^42501');
+  perform pg_temp.t_fail('25f anon cannot call mark_notifications_read', 'anon', null, 'select public.mark_notifications_read()', '^42501');
+  begin
+    v_n := pg_temp.t_val('authenticated', v_nt_cap, 'select public.mark_notifications_read()::text')::int;
+    perform pg_temp.t_rec('25g owner marks own notifications read via RPC (control)', v_n >= 1, 'marked=' || v_n);
+  exception when others then
+    perform pg_temp.t_rec('25g owner marks own notifications read via RPC (control)', false, sqlstate || ' ' || sqlerrm);
+  end;
+  select count(*) into v_n from unnest(app.notification_kinds()) k, app.notification_copy(k, 'Remote İçerik') c
+   where c.title || ' ' || c.body ~ '[@!]';
+  select count(*) into i from unnest(app.notification_kinds()) k, app.notification_copy(k, 'Remote İçerik') c;
+  perform pg_temp.t_rec('25h notification_copy: every kind has copy, none contains @ or !', v_n = 0 and i = 11,
+                        'kinds_with_copy=' || i || ' bad=' || v_n);
+  begin
+    v_text := pg_temp.t_val('authenticated', v_nt_cap, 'select (public.set_notification_preferences(false)).event_reminders::text');
+    v_n := pg_temp.t_val('authenticated', v_other, format('select count(*)::text from public.notification_preferences where user_id = %L', v_nt_cap))::int;
+    perform pg_temp.t_rec('25i preferences: own write via RPC; another user reads 0 of them', v_text = 'false' and v_n = 0,
+                          'own=' || coalesce(v_text, 'null') || ' other_rows=' || v_n);
+  exception when others then
+    perform pg_temp.t_rec('25i preferences: own write via RPC; another user reads 0 of them', false, sqlstate || ' ' || sqlerrm);
+  end;
+  perform pg_temp.t_fail('25i direct insert into notification_preferences → permission denied', 'authenticated', v_other,
+    format('insert into public.notification_preferences (user_id, event_reminders) values (%L, false)', v_other), '^42501');
+  if to_regclass('cron.job') is null then
+    perform pg_temp.t_rec('25j cron jobs (pg_cron not installed here — n/a)', true, 'no cron.job');
+  else
+    execute $q$select string_agg(jobname || ' ' || schedule, ', ' order by jobname) from cron.job
+               where jobname in ('techapp-event-reminders', 'techapp-prune-notifications')$q$ into v_text;
+    perform pg_temp.t_rec('25j cron: techapp-event-reminders */15 and techapp-prune-notifications scheduled',
+      v_text ~ 'techapp-event-reminders \*/15 \* \* \* \*' and v_text ~ 'techapp-prune-notifications ', coalesce(v_text, 'missing'));
+  end if;
 
   -- ================================================================ report (always rolls back)
   select jsonb_build_object('pass', count(*) filter (where pass), 'fail', count(*) filter (where not pass),

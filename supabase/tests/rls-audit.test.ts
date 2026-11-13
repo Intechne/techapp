@@ -3,7 +3,7 @@ import { admin, asAnon, asUser, createEvent, createOrg, createUser, register } f
 
 const SENSITIVE = ['profiles', 'profile_private', 'profile_interests', 'organization_members', 'platform_admins', 'event_registrations',
   'event_check_ins', 'guardian_requests', 'consents', 'applications', 'application_status_history', 'team_memberships', 'team_tasks',
-  'recruitment_applications', 'experiences', 'experience_evidence', 'attestations', 'course_progress', 'bookmarks', 'notifications',
+  'recruitment_applications', 'experiences', 'experience_evidence', 'attestations', 'course_progress', 'bookmarks', 'notifications', 'notification_preferences',
   'devices', 'reports', 'moderation_actions', 'audit_events'];
 
 describe('RLS audit', () => {

@@ -125,6 +125,7 @@ const COPY: Record<string, string> = {
   ticket_wrong_event: 'Bu kart başka bir etkinliğe ait.',
   session_mismatch: 'Seçilen oturum bu etkinliğe ait değil.',
   device_invalid: 'Bildirimler için cihazın kaydedilemedi. Uygulamayı yeniden açıp tekrar dener misin?',
+  notification_preferences_invalid: 'Bildirim tercihin kaydedilemedi. Yeniden dener misin?',
   idempotency_key_required: 'İşlem tamamlanamadı. Uygulamayı güncelleyip tekrar dener misin?',
   idempotency_key_reused: 'Bu istek daha önce başka bir işlem için gönderilmiş. Sayfayı yenileyip tekrar dener misin?',
   contract_mismatch: 'Uygulama ile sunucu uyumsuz görünüyor. Uygulamayı güncelleyip tekrar dener misin?',
