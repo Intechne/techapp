@@ -9,12 +9,14 @@ let mockUser: string | null = 'u1';
 let mockServer: { id: string; target_type: string; target_id: string; created_at: string }[] = [];
 const mockAdd = jest.fn(); const mockRemove = jest.fn();
 let mockAddGate: Promise<void> | null = null; let mockAddError: unknown = null;
+let mockGates: Record<string, Promise<void>> = {};
 jest.mock('../api', () => ({
   ...jest.requireActual('../api'),
   fetchBookmarks: async () => mockServer.map((r) => ({ ...r })),
   addBookmark: async (...a: unknown[]) => {
     mockAdd(...a);
-    if (mockAddGate) await mockAddGate;
+    const gate = mockGates[a[2] as string] ?? mockAddGate;
+    if (gate) await gate;
     if (mockAddError) throw mockAddError;
     mockServer.push({ id: `b${mockServer.length}`, target_type: a[1] as string, target_id: a[2] as string, created_at: '2026-11-13T10:00:00Z' });
   },
@@ -38,7 +40,7 @@ const mockToast = jest.fn();
 jest.mock('../../../design-system', () => ({ ...jest.requireActual('../../../design-system'), useToast: () => ({ show: mockToast }) }));
 
 beforeEach(() => {
-  mockUser = 'u1'; mockServer = []; mockResume = null; mockAddGate = null; mockAddError = null;
+  mockUser = 'u1'; mockServer = []; mockResume = null; mockAddGate = null; mockAddError = null; mockGates = {};
   for (const m of [mockAdd, mockRemove, mockIntentSet, mockNavigate, mockToast]) m.mockClear();
 });
 
@@ -122,6 +124,20 @@ describe('useBookmarks', () => {
     await act(async () => { release(); });
     await waitFor(() => expect(result.current.pending).toBe(false));
     expect(mockAdd).toHaveBeenCalledTimes(2);
+    expect([...result.current.ids].sort()).toEqual(['e1', 'e2']);
+  });
+
+  it('overlapping writes: the first to finish does not refetch away the other one\'s optimistic icon', async () => {
+    const { result } = await setup('event');
+    let releaseSlow!: () => void; let releaseFast!: () => void;
+    mockGates = { e1: new Promise<void>((r) => { releaseSlow = r; }), e2: new Promise<void>((r) => { releaseFast = r; }) };
+    await act(async () => { result.current.toggle('e1'); result.current.toggle('e2'); });
+    await act(async () => { releaseFast(); });
+    // e2 is on the server, e1 is not yet: a refetch now would drop e1's optimistic row.
+    await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+    expect(result.current.ids.has('e1')).toBe(true);
+    await act(async () => { releaseSlow(); });
+    await waitFor(() => expect(result.current.pending).toBe(false));
     expect([...result.current.ids].sort()).toEqual(['e1', 'e2']);
   });
 

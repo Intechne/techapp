@@ -52,7 +52,10 @@ function useBookmarkWrite() {
       return false;
     } finally {
       inflight.delete(key); setRunning((n) => n - 1);
-      void qc.invalidateQueries({ queryKey: savedKeys.all });
+      // Refetch only once this user's last write settles: a refetch while another write is in flight would come back
+      // without that write's row and briefly un-fill its optimistic icon.
+      const prefix = `${userId}:`;
+      if (![...inflight].some((k) => k.startsWith(prefix))) void qc.invalidateQueries({ queryKey: savedKeys.all });
     }
   }, [userId, qc, toast]);
 
