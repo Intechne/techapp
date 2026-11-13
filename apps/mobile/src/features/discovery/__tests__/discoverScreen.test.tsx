@@ -3,11 +3,18 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DiscoverScreen } from '../DiscoverScreen';
+jest.mock('@react-navigation/native', () => ({ ...jest.requireActual('@react-navigation/native'), useFocusEffect: (cb: () => void) => jest.requireActual('react').useEffect(cb, [cb]) }));
 
 // Save state is its own module (saved/__tests__); screens here only see ids + toggle.
 const mockSaveToggle = jest.fn(); let mockSavedIds = new Set<string>();
 jest.mock('../../saved/useBookmarks', () => ({ useBookmarks: () => ({ ids: mockSavedIds, toggle: mockSaveToggle, pending: false, requiresAuth: false, ready: true }) }));
 beforeEach(() => { mockSavedIds = new Set(); mockSaveToggle.mockClear(); });
+
+// The bell reads the signed-in user and the unread count; both are modules of their own (notifications/__tests__).
+let mockUserId: string | null = null; let mockUnread = 0;
+jest.mock('../../auth/SessionProvider', () => ({ useSession: () => ({ userId: mockUserId }) }));
+jest.mock('../../notifications/api', () => ({ ...jest.requireActual('../../notifications/api'), useUnreadCount: () => mockUnread }));
+beforeEach(() => { mockUserId = null; mockUnread = 0; });
 
 const DAY = 86_400_000;
 const iso = (offsetDays: number) => new Date(Date.now() + offsetDays * DAY).toISOString();
@@ -343,5 +350,29 @@ describe('Keşfet ana — filtre ve arama', () => {
   // 3b'ye bağlı, atlandı: the Search screen and notification bell are Faz 3b modules (not merged). Until a `Search`
   // route exists the field keeps submitting an in-place event search, and the bell is omitted.
   it.todo('tapping the search field navigates to Search (Faz 3b — needs the Search route)');
-  it.todo('signed-in header shows the notification bell with a badge; guests never see it (Faz 3b)');
+  it('signed-in header shows the notification bell with the unread badge and opens Bildirimler', async () => {
+    mockUserId = 'u1'; mockUnread = 3;
+    await renderScreen();
+    await fireEvent.press(await screen.findByLabelText('Bildirimler, 3 okunmamış'));
+    expect(navigate).toHaveBeenCalledWith('Notifications');
+    expect(screen.getByText('3')).toBeTruthy();
+  });
+
+  it('the bell has no badge at 0 and shows 99+ from 100 unread', async () => {
+    mockUserId = 'u1';
+    const first = await renderScreen();
+    expect(await screen.findByLabelText('Bildirimler')).toBeTruthy();
+    expect(screen.queryByTestId('icon-badge')).toBeNull();
+    await first.unmount();
+    mockUnread = 120;
+    await renderScreen();
+    expect(await screen.findByLabelText('Bildirimler, 120 okunmamış')).toBeTruthy();
+    expect(screen.getByText('99+')).toBeTruthy();
+  });
+
+  it('guests never see the bell', async () => {
+    mockUserId = null; mockUnread = 5;
+    await renderScreen();
+    expect(screen.queryByLabelText(/Bildirimler/)).toBeNull();
+  });
 });

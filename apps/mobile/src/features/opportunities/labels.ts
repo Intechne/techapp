@@ -31,7 +31,7 @@ export function deadlineView(closesAtIso: string, now: Date = new Date()): Deadl
 }
 export type DeadlineHorizon = 'Bu hafta' | 'Bu ay' | 'Sonra';
 const DAY_MS = 86_400_000;
-const istanbulDay = (d: Date) => Math.floor((d.getTime() + 3 * 3_600_000) / DAY_MS); // days since 1970-01-01, Istanbul calendar
+export const istanbulDay = (d: Date) => Math.floor((d.getTime() + 3 * 3_600_000) / DAY_MS); // days since 1970-01-01, Istanbul calendar
 const istanbulMonth = (day: number) => { const d = new Date(day * DAY_MS); return d.getUTCFullYear() * 12 + d.getUTCMonth(); };
 /**
  * Son tarihler groups: Bu hafta (through Sunday of the Europe/Istanbul calendar week), Bu ay (the rest of the calendar

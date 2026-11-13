@@ -35,6 +35,8 @@ export interface RowCardProps {
   footnoteTag?: StatusView;
   trailing?: RowCardTrailing;
   isDemo?: boolean;
+  /** Notification not yet read: an Iris dot on the tile corner and "Okunmadı" in the spoken label. */
+  unread?: boolean;
   onPress?: () => void;
 }
 
@@ -55,13 +57,13 @@ function LeadingTile({ leading }: { leading: RowCardLeading }) {
  * ÖRNEK (family rule) joins a tag-only row — PosterCard's status row, RowCard's footnote tag row — or, when the card
  * has none, gets its own last line; it never sits beside wrapping text. Numbers never break away from their unit.
  */
-export const RowCard = React.memo(function RowCard({ leading, title, secondary, footnote, footnoteTag, trailing, isDemo, onPress }: RowCardProps) {
+export const RowCard = React.memo(function RowCard({ leading, title, secondary, footnote, footnoteTag, trailing, isDemo, unread, onPress }: RowCardProps) {
   const { width } = useLayout();
   const status = trailing?.kind === 'status' ? trailing.view : undefined;
   // Phones (< 600 dp): a status in the trailing slot takes up to 42% of the row and squeezes the title, so it always sits
   // under the text and the title gets the full width (approved Q6). Tablets keep it trailing.
   const stacked = !!status && width < STACK_STATUS_BELOW;
-  const label = cardLabel([title, clipForSpeech(secondary), spoken(footnoteTag?.label), footnote, spoken(status?.label), isDemo ? DEMO_SPOKEN : null]);
+  const label = cardLabel([title, clipForSpeech(secondary), spoken(footnoteTag?.label), footnote, spoken(status?.label), isDemo ? DEMO_SPOKEN : null, unread ? 'Okunmadı' : null]);
   const bookmark = trailing?.kind === 'bookmark'
     ? <View style={styles.bookmarkLayer}><BookmarkButton saved={trailing.saved} onToggle={trailing.onToggle} labels={trailing.labels} /></View>
     : undefined;
@@ -69,6 +71,7 @@ export const RowCard = React.memo(function RowCard({ leading, title, secondary, 
     <CardBase label={label} onPress={onPress} accessory={bookmark}>
       <View testID="row-body" style={[styles.body, !!bookmark && styles.bodyWithSave]}>
         <LeadingTile leading={leading} />
+        {unread && <View testID="unread-dot" pointerEvents="none" style={styles.unreadDot} />}
         <View style={styles.text}>
           <Text variant="cardTitle" breakStrategy="words" numberOfLines={2}>{title}</Text>
           {!!secondary && <Text testID="row-secondary" variant="bodySmall" color={sem.text.secondary} numberOfLines={2} style={styles.secondary}>{keepNumbersTogether(secondary)}</Text>}
@@ -146,6 +149,8 @@ const styles = StyleSheet.create({
     backgroundColor: sem.action.primarySoft, alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
   text: { flex: 1, minWidth: 0 },
+  // Sits on the tile's top-right corner; the surface-coloured ring keeps it readable over the tile.
+  unreadDot: { position: 'absolute', top: cardLayout.pad - 4, left: cardLayout.pad + cardLayout.leadingTile - 10, width: 12, height: 12, borderRadius: radius.pill, backgroundColor: sem.action.primary, borderWidth: 2, borderColor: sem.bg.surface },
   secondary: { marginTop: cardLayout.secondaryGap },
   foot: { marginTop: cardLayout.footGap, gap: cardLayout.footTagGap },
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space[2] },

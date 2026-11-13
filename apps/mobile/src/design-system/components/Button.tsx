@@ -60,10 +60,12 @@ interface IconButtonProps extends Omit<PressableProps, 'style' | 'children'> {
   color?: string;
   filled?: boolean;
   surface?: boolean;
+  /** Count pill on the glyph's corner (already formatted: "3", "99+"). The caller states the real number in `accessibilityLabel`. */
+  badge?: string;
   style?: StyleProp<ViewStyle>;
 }
 
-export function IconButton({ icon, color = colors.ink, filled, surface, style, ...rest }: IconButtonProps) {
+export function IconButton({ icon, color = colors.ink, filled, surface, badge, style, ...rest }: IconButtonProps) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -72,6 +74,11 @@ export function IconButton({ icon, color = colors.ink, filled, surface, style, .
       style={({ pressed }) => [styles.iconButton, surface && styles.iconSurface, pressed && { opacity: 0.6 }, style]}
     >
       <TechIcon name={icon} color={color} filled={filled} size={22} />
+      {!!badge && (
+        <View testID="icon-badge" pointerEvents="none" style={styles.badge}>
+          <Text variant="caption" style={styles.badgeText}>{badge}</Text>
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -100,6 +107,8 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
   iconButton: { width: layout.touchTarget, height: layout.touchTarget, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  badge: { position: 'absolute', top: -6, right: -8, minWidth: 20, height: 20, paddingHorizontal: space[1], borderRadius: radius.pill, backgroundColor: colors.primary, borderWidth: 2, borderColor: colors.canvas, alignItems: 'center', justifyContent: 'center' },
+  badgeText: { color: colors.white, lineHeight: 16, fontVariant: ['tabular-nums'] },
   iconSurface: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   textButton: { minHeight: layout.touchTarget, flexDirection: 'row', alignItems: 'center', gap: space[1] },
 });

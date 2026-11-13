@@ -12,7 +12,7 @@ export type SharedEventParamList = {
   VolunteerHub: { eventId: string };
 };
 
-export type DiscoverStackParamList = SharedEventParamList & { DiscoverHome: undefined };
+export type DiscoverStackParamList = SharedEventParamList & { DiscoverHome: undefined; Notifications: undefined };
 /** Etkinlikler list filters travel as route params (strings on web); the filter sheet starts from and returns the same shape. */
 export type EventsStackParamList = SharedEventParamList & { EventsList: EventListParams };
 export type OpportunitiesStackParamList = {
@@ -25,7 +25,8 @@ export type OpportunitiesStackParamList = {
 export type CommunityStackParamList = {
   CommunityHome: undefined;
   TeamDetail: { teamId: string };
-  TeamWorkspace: { teamId: string };
+  /** `tab`: open on İstekler (a join-request notification goes straight to the decision). */
+  TeamWorkspace: { teamId: string; tab?: 'İstekler' };
   TeamTaskEditor: { teamId: string; taskId?: string };
   TeamProjectEditor: { teamId: string; projectId?: string };
   RecruitmentPostEditor: { teamId: string; postId?: string };
@@ -39,6 +40,7 @@ export type ProfileStackParamList = SharedEventParamList & {
   EditProfile: undefined;
   ExperienceEditor: { experienceId?: string };
   ExperienceDetail: { experienceId: string };
+  Notifications: undefined;
 };
 
 export type MainTabParamList = {

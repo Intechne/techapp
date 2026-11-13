@@ -2434,6 +2434,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      mark_notifications_read: { Args: { p_ids?: string[] }; Returns: number }
       my_account_state: { Args: never; Returns: Json }
       my_cv: { Args: never; Returns: Json }
       public_cv: { Args: { p_token: string }; Returns: Json }

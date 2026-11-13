@@ -15,10 +15,10 @@ import { TASK_ORDER, canAdvanceTask, groupTasks, isOverdue, isPostOpen, nextStat
 type Tab = 'Görevler' | 'Üyeler' | 'İstekler' | 'İlanlar';
 
 export function TeamWorkspaceScreen({ navigation, route }: NativeStackScreenProps<CommunityStackParamList, 'TeamWorkspace'>) {
-  const { teamId } = route.params;
+  const { teamId, tab: initialTab } = route.params;
   const { userId } = useSession();
   const qc = useQueryClient(); const toast = useToast();
-  const [tab, setTab] = useState<Tab>('Görevler');
+  const [tab, setTab] = useState<Tab>(initialTab === 'İstekler' ? 'İstekler' : 'Görevler');
   const [roleTarget, setRoleTarget] = useState<RosterEntry | null>(null); const [roleDraft, setRoleDraft] = useState<TeamRole>('member');
   const [titleTarget, setTitleTarget] = useState<RosterEntry | null>(null); const [titleDraft, setTitleDraft] = useState('');
   const [mineOnly, setMineOnly] = useState(false);
@@ -76,6 +76,8 @@ export function TeamWorkspaceScreen({ navigation, route }: NativeStackScreenProp
     );
   }
 
+  // A join-request notification opens İstekler; someone who cannot manage (or lost the role) lands on Görevler instead of a blank tab.
+  const shown: Tab = tab !== 'Görevler' && roster.isSuccess && !(perms.canManage || tab === 'Üyeler') ? 'Görevler' : tab;
   const tabs: readonly Tab[] = perms.canManage ? ['Görevler', 'Üyeler', 'İstekler', 'İlanlar'] : ['Görevler', 'Üyeler'];
   const taskCard = (t: TeamTask) => {
     const label = TASK_ADVANCE_LABEL[t.status];
@@ -92,9 +94,9 @@ export function TeamWorkspaceScreen({ navigation, route }: NativeStackScreenProp
         {me && <Tag label={ROLE_LABEL[me.role]} tone={ROLE_TONE[me.role]} />}
         <Text variant="caption" color="textSecondary">{active.length} üye{pending.length > 0 && perms.canManage ? ` · ${pending.length} bekleyen istek` : ''}</Text>
       </View>
-      <SegmentedControl options={tabs} value={tab} onChange={setTab} />
+      <SegmentedControl options={tabs} value={shown} onChange={setTab} />
 
-      {tab === 'Görevler' && (
+      {shown === 'Görevler' && (
         <View style={{ marginTop: space[4] }}>
           {tasks.isPending ? <LoadingSkeleton variant="row" /> : tasks.isError ? <ErrorState error={toAppError(tasks.error)} onRetry={() => void tasks.refetch()} />
             : tasks.data.length === 0 ? <EmptyState icon="check" title="Henüz görev yok" body={perms.canManage ? 'İlk görevi ekle; kime ait olduğu ve son tarihi herkes için net olsun.' : 'Kaptan ya da mentor görev eklediğinde burada göreceksin.'} actionLabel={perms.canManage ? 'Görev ekle' : undefined} onAction={() => navigation.navigate('TeamTaskEditor', { teamId })} />
@@ -119,7 +121,7 @@ export function TeamWorkspaceScreen({ navigation, route }: NativeStackScreenProp
         </View>
       )}
 
-      {tab === 'Üyeler' && (
+      {shown === 'Üyeler' && (
         <View style={{ marginTop: space[4], gap: space[3] }}>
           <ResponsiveGrid>
             {active.map((r) => (
@@ -146,7 +148,7 @@ export function TeamWorkspaceScreen({ navigation, route }: NativeStackScreenProp
         </View>
       )}
 
-      {tab === 'İstekler' && perms.canManage && (
+      {shown === 'İstekler' && perms.canManage && (
         <View style={{ marginTop: space[4], gap: space[3] }}>
           {pending.length === 0 ? <EmptyState icon="community" title="Bekleyen istek yok" body="Yeni katılma istekleri burada görünür." /> : pending.map((r) => (
             <Card key={r.membership_id} style={{ gap: space[3] }}>
@@ -162,7 +164,7 @@ export function TeamWorkspaceScreen({ navigation, route }: NativeStackScreenProp
       )}
 
 
-      {tab === 'İlanlar' && perms.canManage && (
+      {shown === 'İlanlar' && perms.canManage && (
         <View style={{ marginTop: space[4], gap: space[3] }}>
           {posts.isPending ? <LoadingSkeleton variant="row" rowLines={{ title: 1, secondary: 1, footnote: 'none', status: true }} /> : posts.isError ? <ErrorState error={toAppError(posts.error)} onRetry={() => void posts.refetch()} />
             : posts.data.length === 0 ? <EmptyState icon="plus" title="Henüz açık rol ilanı yok" body="Takıma katılacak kişileri bir ilanla çağır; ilan takım sayfanda görünür, başvurular burada toplanır." actionLabel="İlan aç" onAction={() => navigation.navigate('RecruitmentPostEditor', { teamId })} />

@@ -19,6 +19,7 @@ import { categoryIcon } from '../teams/categoryIcon';
 import { usePrefs } from '../onboarding/PrefsProvider';
 import { TEAM_PUBLIC_COLUMNS } from '../teams/api';
 import { pickFeatured } from './featured';
+import { NotificationBell } from '../notifications/NotificationBell';
 
 async function fetchInterests(): Promise<InterestRow[]> {
   const { data, error } = await getSupabase().from('interests').select('*').order('sort_order');
@@ -89,7 +90,7 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
   const interestsFailed = topic !== 'all' && interests.isError;
 
   return (
-    <Screen header={<><AppHeader brand right={<IconButton icon="ticket" accessibilityLabel="Katılımlarım" onPress={() => navigation.navigate('MyRegistrations')} />} />{offline && <OfflineBanner />}</>}
+    <Screen header={<><AppHeader brand right={<><NotificationBell onPress={() => navigation.navigate('Notifications')} /><IconButton icon="ticket" accessibilityLabel="Katılımlarım" onPress={() => navigation.navigate('MyRegistrations')} /></>} />{offline && <OfflineBanner />}</>}
       refreshing={events.isRefetching} onRefresh={() => { void events.refetch(); void preview.refetch(); void interests.refetch(); }}>
       <Text variant="bodySmall" color="textSecondary">{firstName ? `Merhaba ${firstName}` : 'Merhaba'}</Text>
       <Text variant="display" style={{ marginTop: space[1], marginBottom: space[5] }}>Bir fikrin varsa,{'\n'}bir yerin var.</Text>
