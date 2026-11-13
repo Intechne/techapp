@@ -1,5 +1,14 @@
 > **V5 — 11 Kasım 2026 (dal `feat/v5-pilot-platform`).** Güncel durum bu bölümdedir. 7 Ekim ve daha eski bölümler **tarihsel kayıttır**; çelişen yerde bu bölüm geçerlidir. ✅ yalnız bugün ölçülen ya da kanıtı yazılı olan şey içindir.
 
+## Faz 3a — takım etkinlik kaydı (dal `feat/v5-product`; staging'e uygulanmadı)
+Plan: `docs/superpowers/plans/2026-11-12-techapp-v5-faz3a-team-registration.md`. Görev kaydı: `.superpowers/sdd/2026-11-12-techapp-v5-faz3a-team-registration/` (yerel).
+
+| Görev | Konu | Commit'ler | Staging |
+|---|---|---|---|
+| T1 | Şema, RLS, sayaçlar (`20261113000500_team_registration`): takım satırı + kadro anlık görüntüsü, iki bağımsız kontenjan havuzu (bireysel / takım), sayaç koruması, kritik alanlar | (bu commit) | ⏸ bekletildi (pilot sonrası; `20261113000400`'ten sonra, dosya sırası; remote regresyon 26–26h) |
+
+**T1 — ne geldi (yalnız yerelde kanıtlı: `npm run db:test` 297, remote regresyonun yerel kuru koşusu 85/85 ve Storage'lı 90/90; staging'de koşulmadı):** RPC yok (gönderim T2, üye yanıtı/veli/iptal/süre dolumu T3, organizatör T4). Okuma: takımın etkin üyeleri, etkinlik kurumunun owner|admin|reviewer|checkin_staff'ı, platform admini; kişi kendi kadro satırını her zaman görür; anon hiç göremez; istemcinin iki tabloya yazma yetkisi yok. Takım üyelerinin kendi kayıtları (`team_registration_id` dolu) bireysel `seats_taken`/bekleme listesine sayılmaz ve hiçbir zaman `waitlisted` olamaz. Bildirim türleri henüz yok (T3).
+
 ## Faz 3b — çekirdek modüller (dal `feat/v5-product`, kod tamam; staging'e uygulanmadı)
 Plan: `docs/superpowers/plans/2026-11-12-techapp-v5-faz3b-core-modules.md`. Görev kaydı: `.superpowers/sdd/2026-11-12-techapp-v5-faz3b-core-modules/` (yerel).
 

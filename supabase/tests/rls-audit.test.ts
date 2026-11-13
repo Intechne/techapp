@@ -4,7 +4,7 @@ import { admin, asAnon, asUser, createEvent, createOrg, createUser, register } f
 const SENSITIVE = ['profiles', 'profile_private', 'profile_interests', 'organization_members', 'platform_admins', 'event_registrations',
   'event_check_ins', 'guardian_requests', 'consents', 'applications', 'application_status_history', 'team_memberships', 'team_tasks',
   'recruitment_applications', 'experiences', 'experience_evidence', 'attestations', 'course_progress', 'bookmarks', 'notifications', 'notification_preferences',
-  'devices', 'reports', 'moderation_actions', 'audit_events'];
+  'devices', 'reports', 'moderation_actions', 'audit_events', 'team_event_registrations', 'team_event_registration_members'];
 
 describe('RLS audit', () => {
   it('every table in the public schema has row level security enabled', async () => {

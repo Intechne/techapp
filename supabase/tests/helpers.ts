@@ -66,6 +66,24 @@ export async function createEvent(orgId: string, overrides: Record<string, unkno
   return id;
 }
 
+/**
+ * Team fixture (superuser insert, no RPC): `captainId` becomes the active captain, every id in `memberIds` an active member.
+ * Faz 3a team registration builds on these active memberships.
+ */
+export async function createTeam(captainId: string, memberIds: string[] = []): Promise<string> {
+  const id = randomUUID();
+  await admin(`insert into public.teams (id, slug, name, created_by) values ($1, $2, 'Test Takımı', $3)`, [id, `team-${id.slice(0, 8)}`, captainId]);
+  await admin(`insert into public.team_memberships (team_id, user_id, role, status) values ($1, $2, 'captain', 'active')`, [id, captainId]);
+  for (const userId of memberIds) {
+    await admin(`insert into public.team_memberships (team_id, user_id, role, status) values ($1, $2, 'member', 'active')`, [id, userId]);
+  }
+  return id;
+}
+
+/** Published team-mode event: teams of 1–5, 10 team seats. Any column can be overridden (e.g. registration_mode: 'both'). */
+export const createTeamEvent = (orgId: string, overrides: Record<string, unknown> = {}) =>
+  createEvent(orgId, { registration_mode: 'team', team_min_size: 1, team_max_size: 5, team_capacity: 10, ...overrides });
+
 export const register = (userId: string, eventId: string, key: string = randomUUID()) =>
   asUser(userId, async (q) => (await q(`select * from public.register_for_event($1, $2)`, [eventId, key])).rows[0]);
 

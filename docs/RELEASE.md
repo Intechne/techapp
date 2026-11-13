@@ -95,6 +95,14 @@ Bu bölüm, aşağıdaki "Production'a geçiş" 1. maddesindeki dağınık notla
 
 **Hâlâ açık (yayın öncesi):** `/gizlilik` ve `/kosullar` hukuk metinleri, admin rapor/moderasyon konsolu, expo yama sürümleri — `docs/KNOWN-ISSUES.md` > Faz 3b kapanışı.
 
+## Faz 3a — takım kaydı migration'ları (13 Kasım 2026, bekletiliyor)
+
+`20261113000500_team_registration` (Task 1: şema, RLS, sayaçlar; RPC yok) **staging'e uygulanmadı**; Faz 3b'nin beş dosyasıyla aynı kural: pilot (27–29 Kasım) bitene ve kullanıcı onaylayana kadar push yok, `preview` kanalına OTA yok.
+- **Sıra:** yukarıdaki Faz 3b listesinin 6. adımından (`20261113000400_notifications`) **sonra**, dosya sırasıyla. Sütun düzeyi grant vermez, `teams` / `recruitment_posts` grant'ine dokunmaz → `20261112000300`'ün toplu revoke'una bağımlı değildir; yine de dosya sırasıyla gider.
+- **Ne değişir:** yeni tablolar `team_event_registrations`, `team_event_registration_members` (istemciye yalnız SELECT, yazma yok); `events`'e `team_capacity`, `teams_taken`, `team_waitlist_count`, `team_min_size` (varsayılan 1), `team_max_size`; `event_registrations.team_registration_id`. `app.recount_event`, `app.promote_waitlist`, `register_for_event` bireysel sayımı `team_registration_id is null` ile daraltır (bugün hiçbir satırda dolu değil → davranış aynı). `team_min_size` / `team_max_size` kritik alan, `team_capacity` azalması `capacity` gibi yeniden incelemeye düşürür.
+- **Push sonrası:** remote regresyon **26–26h** geçmeli; **26 MUST PASS** (takım üyesi kendi takımının satırlarını, kurum sahibi kadroyu görüyor). Ek olarak `supabase gen types --linked` (yeni sütunlar/tablolar) — istemci Task 5–7'de.
+- Sonraki Faz 3a migration'ları (Task 2–4: gönderim, yaşam döngüsü, organizatör) bu dosyadan sonra gelir; takım kaydı bildirim türleri Task 3 ile eklenir.
+
 ## Remote Supabase'e ilk bağlanma (sırayla)
 1. `npx supabase login` (kendi terminalinde; tarayıcı açılır). Token'ı sohbete/repoya yapıştırma.
 2. `npx supabase projects list` → `npx supabase link --project-ref <ref>` (ref gizli değildir). Yanlış projeye push etmemek için ref'i iki kez kontrol et.

@@ -102,6 +102,7 @@ declare
   v_cv_event uuid; v_cv_path text;
   v_pt_team uuid; v_pt_cap uuid; v_pt_minor uuid; v_pt_hidden uuid; v_pt_mem uuid; v_pt_proj uuid; v_ra_post uuid; v_ra_app uuid; v_ra_by uuid; v_ra_cols text;
   v_nt_team uuid; v_nt_id uuid; v_nt_cap uuid; v_nt_req uuid;
+  v_tr_org uuid; v_tr_owner uuid; v_tr_editor uuid; v_tr_event uuid; v_tr_team uuid; v_tr_cap uuid; v_tr_minor uuid; v_tr_reg uuid; v_tr_mrow uuid;
   v_out jsonb;
 begin
   -- ================================================================ CV
@@ -527,6 +528,75 @@ begin
     perform pg_temp.t_rec('25j cron: techapp-event-reminders */15 and techapp-prune-notifications scheduled',
       v_text ~ 'techapp-event-reminders \*/15 \* \* \* \*' and v_text ~ 'techapp-prune-notifications ', coalesce(v_text, 'missing'));
   end if;
+
+  -- 20261113000500: team event registration — schema only (no RPCs yet). Rows readable by the team's active members, the
+  -- event organisation's owner|admin|reviewer|checkin_staff and platform admins; no client write path; team counters locked;
+  -- team members' own registrations never count toward the individual pool. Fixtures are written by the fixture user.
+  v_tr_owner := pg_temp.t_user(35, 'Remote Takım Kurum'); v_tr_editor := pg_temp.t_user(33);
+  v_tr_cap := pg_temp.t_user(30, 'Remote Takım Kaptanı'); v_tr_minor := pg_temp.t_user(15, 'Remote Takım Üyesi');
+  v_tr_org := pg_temp.t_org();
+  insert into public.organization_members (organization_id, user_id, role) values (v_tr_org, v_tr_owner, 'owner'), (v_tr_org, v_tr_editor, 'editor');
+  v_tr_event := pg_temp.t_event(v_tr_org);
+  update public.events set registration_mode = 'both', team_capacity = 4, team_min_size = 2, team_max_size = 5 where id = v_tr_event;
+  begin
+    v_tr_team := (pg_temp.t_val('authenticated', v_tr_cap, $q$select (public.create_team('Remote Kayıt Takımı')).id::text$q$))::uuid;
+    insert into public.team_memberships (team_id, user_id, role, status) values (v_tr_team, v_tr_minor, 'member', 'active');
+    v_tr_reg := gen_random_uuid();
+    insert into public.team_event_registrations (id, event_id, team_id, status, submitted_by, idempotency_key, hold_expires_at)
+    values (v_tr_reg, v_tr_event, v_tr_team, 'pending_members', v_tr_cap, gen_random_uuid(), now() + interval '7 days');
+    insert into public.team_event_registration_members (team_registration_id, user_id, role_at_submit, roster_version, state)
+    values (v_tr_reg, v_tr_cap, 'captain', 1, 'invited'), (v_tr_reg, v_tr_minor, 'member', 1, 'invited');
+    select id into v_tr_mrow from public.team_event_registration_members where team_registration_id = v_tr_reg and user_id = v_tr_minor;
+    v_n := pg_temp.t_val('authenticated', v_tr_minor, 'select count(*)::text from public.team_event_registrations')::int
+         + pg_temp.t_val('authenticated', v_tr_minor, 'select count(*)::text from public.team_event_registration_members')::int;
+    i := pg_temp.t_val('authenticated', v_tr_owner, format('select count(*)::text from public.team_event_registration_members where team_registration_id = %L', v_tr_reg))::int;
+    perform pg_temp.t_rec('26 team member reads own team row + roster (3), organiser owner reads the roster (2) (control, MUST PASS)',
+                          v_n = 3 and i = 2, 'member_rows=' || v_n || ' owner_roster=' || i);
+  exception when others then
+    perform pg_temp.t_rec('26 team member reads own team row + roster (3), organiser owner reads the roster (2) (control, MUST PASS)',
+                          false, sqlstate || ' ' || sqlerrm);
+  end;
+  perform pg_temp.t_fail('26a anon cannot read team_event_registrations (no grant → 0 rows)', 'anon', null,
+    'select count(*) from public.team_event_registrations', '^42501');
+  perform pg_temp.t_fail('26a anon cannot read team_event_registration_members (no grant → 0 rows)', 'anon', null,
+    'select count(*) from public.team_event_registration_members', '^42501');
+  begin
+    v_n := pg_temp.t_val('authenticated', v_other, format('select count(*)::text from public.team_event_registrations where id = %L', v_tr_reg))::int
+         + pg_temp.t_val('authenticated', v_other, format('select count(*)::text from public.team_event_registration_members where team_registration_id = %L', v_tr_reg))::int
+         + pg_temp.t_val('authenticated', v_tr_editor, format('select count(*)::text from public.team_event_registration_members where team_registration_id = %L', v_tr_reg))::int;
+    perform pg_temp.t_rec('26b non-member and org editor read 0 team rows / roster rows', v_n = 0, 'rows=' || v_n);
+  exception when others then
+    perform pg_temp.t_rec('26b non-member and org editor read 0 team rows / roster rows', false, sqlstate || ' ' || sqlerrm);
+  end;
+  perform pg_temp.t_fail('26c captain direct insert into team_event_registrations → permission denied', 'authenticated', v_tr_cap,
+    format($q$insert into public.team_event_registrations (event_id, team_id, status, submitted_by, idempotency_key, hold_expires_at)
+              values (%L, %L, 'confirmed', %L, gen_random_uuid(), now())$q$, v_tr_event, v_tr_team, v_tr_cap), '^42501');
+  perform pg_temp.t_fail('26d organiser owner direct update of team_event_registrations → permission denied', 'authenticated', v_tr_owner,
+    format($q$update public.team_event_registrations set status = 'confirmed' where id = %L$q$, v_tr_reg), '^42501');
+  perform pg_temp.t_fail('26e member direct update of own roster row → permission denied', 'authenticated', v_tr_minor,
+    format($q$update public.team_event_registration_members set state = 'declined' where id = %L$q$, v_tr_mrow), '^42501');
+  perform pg_temp.t_fail('26f org editor writes teams_taken → 403 event_counters_locked', 'authenticated', v_tr_editor,
+    format('update public.events set teams_taken = 9 where id = %L', v_tr_event), '^PT403 event_counters_locked');
+  perform pg_temp.t_fail('26f org editor writes team_waitlist_count → 403 event_counters_locked', 'authenticated', v_tr_editor,
+    format('update public.events set team_waitlist_count = 9 where id = %L', v_tr_event), '^PT403 event_counters_locked');
+  begin
+    -- an accepted member's own registration (team_registration_id set) → the team pool counts, the individual pool does not
+    insert into public.event_registrations (event_id, user_id, status, idempotency_key, team_registration_id, confirmed_at)
+    values (v_tr_event, v_tr_cap, 'confirmed', gen_random_uuid(), v_tr_reg, now());
+    select seats_taken, teams_taken into v_n, i from public.events where id = v_tr_event;
+    perform pg_temp.t_rec('26g team member registration: seats_taken 0, teams_taken 1 (pools independent)', v_n = 0 and i = 1,
+                          'seats_taken=' || v_n || ' teams_taken=' || i);
+  exception when others then
+    perform pg_temp.t_rec('26g team member registration: seats_taken 0, teams_taken 1 (pools independent)', false, sqlstate || ' ' || sqlerrm);
+  end;
+  begin
+    select string_agg(p.proname || '=' || has_function_privilege('anon', p.oid, 'execute')::text || '/'
+                      || has_function_privilege('authenticated', p.oid, 'execute')::text, ' ' order by p.proname) into v_text
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'app' and p.proname in ('is_team_registration_member', 'is_team_registration_staff', 'recount_team_event');
+    perform pg_temp.t_rec('26h app helpers: RLS helpers authenticated-only, recount_team_event not callable by API roles',
+      v_text = 'is_team_registration_member=false/true is_team_registration_staff=false/true recount_team_event=false/false', coalesce(v_text, 'missing'));
+  end;
 
   -- ================================================================ report (always rolls back)
   select jsonb_build_object('pass', count(*) filter (where pass), 'fail', count(*) filter (where not pass),
