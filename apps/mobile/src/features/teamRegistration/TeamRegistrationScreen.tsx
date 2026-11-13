@@ -34,7 +34,7 @@ export function TeamRegistrationScreen({ navigation, route }: NativeStackScreenP
   const teamId = editing ? detail.data?.team.id : (freeTeams.find((t) => t.team_id === pickedTeam) ?? freeTeams[0])?.team_id;
   const roster = useQuery({ queryKey: teamRegistrationKeys.roster(teamId ?? ''), queryFn: () => fetchRosterCandidates(teamId!), enabled: !!teamId });
 
-  // One key per screen visit: a retry after a dropped connection can never create a second registration.
+  // One key per roster (a changed selection or team starts a new one): a retry after a dropped connection can never create a second registration.
   const idempotencyKey = useRef<string | null>(null);
   const inFlight = useRef(false);
   const [selection, setSelection] = useState<Set<string> | null>(null);
@@ -44,17 +44,12 @@ export function TeamRegistrationScreen({ navigation, route }: NativeStackScreenP
   const min = event.data?.team_min_size ?? 1;
   const max = event.data?.team_max_size ?? null;
 
-  // Default selection: the current roster when editing (matched by the names the manager already sees), else everyone who fits.
+  // Default selection: everyone who fits when registering; when editing, the current roster by member id (never by display name).
   const defaultSelection = useMemo(() => {
     const entries = roster.data ?? [];
     if (!editing) return initialSelection(entries.map((m) => m.user_id), min, max);
-    const open = [...(detail.data?.members ?? [])].filter((m) => m.state === 'invited' || m.state === 'accepted').map((m) => m.display_name);
-    const picked = new Set<string>();
-    for (const entry of entries) {
-      const i = open.indexOf(entry.display_name);
-      if (i !== -1) { open.splice(i, 1); picked.add(entry.user_id); }
-    }
-    return picked;
+    const current = new Set((detail.data?.members ?? []).filter((m) => m.state === 'invited' || m.state === 'accepted').map((m) => m.user_id));
+    return new Set(entries.map((m) => m.user_id).filter((id) => current.has(id)));
   }, [roster.data, detail.data, editing, min, max]);
   const selected = selection ?? defaultSelection;
   const problem = rosterProblem(selected.size, min, max);
@@ -62,7 +57,7 @@ export function TeamRegistrationScreen({ navigation, route }: NativeStackScreenP
   const toggle = (id: string) => {
     const next = new Set(selected);
     if (next.has(id)) next.delete(id); else next.add(id);
-    setSelection(next); setShowProblem(false);
+    setSelection(next); setShowProblem(false); idempotencyKey.current = null; // another roster is another request
     setRowErrors((prev) => { if (!(id in prev)) return prev; const { [id]: _gone, ...rest } = prev; return rest; });
   };
 
@@ -133,7 +128,7 @@ export function TeamRegistrationScreen({ navigation, route }: NativeStackScreenP
           <Text variant="section">Hangi takım?</Text>
           {freeTeams.map((t) => (
             <Radio key={t.team_id} label={t.name} description={`${t.active_member_count} aktif üye · ${ROLE_NAME[t.role]}`}
-              checked={t.team_id === teamId} onChange={() => { setPickedTeam(t.team_id); setSelection(null); setRowErrors({}); setShowProblem(false); }} />
+              checked={t.team_id === teamId} onChange={() => { setPickedTeam(t.team_id); idempotencyKey.current = null; setSelection(null); setRowErrors({}); setShowProblem(false); }} />
           ))}
         </View>
       )}

@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync, statSync } from 'fs';
 import { join, relative } from 'path';
-import { EVENT_PUBLIC_COLUMNS, fetchEvent, fetchEventsPage, fetchMyRegistrations, fetchRegistration } from '../api';
+import { EVENT_BASE_FIELDS, EVENT_PUBLIC_COLUMNS, EVENT_TEAM_FIELDS, eventPublicColumns, fetchEvent, fetchEventsPage, fetchMyRegistrations, fetchRegistration } from '../api';
 
 // events.created_by / approved_by are staff auth uids. The app never shows them, so it never asks for them:
 // every events read names its columns (EVENT_PUBLIC_COLUMNS) instead of `*`.
@@ -65,5 +65,25 @@ describe('events are read by an explicit public column list', () => {
       return /from\(\s*['"]events['"]\s*\)[^;]*?\.select\(\s*(\)|['"`]\s*\*)/.test(s) || /\bevents\s*\(\s*\*\s*\)/.test(s);
     }).map((f) => relative(SRC, f));
     expect(offenders).toEqual([]);
+  });
+});
+
+describe('team-registration columns are read only when the flag is on', () => {
+  const team = [...EVENT_TEAM_FIELDS];
+  it('flag off (production): not one team_* column, every base column still there', () => {
+    const off = eventPublicColumns(false).split(',').map((c) => c.trim());
+    for (const t of team) expect(off).not.toContain(t);
+    expect(off).toEqual([...EVENT_BASE_FIELDS]);
+  });
+  it('flag on: the base columns plus the four team columns', () => {
+    const on = eventPublicColumns(true).split(',').map((c) => c.trim());
+    expect(on).toEqual([...EVENT_BASE_FIELDS, ...team]);
+    expect(team).toEqual(['team_min_size', 'team_max_size', 'team_capacity', 'teams_taken']);
+  });
+  it('registration_mode is an old column (20260919000200): always base', () => {
+    expect(EVENT_BASE_FIELDS).toContain('registration_mode');
+  });
+  it('the reads in this run follow the flag (local = on)', () => {
+    expect(EVENT_PUBLIC_COLUMNS).toBe(eventPublicColumns(true));
   });
 });

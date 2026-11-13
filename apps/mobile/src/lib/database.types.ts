@@ -99,7 +99,8 @@ export const teamRegistrationDetailSchema = z.object({
   event: z.object({ id: z.string(), title: z.string(), starts_at: z.string() }),
   team: z.object({ id: z.string(), name: z.string() }),
   members: z.array(z.object({
-    member_id: z.string(), display_name: z.string().nullable(), role_at_submit: z.enum(['captain', 'mentor', 'member']),
+    // user_id: the team's managers only (null for a plain member); the roster edit maps by id, never by name.
+    member_id: z.string(), user_id: z.string().uuid().nullable(), display_name: z.string().nullable(), role_at_submit: z.enum(['captain', 'mentor', 'member']),
     state: z.enum(['invited', 'accepted', 'declined', 'removed']), step: z.enum(['invited', 'guardian', 'ready', 'declined']),
   })),
 });

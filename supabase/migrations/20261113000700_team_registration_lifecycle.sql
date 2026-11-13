@@ -821,7 +821,8 @@ end $$;
 
 -- ---------------------------------------------------------------- RPC: reads
 -- The registered team's ACTIVE members (the team_roster circle) + platform admins. Current roster version; display names,
--- role, state, step. Declined / removed rows only for the team's active captains / mentors and platform admins.
+-- role, state, step; `user_id` for the team's managers and platform admins only (null for a plain member: the roster edit maps
+-- by id, never by display name). Declined / removed rows only for the team's active captains / mentors and platform admins.
 create or replace function public.team_registration_detail(p_team_registration_id uuid) returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
 declare
@@ -842,7 +843,8 @@ begin
     'team', jsonb_build_object('id', tm.id, 'name', tm.name),
     'members', coalesce((
       select jsonb_agg(jsonb_build_object(
-               'member_id', m.id, 'display_name', p.display_name, 'role_at_submit', m.role_at_submit, 'state', m.state,
+               'member_id', m.id, 'user_id', case when v_full then m.user_id end, 'display_name', p.display_name,
+               'role_at_submit', m.role_at_submit, 'state', m.state,
                'step', case when m.state = 'invited' then 'invited'
                             when m.state = 'accepted' and r.status = 'confirmed' then 'ready'
                             when m.state = 'accepted' and r.status = 'pending_guardian' then 'guardian'

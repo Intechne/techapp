@@ -21,10 +21,10 @@ const base = {
   id: 'tr1', status: 'pending_members', hold_expires_at: '2099-11-10T07:00:00Z', roster_version: 3, can_edit: true,
   event: { id: 'e1', title: 'Robot Turnuvası', starts_at: '2099-12-01T07:00:00Z' }, team: { id: 't1', name: 'Dişli Kafalar' },
   members: [
-    { member_id: 'x1', display_name: 'Ada Yılmaz', role_at_submit: 'captain', state: 'accepted', step: 'ready' },
-    { member_id: 'x2', display_name: 'Barış Kaya', role_at_submit: 'member', state: 'invited', step: 'invited' },
-    { member_id: 'x3', display_name: 'Cem Demir', role_at_submit: 'member', state: 'accepted', step: 'guardian' },
-    { member_id: 'x4', display_name: 'Elif Şahin', role_at_submit: 'member', state: 'declined', step: 'declined' },
+    { member_id: 'x1', user_id: 'bbbbbbbb-0000-4000-8000-000000000001', display_name: 'Ada Yılmaz', role_at_submit: 'captain', state: 'accepted', step: 'ready' },
+    { member_id: 'x2', user_id: 'bbbbbbbb-0000-4000-8000-000000000002', display_name: 'Barış Kaya', role_at_submit: 'member', state: 'invited', step: 'invited' },
+    { member_id: 'x3', user_id: 'bbbbbbbb-0000-4000-8000-000000000003', display_name: 'Cem Demir', role_at_submit: 'member', state: 'accepted', step: 'guardian' },
+    { member_id: 'x4', user_id: 'bbbbbbbb-0000-4000-8000-000000000004', display_name: 'Elif Şahin', role_at_submit: 'member', state: 'declined', step: 'declined' },
   ],
 };
 let mockDetail: Record<string, unknown> = base;
@@ -39,7 +39,7 @@ beforeEach(() => {
 const metrics = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
 const nav = { navigate: jest.fn(), goBack: jest.fn(), replace: jest.fn() };
 async function renderStatus() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } } });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false, gcTime: Infinity } } });
   const props = { navigation: nav, route: { key: 'k', name: 'TeamRegistrationStatus', params: { teamRegistrationId: 'tr1' } } } as unknown as React.ComponentProps<typeof TeamRegistrationStatusScreen>;
   await render(<SafeAreaProvider initialMetrics={metrics}><QueryClientProvider client={client}><ToastProvider><TeamRegistrationStatusScreen {...props} /></ToastProvider></QueryClientProvider></SafeAreaProvider>);
   await screen.findByText('Ada Yılmaz');

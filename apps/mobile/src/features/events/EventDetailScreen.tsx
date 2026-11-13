@@ -59,7 +59,7 @@ export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<
   // Team events (behind the flag): the team CTA decides the footer; the caller's own age and the "team registration only" reason
   // are not blockers there (age is checked per member by the server).
   const mode = e.registration_mode;
-  const teamEvent = mode === 'team';
+  const teamEvent = features.teamRegistration && mode === 'team';
   const cta = eventCta({ mode, eligibility: el, signedIn: !!userId, flag: features.teamRegistration });
   // profile_incomplete is not a blocker here: the registration screen asks for the missing profile fields.
   const skipped = teamEvent ? ['profile_incomplete', 'team_registration_only', 'below_min_age', 'above_max_age'] : ['profile_incomplete'];
@@ -139,8 +139,8 @@ export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<
         <MetadataRow icon="team" strong>{registrationTermsLabel(e)}</MetadataRow>
         <MetadataRow icon="clock" strong>Son kayıt: {formatDate(e.registration_closes_at)}</MetadataRow>
         {e.capacity !== null && mode !== 'team' && <MetadataRow icon="ticket" strong>{Math.max(e.capacity - e.seats_taken, 0)} / {e.capacity} yer açık</MetadataRow>}
-        {features.teamRegistration && mode !== 'individual' && <MetadataRow icon="team" strong>Takım: {teamSizeLabel(e.team_min_size, e.team_max_size)}</MetadataRow>}
-        {features.teamRegistration && mode !== 'individual' && e.team_capacity !== null && <MetadataRow icon="ticket" strong>{Math.max(e.team_capacity - e.teams_taken, 0)} / {e.team_capacity} takım yeri açık</MetadataRow>}
+        {features.teamRegistration && mode !== 'individual' && <MetadataRow icon="team" strong>Takım: {teamSizeLabel(e.team_min_size ?? 1, e.team_max_size ?? null)}</MetadataRow>}
+        {features.teamRegistration && mode !== 'individual' && e.team_capacity != null && <MetadataRow icon="ticket" strong>{Math.max(e.team_capacity - (e.teams_taken ?? 0), 0)} / {e.team_capacity} takım yeri açık</MetadataRow>}
       </View>
 
       {blocker && (

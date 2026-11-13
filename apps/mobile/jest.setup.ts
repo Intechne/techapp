@@ -51,3 +51,15 @@ jest.mock('@react-native/virtualized-lists/Lists/VirtualizedList', () => {
 // Tests have no use for that stream, so the default sink is swapped for a silent one (a test may still install its own).
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 (require('./src/lib/analytics') as typeof import('./src/lib/analytics')).setAnalyticsSink({ track: () => {} });
+
+// A mutation stays in the MutationCache for gcTime (5 minutes by default) after it settles; that timer keeps a jest worker alive
+// after the run ("A worker process has failed to exit gracefully"). Tests have no use for it: never garbage-collect on a timer.
+jest.mock('@tanstack/react-query', () => {
+  const actual = jest.requireActual<typeof import('@tanstack/react-query')>('@tanstack/react-query');
+  class TestQueryClient extends actual.QueryClient {
+    constructor(config: ConstructorParameters<typeof actual.QueryClient>[0] = {}) {
+      super({ ...config, defaultOptions: { ...config.defaultOptions, mutations: { gcTime: Infinity, ...config.defaultOptions?.mutations } } });
+    }
+  }
+  return { ...actual, QueryClient: TestQueryClient };
+});

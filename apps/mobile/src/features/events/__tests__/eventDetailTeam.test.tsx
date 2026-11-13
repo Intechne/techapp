@@ -119,11 +119,12 @@ describe('Etkinlik detayı — takım kaydı CTA', () => {
 
 describe('Etkinlik detayı — bayrak kapalı (production)', () => {
   beforeEach(() => { mockFlag = false; });
-  it('team event, manager: never a team CTA; the info line stays, nothing disabled', async () => {
+  it('team event, manager: never a team CTA; the plain pre-flag blocker stays ("takım olarak kayıt olunuyor" + Takımını bul), nothing disabled', async () => {
     mockEligibility = { ...baseEligibility, manageable_teams: [team()] };
     await renderDetail();
-    expect((await screen.findAllByText(/Takım kaydını kaptanın ya da mentorun yapar/)).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/Bu etkinliğe takım olarak kayıt olunuyor/)).length).toBeGreaterThan(0);
     noTeamCta();
+    expect(screen.getByRole('button', { name: /Takımını bul/ })).toBeTruthy();
     expect(disabledButtons()).toHaveLength(0);
   });
   it('both: only the individual button, no team size row', async () => {

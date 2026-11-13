@@ -26,15 +26,15 @@ jest.mock('../../events/api', () => ({
 }));
 
 const rosterRow = (user_id: string, display_name: string, role = 'member', status = 'active') => ({ membership_id: `ms-${user_id}`, user_id, display_name, role, status, message: null, title: null });
-const ROSTER = [rosterRow('m1', 'Ada Yılmaz', 'captain'), rosterRow('m2', 'Barış Kaya'), rosterRow('m3', 'Cem Demir', 'mentor'), rosterRow('m4', 'Elif Şahin'), rosterRow('m5', 'Bekleyen İstek', 'member', 'pending')];
+const ROSTER = [rosterRow('aaaaaaaa-0000-4000-8000-000000000001', 'Ada Yılmaz', 'captain'), rosterRow('aaaaaaaa-0000-4000-8000-000000000002', 'Barış Kaya'), rosterRow('aaaaaaaa-0000-4000-8000-000000000003', 'Cem Demir', 'mentor'), rosterRow('aaaaaaaa-0000-4000-8000-000000000004', 'Elif Şahin'), rosterRow('aaaaaaaa-0000-4000-8000-000000000005', 'Bekleyen İstek', 'member', 'pending')];
 const row = (id: string) => ({ id, event_id: 'e1', team_id: 't1', status: 'pending_members', roster_version: 1, hold_expires_at: '2099-11-10T07:00:00Z' });
 const detail = (version: number) => ({
   id: 'tr1', status: 'pending_members', hold_expires_at: '2099-11-10T07:00:00Z', roster_version: version, can_edit: true,
   event: { id: 'e1', title: 'Robot Turnuvası', starts_at: '2099-12-01T07:00:00Z' }, team: { id: 't1', name: 'Dişli Kafalar' },
   members: [
-    { member_id: 'x1', display_name: 'Ada Yılmaz', role_at_submit: 'captain', state: 'accepted', step: 'ready' },
-    { member_id: 'x2', display_name: 'Barış Kaya', role_at_submit: 'member', state: 'invited', step: 'invited' },
-    { member_id: 'x3', display_name: 'Cem Demir', role_at_submit: 'mentor', state: 'declined', step: 'declined' },
+    { member_id: 'x1', user_id: 'aaaaaaaa-0000-4000-8000-000000000001', display_name: 'Ada Yılmaz', role_at_submit: 'captain', state: 'accepted', step: 'ready' },
+    { member_id: 'x2', user_id: 'aaaaaaaa-0000-4000-8000-000000000002', display_name: 'Barış Kaya', role_at_submit: 'member', state: 'invited', step: 'invited' },
+    { member_id: 'x3', user_id: 'aaaaaaaa-0000-4000-8000-000000000003', display_name: 'Cem Demir', role_at_submit: 'mentor', state: 'declined', step: 'declined' },
   ],
 });
 const ok = (data: unknown) => ({ data, error: null });
@@ -56,7 +56,7 @@ beforeEach(() => {
 const metrics = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
 const nav = { replace: jest.fn(), navigate: jest.fn(), goBack: jest.fn() };
 async function renderScreen(params: { eventId: string; teamRegistrationId?: string } = { eventId: 'e1' }) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } } });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false, gcTime: Infinity } } });
   const props = { navigation: nav, route: { key: 'k', name: 'TeamRegistration', params } } as unknown as React.ComponentProps<typeof TeamRegistrationScreen>;
   await render(<SafeAreaProvider initialMetrics={metrics}><QueryClientProvider client={client}><TeamRegistrationScreen {...props} /></QueryClientProvider></SafeAreaProvider>);
   await screen.findByText('Ada Yılmaz');
@@ -104,32 +104,48 @@ describe('Takım kaydı — kadro seçimi', () => {
     await waitFor(() => expect(calls('submit_team_registration')).toHaveLength(1));
     const key = (calls('submit_team_registration')[0]![1] as { p_idempotency_key: string }).p_idempotency_key;
     expect(key).toMatch(/^[0-9a-f-]{36}$/);
-    expect(calls('submit_team_registration')[0]![1]).toMatchObject({ p_event_id: 'e1', p_team_id: 't1', p_member_ids: ['m1', 'm2', 'm3', 'm4'] });
+    expect(calls('submit_team_registration')[0]![1]).toMatchObject({ p_event_id: 'e1', p_team_id: 't1', p_member_ids: ['aaaaaaaa-0000-4000-8000-000000000001', 'aaaaaaaa-0000-4000-8000-000000000002', 'aaaaaaaa-0000-4000-8000-000000000003', 'aaaaaaaa-0000-4000-8000-000000000004'] });
     await act(async () => { release({ data: null, error: { code: '', message: 'Network request failed', details: null, hint: null } }); });
     expect(await screen.findByText(/İnternet bağlantını/)).toBeTruthy();
+    await screen.findByRole('button', { name: /Takımı kaydet/ }); // the button is busy until the mutation has settled
     await fireEvent.press(submitButton());
     await waitFor(() => expect(calls('submit_team_registration')).toHaveLength(2));
     expect((calls('submit_team_registration')[1]![1] as { p_idempotency_key: string }).p_idempotency_key).toBe(key);
     expect(mockUuid).toBe(1); // generated once, at the first press
   });
 
+  it('changing the selection starts a new idempotency key; retrying the same selection keeps it', async () => {
+    rpcHandlers.submit_team_registration = () => fail('team_size_out_of_range', 422);
+    await renderScreen();
+    await fireEvent.press(submitButton());
+    await waitFor(() => expect(calls('submit_team_registration')).toHaveLength(1));
+    await fireEvent.press(submitButton());
+    await waitFor(() => expect(calls('submit_team_registration')).toHaveLength(2));
+    await fireEvent.press(checkbox('Elif Şahin'));
+    await fireEvent.press(submitButton());
+    await waitFor(() => expect(calls('submit_team_registration')).toHaveLength(3));
+    const key = (i: number) => (calls('submit_team_registration')[i]![1] as { p_idempotency_key: string }).p_idempotency_key;
+    expect(key(1)).toBe(key(0));
+    expect(key(2)).not.toBe(key(0));
+  });
+
   it('member_already_registered: the COPY sits under the offending rows (ids from the error detail), never a server name or age', async () => {
-    rpcHandlers.submit_team_registration = () => fail('member_already_registered', 409, '["m2","m4"]');
+    rpcHandlers.submit_team_registration = () => fail('member_already_registered', 409, '["aaaaaaaa-0000-4000-8000-000000000002","aaaaaaaa-0000-4000-8000-000000000004"]');
     await renderScreen();
     await fireEvent.press(submitButton());
     const copy = toAppError({ code: 'PT409', message: 'member_already_registered' }).message;
-    await waitFor(() => expect(within(screen.getByTestId('member-row-m2')).getByText(copy)).toBeTruthy());
-    expect(within(screen.getByTestId('member-row-m4')).getByText(copy)).toBeTruthy();
-    expect(within(screen.getByTestId('member-row-m1')).queryByText(copy)).toBeNull();
+    await waitFor(() => expect(within(screen.getByTestId('member-row-aaaaaaaa-0000-4000-8000-000000000002')).getByText(copy)).toBeTruthy());
+    expect(within(screen.getByTestId('member-row-aaaaaaaa-0000-4000-8000-000000000004')).getByText(copy)).toBeTruthy();
+    expect(within(screen.getByTestId('member-row-aaaaaaaa-0000-4000-8000-000000000001')).queryByText(copy)).toBeNull();
     expect(nav.replace).not.toHaveBeenCalled();
   });
 
   it('member_not_active and member_age_not_eligible map to their own COPY under their rows', async () => {
-    rpcHandlers.submit_team_registration = () => fail('member_age_not_eligible', 403, '["m3"]');
+    rpcHandlers.submit_team_registration = () => fail('member_age_not_eligible', 403, '["aaaaaaaa-0000-4000-8000-000000000003"]');
     await renderScreen();
     await fireEvent.press(submitButton());
     const copy = toAppError({ code: 'PT403', message: 'member_age_not_eligible' }).message;
-    await waitFor(() => expect(within(screen.getByTestId('member-row-m3')).getByText(copy)).toBeTruthy());
+    await waitFor(() => expect(within(screen.getByTestId('member-row-aaaaaaaa-0000-4000-8000-000000000003')).getByText(copy)).toBeTruthy());
   });
 
   it('success replaces the screen with the status screen', async () => {
@@ -154,9 +170,31 @@ describe('Takım kaydı — kadroyu düzenle', () => {
     expect(checkbox('Cem Demir').props.accessibilityState.checked).toBe(false);
     await fireEvent.press(screen.getByRole('button', { name: /Kadroyu kaydet/ }));
     await waitFor(() => expect(calls('update_team_roster')).toHaveLength(1));
-    expect(calls('update_team_roster')[0]![1]).toEqual({ p_team_registration_id: 'tr1', p_member_ids: ['m1', 'm2'], p_expected_roster_version: 3 });
+    expect(calls('update_team_roster')[0]![1]).toEqual({ p_team_registration_id: 'tr1', p_member_ids: ['aaaaaaaa-0000-4000-8000-000000000001', 'aaaaaaaa-0000-4000-8000-000000000002'], p_expected_roster_version: 3 });
     await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith('TeamRegistrationStatus', { teamRegistrationId: 'tr1' }));
     expect(calls('submit_team_registration')).toHaveLength(0);
+  });
+
+  it('maps the current members by user id: two people with the same display name are told apart', async () => {
+    const U = (n: number) => `aaaaaaaa-0000-4000-8000-00000000000${n}`;
+    rpcHandlers.team_roster = () => ok([rosterRow(U(1), 'Ada Yılmaz', 'captain'), rosterRow(U(2), 'Barış Kaya'), rosterRow(U(6), 'Barış Kaya')]);
+    rpcHandlers.team_registration_detail = () => ok({ ...detail(3), members: [
+      { member_id: 'x1', user_id: U(1), display_name: 'Ada Yılmaz', role_at_submit: 'captain', state: 'accepted', step: 'ready' },
+      { member_id: 'x6', user_id: U(6), display_name: 'Barış Kaya', role_at_submit: 'member', state: 'invited', step: 'invited' },
+    ] });
+    await renderScreen({ eventId: 'e1', teamRegistrationId: 'tr1' });
+    const [first, second] = screen.getAllByRole('checkbox', { name: /Barış Kaya/ });
+    expect(first!.props.accessibilityState.checked).toBe(false);
+    expect(second!.props.accessibilityState.checked).toBe(true);
+    await fireEvent.press(screen.getByRole('button', { name: /Kadroyu kaydet/ }));
+    await waitFor(() => expect(calls('update_team_roster')).toHaveLength(1));
+    expect((calls('update_team_roster')[0]![1] as { p_member_ids: string[] }).p_member_ids).toEqual([U(1), U(6)]);
+  });
+
+  it('a member without a user id (not a manager view) is never matched by name', async () => {
+    rpcHandlers.team_registration_detail = () => ok({ ...detail(3), members: detail(3).members.map((m) => ({ ...m, user_id: null })) });
+    await renderScreen({ eventId: 'e1', teamRegistrationId: 'tr1' });
+    expect(screen.getAllByRole('checkbox').every((c) => !c.props.accessibilityState.checked)).toBe(true);
   });
 
   it('roster_changed: the COPY, no silent overwrite, and "Güncel kadroyu yükle" re-reads the detail', async () => {

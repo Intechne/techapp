@@ -960,7 +960,11 @@ describe('team registration · members', () => {
       expect(names(d)).toEqual({ 'Kaptan Kerem': ['captain', 'accepted', 'ready'], 'Gizli Genç': ['member', 'accepted', 'guardian'],
                                  'Davetli Deniz': ['member', 'invited', 'invited'], 'Ayrılan Arda': ['member', 'invited', 'invited'] });
       noPii(d);
-      expect(Object.keys(d.members[0]).sort()).toEqual(['display_name', 'member_id', 'role_at_submit', 'state', 'step']);
+      expect(Object.keys(d.members[0]).sort()).toEqual(['display_name', 'member_id', 'role_at_submit', 'state', 'step', 'user_id']);
+      // user_id: managers (captain, mentor) see the members' ids, a plain member sees null
+      const ids = d.members.map((x: { user_id: string | null }) => x.user_id);
+      if (viewer === captain || viewer === mentor) expect([...ids].sort()).toEqual([captain, minor, invited, leaver].sort());
+      else expect(ids).toEqual([null, null, null, null]);
     }
     // another team's member, the organisation and an outsider: not found (no names, no existence oracle)
     const staff = await createUser(); await admin(`insert into public.organization_members (organization_id, user_id, role) values ($1, $2, 'owner')`, [org, staff]);

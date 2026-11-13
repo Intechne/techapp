@@ -1,4 +1,5 @@
 import { getSupabase } from '../../lib/supabase';
+import { features } from '../../lib/features';
 import { fromFunctionError, parsePayload, toAppError } from '../../lib/errors';
 import { eventEligibilitySchema, participationCardSchema, type EventEligibility, type EventRegistrationRow, type EventRow, type EventSessionRow, type EventType, type MyGuardianRequestRow, type ParticipationCard } from '../../lib/database.types';
 import type { EventWithOrg } from './labels';
@@ -8,14 +9,21 @@ import type { EventWithOrg } from './labels';
  * Never `*`: events also carry created_by / approved_by (staff auth uids), online_url and bookkeeping timestamps the
  * client has no use for. `EventPublicRow` is derived from the same list, so reading a column that is not fetched is a type error.
  */
-export const EVENT_PUBLIC_FIELDS = [
+export const EVENT_BASE_FIELDS = [
   'id', 'organization_id', 'title', 'summary', 'description', 'type', 'format', 'city', 'venue', 'starts_at', 'ends_at',
-  'registration_opens_at', 'registration_closes_at', 'registration_mode', 'team_min_size', 'team_max_size', 'team_capacity', 'teams_taken', 'capacity', 'seats_taken', 'waitlist_enabled',
+  'registration_opens_at', 'registration_closes_at', 'registration_mode', 'capacity', 'seats_taken', 'waitlist_enabled',
   'fee_minor_units', 'min_age', 'max_age', 'guardian_required_under', 'audience_note', 'requires_review', 'accepts_volunteers',
   'cancellation_policy', 'support_contact', 'poster_line', 'tone', 'status', 'is_demo', 'cover_path', 'cover_blurhash',
 ] as const satisfies readonly (keyof EventRow)[];
-export type EventPublicRow = Pick<EventRow, (typeof EVENT_PUBLIC_FIELDS)[number]>;
-export const EVENT_PUBLIC_COLUMNS = EVENT_PUBLIC_FIELDS.join(', ');
+/**
+ * Team-registration columns (migration 20261113000500). Selected ONLY when features.teamRegistration is on: a build without the
+ * flag (production) must keep working against a server that does not have them yet. A flag-on build needs 20261113000500..000800 first.
+ */
+export const EVENT_TEAM_FIELDS = ['team_min_size', 'team_max_size', 'team_capacity', 'teams_taken'] as const satisfies readonly (keyof EventRow)[];
+export const EVENT_PUBLIC_FIELDS = EVENT_BASE_FIELDS;
+export type EventPublicRow = Pick<EventRow, (typeof EVENT_BASE_FIELDS)[number]> & Partial<Pick<EventRow, (typeof EVENT_TEAM_FIELDS)[number]>>;
+export const eventPublicColumns = (teamRegistration: boolean): string => [...EVENT_BASE_FIELDS, ...(teamRegistration ? EVENT_TEAM_FIELDS : [])].join(', ');
+export const EVENT_PUBLIC_COLUMNS = eventPublicColumns(features.teamRegistration);
 
 const EVENT_SELECT = `${EVENT_PUBLIC_COLUMNS}, organization:organizations(id, name, verification)`;
 export const PAGE_SIZE = 10;
