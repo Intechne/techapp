@@ -679,3 +679,450 @@ describe('team registration · waitlist promotion', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------- Task 3: members answer, guardian flow, roster edits, cancel, expiry
+// Each member consents for THEMSELVES (respond_team_registration → their own event_registrations row + 'self' consent; a minor's
+// row waits for the existing guardian flow). The team status is derived on the server (app.recompute_team_registration):
+// every row of the current roster version accepted + confirmed and the size within team_min_size..team_max_size → confirmed
+// (pending_review when the event requires review), otherwise pending_members. The active captain OR mentor edits / cancels
+// (user decision 13 Nov 2026). A card / check-in needs the TEAM confirmed. No payload carries an e-mail, a birth date or a
+// guardian detail; display names go only to the member's own team.
+
+type Respond = { member_state: string; registration_id: string | null; registration_status: string | null; team_status: string };
+
+const respond = (userId: string, memberId: string, accept: boolean, key: string = randomUUID()) =>
+  asUser(userId, async (q) => (await q(`select public.respond_team_registration($1, $2, $3) r`, [memberId, accept, key])).rows[0].r as Respond);
+
+const updateRoster = (userId: string, teamRegId: string, memberIds: string[], version: number) =>
+  asUser(userId, async (q) => (await q(`select * from public.update_team_roster($1, $2::uuid[], $3)`, [teamRegId, memberIds, version])).rows[0] as Submitted);
+
+const cancelTeam = (userId: string, teamRegId: string) =>
+  asUser(userId, async (q) => (await q(`select * from public.cancel_team_registration($1)`, [teamRegId])).rows[0] as Submitted);
+
+const detail = (userId: string, teamRegId: string) =>
+  asUser(userId, async (q) => (await q(`select public.team_registration_detail($1) d`, [teamRegId])).rows[0].d);
+
+const teamRow = async (teamRegId: string) =>
+  (await admin(`select status, status_reason, roster_version, hold_expires_at, confirmed_at from public.team_event_registrations where id = $1`, [teamRegId])).rows[0];
+
+/** The live (or latest) roster row of a person in a team registration. */
+const memberRow = async (teamRegId: string, userId: string) =>
+  (await admin(`select id, state, registration_id, roster_version from public.team_event_registration_members
+                where team_registration_id = $1 and user_id = $2 order by created_at desc, id limit 1`, [teamRegId, userId])).rows[0];
+
+const regRow = async (regId: string) =>
+  (await admin(`select status, status_reason, team_registration_id, team_id from public.event_registrations where id = $1`, [regId])).rows[0];
+
+const kindsOf = async (userId: string) =>
+  (await admin(`select kind from public.notifications where user_id = $1 order by created_at, id`, [userId])).rows.map((r) => r.kind as string);
+
+/** Submit as the first id (the captain), then let the listed people accept. Returns the team registration + roster row ids. */
+async function submitted(captain: string, eventId: string, teamId: string, memberIds: string[]) {
+  const reg = await submit(captain, eventId, teamId, memberIds);
+  const rows: Record<string, string> = {};
+  for (const id of memberIds) rows[id] = (await memberRow(reg.id, id)).id;
+  return { reg, rows };
+}
+
+/** Minor asks a guardian; the mailer path issues a token; the guardian approves (or denies) on the anonymous page. */
+async function guardianDecides(minor: string, registrationId: string, approve = true) {
+  const reqId = (await asUser(minor, (q) => q(`select public.create_guardian_request($1, 'veli@example.test', 'Veli Kişi') id`, [registrationId]))).rows[0].id;
+  const issued = (await asService((q) => q(`select public.issue_guardian_token($1) j`, [reqId]))).rows[0].j;
+  const policy = (await admin(`select policy_version from public.guardian_requests where id = $1`, [reqId])).rows[0].policy_version;
+  await asAnon((q) => q(`select public.guardian_decide($1, $2, 'Ayşe Demir', $3)`, [issued.token, approve, policy]));
+  return reqId as string;
+}
+
+describe('team registration · members', () => {
+  it('16-year-old accepts → own registration pending_guardian with team_registration_id; create_guardian_request + guardian_decide(approve) → confirmed; team confirmed when all ready', async () => {
+    const org = await createOrg(); const event = await createTeamEvent(org, { guardian_required_under: 18 });
+    const captain = await createUser(); const minor = await createUser({ age: 16 });
+    const team = await createTeam(captain, [minor]);
+    const { reg, rows } = await submitted(captain, event, team, [captain, minor]);
+
+    expect(await respond(captain, rows[captain]!, true)).toMatchObject({ member_state: 'accepted', registration_status: 'confirmed', team_status: 'pending_members' });
+    const answer = await respond(minor, rows[minor]!, true);
+    expect(answer).toMatchObject({ member_state: 'accepted', registration_status: 'pending_guardian', team_status: 'pending_members' });
+    expect(await regRow(answer.registration_id!)).toMatchObject({ status: 'pending_guardian', team_registration_id: reg.id, team_id: team });
+    expect((await admin(`select granted_by, subject_type from public.consents where subject_id = $1`, [answer.registration_id])).rows)
+      .toEqual([{ granted_by: 'self', subject_type: 'event_registration' }]);
+    expect((await teamRow(reg.id)).status).toBe('pending_members');
+
+    await guardianDecides(minor, answer.registration_id!);
+    expect((await regRow(answer.registration_id!)).status).toBe('confirmed');
+    const team1 = await teamRow(reg.id);
+    expect(team1.status).toBe('confirmed');
+    expect(team1.confirmed_at).not.toBeNull();
+    expect(await counters(event)).toEqual({ seats_taken: 0, waitlist_count: 0, teams_taken: 1, team_waitlist_count: 0 });
+
+    // notifications: the minor is invited (the submitting captain is not told about their own action); the member's own
+    // "registration confirmed" is replaced by the team-level one, which both receive
+    expect(await kindsOf(minor)).toEqual(['team_registration.invited', 'team_registration.confirmed']);
+    expect(await kindsOf(captain)).toEqual(['team_registration.confirmed']);
+    const note = (await admin(`select target_type, target_id, title, body from public.notifications where user_id = $1 and kind = 'team_registration.confirmed'`, [minor])).rows[0];
+    expect(note).toMatchObject({ target_type: 'team_event_registration', target_id: reg.id });
+    expect(`${note.title} ${note.body}`).toContain('Test Etkinliği');
+  });
+
+  it('adult accepts → registration confirmed, self consent row (subject_type event_registration); team stays pending_members until everyone is ready', async () => {
+    const org = await createOrg(); const event = await createTeamEvent(org, { guardian_required_under: 18 });
+    const captain = await createUser(); const adult = await createUser(); const later = await createUser();
+    const team = await createTeam(captain, [adult, later]);
+    const { reg, rows } = await submitted(captain, event, team, [captain, adult, later]);
+
+    const key = randomUUID();
+    const first = await respond(adult, rows[adult]!, true, key);
+    expect(first).toMatchObject({ member_state: 'accepted', registration_status: 'confirmed', team_status: 'pending_members' });
+    expect((await admin(`select user_id, purpose, granted_by, subject_type, withdrawn_at from public.consents where subject_id = $1`, [first.registration_id])).rows)
+      .toEqual([{ user_id: adult, purpose: 'event_participation', granted_by: 'self', subject_type: 'event_registration', withdrawn_at: null }]);
+    // idempotent: the same key, or another key once accepted, returns the same registration
+    expect((await respond(adult, rows[adult]!, true, key)).registration_id).toBe(first.registration_id);
+    expect((await respond(adult, rows[adult]!, true)).registration_id).toBe(first.registration_id);
+    expect(count(await admin(`select 1 from public.event_registrations where user_id = $1 and event_id = $2`, [adult, event]))).toBe(1);
+
+    await respond(captain, rows[captain]!, true);
+    expect((await teamRow(reg.id)).status).toBe('pending_members'); // `later` has not answered
+    await respond(later, rows[later]!, true);
+    expect((await teamRow(reg.id)).status).toBe('confirmed');
+  });
+
+  it('captain cannot respond for another member → 403 not_invite_owner', async () => {
+    const org = await createOrg(); const event = await createTeamEvent(org);
+    const captain = await createUser(); const mentor = await createUser(); const member = await createUser();
+    const team = await createTeam(captain, [member]); await addMember(team, mentor, 'mentor');
+    const { rows } = await submitted(captain, event, team, [captain, member]);
+    for (const user of [captain, mentor]) {
+      await expectFail(respond(user, rows[member]!, true), 403, 'not_invite_owner');
+      await expectFail(respond(user, rows[member]!, false), 403, 'not_invite_owner');
+    }
+    await expectFail(respond(member, randomUUID(), true), 404, 'team_registration_not_found');
+    await expectFail(respond(member, rows[member]!, true, null as unknown as string), 422, 'idempotency_key_required');
+    expect((await memberRow((await admin(`select team_registration_id from public.team_event_registration_members where id = $1`, [rows[member]])).rows[0].team_registration_id, member)).state).toBe('invited');
+  });
+
+  it('accept needs a known birth date (409 profile_incomplete); a waitlisted team can be declined but not accepted', async () => {
+    const org = await createOrg(); const event = await createTeamEvent(org, { team_capacity: 1, waitlist_enabled: true, guardian_required_under: 18 });
+    const captain = await createUser(); const noBirth = await createUser({ age: null });
+    const team = await createTeam(captain, [noBirth]);
+    const { rows } = await submitted(captain, event, team, [captain, noBirth]);
+    await expectFail(respond(noBirth, rows[noBirth]!, true), 409, 'profile_incomplete');
+
+    const cap2 = await createUser(); const m2 = await createUser(); const team2 = await createTeam(cap2, [m2]);
+    const second = await submitted(cap2, event, team2, [cap2, m2]);
+    expect(second.reg.status).toBe('waitlisted');
+    expect(await kindsOf(m2)).toEqual([]); // invited only once the team holds a seat
+    await expectFail(respond(m2, second.rows[m2]!, true), 409, 'team_registration_waitlisted');
+    expect(await respond(m2, second.rows[m2]!, false)).toMatchObject({ member_state: 'declined', registration_id: null });
+    // a declined invite cannot be accepted afterwards
+    await expectFail(respond(m2, second.rows[m2]!, true), 409, 'invite_not_pending');
+  });
+
+  it('member declines → team pending_members; update_team_roster with expected version replaces them; stale version → 409 roster_changed', async () => {
+    const org = await createOrg(); const event = await createTeamEvent(org, { team_min_size: 2, team_max_size: 4 });
+    const captain = await createUser(); const mentor = await createUser(); const a = await createUser(); const b = await createUser(); const c = await createUser();
+    const team = await createTeam(captain, [a, b, c]); await addMember(team, mentor, 'mentor');
+    const { reg, rows } = await submitted(captain, event, team, [captain, a, b]);
+    await respond(captain, rows[captain]!, true); await respond(a, rows[a]!, true);
+    expect(await respond(b, rows[b]!, false)).toMatchObject({ member_state: 'declined', team_status: 'pending_members' });
+    const afterDecline = await teamRow(reg.id);
+    expect(afterDecline).toMatchObject({ status: 'pending_members', roster_version: 2 }); // a decline changes the roster
+    expect(await kindsOf(captain)).toEqual(['team_registration.member_declined']);
+    expect(await kindsOf(mentor)).toEqual(['team_registration.member_declined']);
+
+    await expectFail(updateRoster(captain, reg.id, [captain, a, c], 1), 409, 'roster_changed'); // edited from an old screen
+    await expectFail(updateRoster(a, reg.id, [captain, a, c], 2), 403, 'not_team_manager');
+    await expectFail(updateRoster(captain, reg.id, [captain], 2), 422, 'team_size_out_of_range');
+    const edited = await updateRoster(captain, reg.id, [captain, a, c], 2);
+    expect(edited).toMatchObject({ id: reg.id, roster_version: 3, status: 'pending_members' });
+    expect(await roster(reg.id)).toEqual(expect.arrayContaining([
+      { user_id: captain, role_at_submit: 'captain', state: 'accepted', roster_version: 3 },
+      { user_id: a, role_at_submit: 'member', state: 'accepted', roster_version: 3 },
+      { user_id: c, role_at_submit: 'member', state: 'invited', roster_version: 3 },
+      { user_id: b, role_at_submit: 'member', state: 'declined', roster_version: 2 },
+    ]));
+    expect(await kindsOf(c)).toEqual(['team_registration.invited']);
+    await expectFail(updateRoster(captain, reg.id, [captain, a, c], 2), 409, 'roster_changed');
+
+    // the mentor may edit too: dropping c (invited) → removed; the rest is ready → confirmed
+    const byMentor = await updateRoster(mentor, reg.id, [captain, a], 3);
+    expect(byMentor).toMatchObject({ roster_version: 4, status: 'confirmed' });
+    expect((await memberRow(reg.id, c)).state).toBe('removed');
+    // the same set again is no change (no new version)
+    expect((await updateRoster(captain, reg.id, [a, captain], 4)).roster_version).toBe(4);
+    // someone already in another live registration for this event cannot be added (member ids only in the detail)
+    const other = await createUser(); const d = await createUser(); const teamD = await createTeam(other, [d]); await addMember(team, d);
+    await submit(other, event, teamD, [other, d]);
+    expect(await failsWithIds(updateRoster(captain, reg.id, [captain, a, d], 4), 409, 'member_already_registered')).toEqual([d]);
+  });
+
+  it('roster edit after registration_closes_at → 409 team_registration_closed', async () => {
+    const org = await createOrg(); const event = await createTeamEvent(org);
+    const captain = await createUser(); const a = await createUser(); const team = await createTeam(captain, [a]);
+    const { reg } = await submitted(captain, event, team, [captain]);
+    await admin(`update public.events set registration_closes_at = now() - interval '1 minute' where id = $1`, [event]);
+    await expectFail(updateRoster(captain, reg.id, [captain, a], 1), 409, 'team_registration_closed');
+    // and a team registration that is no longer live cannot be edited either
+    const event2 = await createTeamEvent(org); const r2 = await submitted(captain, event2, team, [captain]);
+    await cancelTeam(captain, r2.reg.id);
+    await expectFail(updateRoster(captain, r2.reg.id, [captain, a], 1), 409, 'team_registration_closed');
+    await expectFail(updateRoster(captain, randomUUID(), [captain], 1), 404, 'team_registration_not_found');
+  });
+
+  it('member leaves the team after accepting → member removed, registration cancelled, consents withdrawn, team pending_members', async () => {
+    const org = await createOrg(); const event = await createTeamEvent(org);
+    const captain = await createUser(); const a = await createUser(); const b = await createUser();
+    const team = await createTeam(captain, [a, b]);
+    const { reg, rows } = await submitted(captain, event, team, [captain, a, b]);
+    const answers: Record<string, Respond> = {};
+    for (const u of [captain, a, b]) answers[u] = await respond(u, rows[u]!, true);
+    expect((await teamRow(reg.id)).status).toBe('confirmed');
+
+    await asUser(a, (q) => q(`select public.leave_team($1)`, [team]));
+    expect((await memberRow(reg.id, a)).state).toBe('removed');
+    expect(await regRow(answers[a]!.registration_id!)).toMatchObject({ status: 'cancelled', status_reason: 'team_member_left' });
+    expect(count(await admin(`select 1 from public.consents where subject_id = $1 and withdrawn_at is null`, [answers[a]!.registration_id]))).toBe(0);
+    const t = await teamRow(reg.id);
+    expect(t).toMatchObject({ status: 'pending_members', roster_version: 2, confirmed_at: null });
+    expect(new Date(t.hold_expires_at).getTime()).toBeGreaterThan(Date.now());
+    await expectFail(asUser(a, (q) => q(`select public.get_participation_card($1)`, [answers[a]!.registration_id])), 409, 'registration_not_confirmed');
+    // Review Focus 3: the captain was editing the version from before the leave → refused, not silently overwritten
+    await expectFail(updateRoster(captain, reg.id, [captain, a, b], 1), 409, 'roster_changed');
+
+    // removal by the captain behaves the same
+    const bMembership = (await admin(`select id from public.team_memberships where team_id = $1 and user_id = $2`, [team, b])).rows[0].id;
+    await asUser(captain, (q) => q(`select public.remove_team_member($1)`, [bMembership]));
+    expect((await memberRow(reg.id, b)).state).toBe('removed');
+    expect(await regRow(answers[b]!.registration_id!)).toMatchObject({ status: 'cancelled', status_reason: 'team_member_removed' });
+    expect((await teamRow(reg.id)).status).toBe('pending_members');
+    // the captain drops the holes → only ready members left → confirmed
+    expect((await updateRoster(captain, reg.id, [captain], 3)).status).toBe('confirmed');
+  });
+
+  it('member of an unconfirmed team: get_participation_card → 409 team_registration_not_confirmed; check_in_participant refuses', async () => {
+    const staff = await createUser(); const org = await createOrg({ [staff]: 'checkin_staff' });
+    const event = await createTeamEvent(org, {
+      starts_at: new Date(Date.now() + 36e5), ends_at: new Date(Date.now() + 6 * 36e5), registration_closes_at: new Date(Date.now() + 30 * 6e4) });
+    const captain = await createUser(); const a = await createUser(); const team = await createTeam(captain, [a]);
+    const { reg, rows } = await submitted(captain, event, team, [captain, a]);
+    const mine = await respond(captain, rows[captain]!, true);
+    expect(mine.registration_status).toBe('confirmed');
+    await expectFail(asUser(captain, (q) => q(`select public.get_participation_card($1)`, [mine.registration_id])), 409, 'team_registration_not_confirmed');
+    const token = (await admin(`select app.ticket_token(r) t from public.event_registrations r where r.id = $1`, [mine.registration_id])).rows[0].t;
+    await expectFail(asUser(staff, (q) => q(`select public.check_in_participant($1)`, [token])), 409, 'team_registration_not_confirmed');
+    expect(count(await admin(`select 1 from public.event_check_ins where registration_id = $1`, [mine.registration_id]))).toBe(0);
+
+    await respond(a, rows[a]!, true);
+    expect((await teamRow(reg.id)).status).toBe('confirmed');
+    const card = (await asUser(captain, (q) => q(`select public.get_participation_card($1) c`, [mine.registration_id]))).rows[0].c;
+    expect(card.qr_payload).toBe(token);
+    expect((await asUser(staff, (q) => q(`select public.check_in_participant($1) j`, [token]))).rows[0].j.result).toBe('checked_in');
+  });
+
+  it('requires_review event: complete team → pending_review (members stay confirmed individually)', async () => {
+    const org = await createOrg(); const event = await createTeamEvent(org, { requires_review: true });
+    const captain = await createUser(); const a = await createUser(); const team = await createTeam(captain, [a]);
+    const { reg, rows } = await submitted(captain, event, team, [captain, a]);
+    const ra = await respond(captain, rows[captain]!, true); const rb = await respond(a, rows[a]!, true);
+    expect([ra.registration_status, rb.registration_status]).toEqual(['confirmed', 'confirmed']);
+    expect((await teamRow(reg.id)).status).toBe('pending_review');
+    expect(await counters(event)).toMatchObject({ teams_taken: 1, seats_taken: 0 });
+    // still no card while the organiser has not decided
+    await expectFail(asUser(a, (q) => q(`select public.get_participation_card($1)`, [rb.registration_id])), 409, 'team_registration_not_confirmed');
+  });
+
+  it('team_registration_detail: a member sees display names of their own team only; no email, birth_date or guardian fields anywhere in the payload', async () => {
+    const org = await createOrg(); const event = await createTeamEvent(org, { guardian_required_under: 18 });
+    const captain = await createUser({ name: 'Kaptan Kerem' }); const minor = await createUser({ age: 15, name: 'Gizli Genç' });
+    const invited = await createUser({ name: 'Davetli Deniz' }); const bench = await createUser({ name: 'Yedek Yaren' });
+    const team = await createTeam(captain, [minor, invited, bench]);
+    const { reg, rows } = await submitted(captain, event, team, [captain, minor, invited]);
+    await respond(captain, rows[captain]!, true);
+    const m = await respond(minor, rows[minor]!, true);
+    await asUser(minor, (q) => q(`select public.create_guardian_request($1, 'veli.gizli@example.test', 'Veli Gizli')`, [m.registration_id]));
+
+    for (const viewer of [captain, minor, bench]) {
+      const d = await detail(viewer, reg.id);
+      expect(d).toMatchObject({ id: reg.id, status: 'pending_members', roster_version: 1,
+        event: { id: event, title: 'Test Etkinliği' }, team: { id: team, name: 'Test Takımı' }, can_edit: viewer === captain });
+      expect(d.hold_expires_at).not.toBeNull();
+      const byName = Object.fromEntries((d.members as { display_name: string; step: string; state: string; role_at_submit: string }[])
+        .map((x) => [x.display_name, [x.role_at_submit, x.state, x.step]]));
+      expect(byName).toEqual({ 'Kaptan Kerem': ['captain', 'accepted', 'ready'], 'Gizli Genç': ['member', 'accepted', 'guardian'],
+                               'Davetli Deniz': ['member', 'invited', 'invited'] });
+      const text = JSON.stringify(d);
+      for (const forbidden of ['@', 'birth', 'guardian_', 'email', 'Veli Gizli', 'veli.gizli', 'Yedek Yaren', String(new Date().getFullYear() - 15)]) {
+        expect([forbidden, text.includes(forbidden)]).toEqual([forbidden, false]);
+      }
+      expect(Object.keys(d.members[0]).sort()).toEqual(['display_name', 'member_id', 'role_at_submit', 'state', 'step']);
+    }
+    // another team's member, the organisation and an outsider: not found (no names, no existence oracle)
+    const staff = await createUser(); await admin(`insert into public.organization_members (organization_id, user_id, role) values ($1, $2, 'owner')`, [org, staff]);
+    const otherCap = await createUser(); await createTeam(otherCap);
+    for (const viewer of [staff, otherCap, await createUser()]) await expectFail(detail(viewer, reg.id), 404, 'team_registration_not_found');
+
+    // my_team_registration_invites: only my open invites, ids + event + team name
+    const invites = (await asUser(invited, (q) => q(`select * from public.my_team_registration_invites() j`))).rows.map((r) => r.j);
+    expect(invites).toEqual([{ member_id: rows[invited], team_registration_id: reg.id, state: 'invited', team_status: 'pending_members',
+      hold_expires_at: expect.any(String), event: { id: event, title: 'Test Etkinliği', starts_at: expect.any(String) }, team: { id: team, name: 'Test Takımı' } }]);
+    expect((await asUser(captain, (q) => q(`select * from public.my_team_registration_invites() j`))).rowCount).toBe(0);
+    await expect(asAnon((q) => q(`select public.team_registration_detail($1)`, [reg.id]))).rejects.toThrow(PERMISSION_DENIED);
+  });
+});
+
+describe('team registration · lifecycle', () => {
+  it('captain cancels → every member registration cancelled, pending guardian requests revoked, teams_taken −1, first waitlisted team promoted to pending_members', async () => {
+    const org = await createOrg(); const event = await createTeamEvent(org, { team_capacity: 1, waitlist_enabled: true, guardian_required_under: 18 });
+    const captain = await createUser(); const minor = await createUser({ age: 16 }); const member = await createUser();
+    const team = await createTeam(captain, [minor, member]);
+    const { reg, rows } = await submitted(captain, event, team, [captain, minor]);
+    const capReg = await respond(captain, rows[captain]!, true); const minorReg = await respond(minor, rows[minor]!, true);
+    const reqId = (await asUser(minor, (q) => q(`select public.create_guardian_request($1, 'veli@example.test') id`, [minorReg.registration_id]))).rows[0].id;
+    const cap2 = await createUser(); const m2 = await createUser(); const team2 = await createTeam(cap2, [m2]);
+    const waiting = await submitted(cap2, event, team2, [cap2, m2]);
+    expect(waiting.reg.status).toBe('waitlisted');
+    expect(await counters(event)).toMatchObject({ teams_taken: 1, team_waitlist_count: 1 });
+
+    await expectFail(cancelTeam(member, reg.id), 403, 'not_team_manager');
+    const cancelled = await cancelTeam(captain, reg.id);
+    expect(cancelled).toMatchObject({ id: reg.id, status: 'cancelled' });
+    for (const r of [capReg, minorReg]) expect(await regRow(r.registration_id!)).toMatchObject({ status: 'cancelled', status_reason: 'team_registration_cancelled' });
+    expect((await admin(`select status from public.guardian_requests where id = $1`, [reqId])).rows[0].status).toBe('revoked');
+    expect(count(await admin(`select 1 from public.consents where subject_id = any($1::uuid[]) and withdrawn_at is null`, [[capReg.registration_id, minorReg.registration_id]]))).toBe(0);
+    const promoted = await teamRow(waiting.reg.id);
+    expect(promoted).toMatchObject({ status: 'pending_members', status_reason: 'promoted_from_waitlist' });
+    expect(promoted.hold_expires_at).not.toBeNull();
+    expect(await counters(event)).toEqual({ seats_taken: 0, waitlist_count: 0, teams_taken: 1, team_waitlist_count: 0 });
+    expect(await kindsOf(m2)).toEqual(['team_registration.invited']); // told once the team holds a seat
+    // idempotent: cancelling again returns the cancelled row
+    expect((await cancelTeam(captain, reg.id)).status).toBe('cancelled');
+    // the cancelled team's members may now answer nothing, and may register with another roster later
+    await expectFail(respond(member, rows[minor]!, true), 403, 'not_invite_owner');
+  });
+
+  it('expire_team_registrations: pending_members past hold_expires_at → expired, member registrations expired, guardian requests revoked, waitlist promoted; confirmed teams untouched', async () => {
+    const org = await createOrg(); const event = await createTeamEvent(org, { team_capacity: 2, waitlist_enabled: true, guardian_required_under: 18 });
+    const c1 = await createUser(); const minor = await createUser({ age: 16 }); const t1 = await createTeam(c1, [minor]);
+    const late = await submitted(c1, event, t1, [c1, minor]);
+    const r1 = await respond(c1, late.rows[c1]!, true); const rm = await respond(minor, late.rows[minor]!, true);
+    const reqId = (await asUser(minor, (q) => q(`select public.create_guardian_request($1, 'veli@example.test') id`, [rm.registration_id]))).rows[0].id;
+    const c2 = await createUser(); const t2 = await createTeam(c2);
+    const done = await submitted(c2, event, t2, [c2]); await respond(c2, done.rows[c2]!, true);
+    expect((await teamRow(done.reg.id)).status).toBe('confirmed');
+    const c3 = await createUser(); const t3 = await createTeam(c3);
+    const queued = await submitted(c3, event, t3, [c3]);
+    expect(queued.reg.status).toBe('waitlisted');
+    // also hold the confirmed team's hold in the past: confirmed is never expired
+    await admin(`update public.team_event_registrations set hold_expires_at = now() - interval '1 minute' where id = any($1::uuid[])`, [[late.reg.id, done.reg.id]]);
+
+    const n = (await admin(`select app.expire_team_registrations() n`)).rows[0].n;
+    expect(n).toBeGreaterThanOrEqual(1);
+    expect(await teamRow(late.reg.id)).toMatchObject({ status: 'expired', status_reason: 'hold_expired' });
+    for (const r of [r1, rm]) expect(await regRow(r.registration_id!)).toMatchObject({ status: 'expired', status_reason: 'team_registration_expired' });
+    expect((await admin(`select status from public.guardian_requests where id = $1`, [reqId])).rows[0].status).toBe('revoked');
+    expect((await teamRow(done.reg.id)).status).toBe('confirmed');
+    expect(await teamRow(queued.reg.id)).toMatchObject({ status: 'pending_members', status_reason: 'promoted_from_waitlist' });
+    expect(await counters(event)).toMatchObject({ teams_taken: 2, team_waitlist_count: 0 });
+    // the team-level message replaces the member-level "veli onayı zamanında gelmedi"
+    expect(await kindsOf(minor)).toEqual(['team_registration.invited', 'team_registration.expired']);
+    expect(await kindsOf(c1)).toEqual(['team_registration.expired']);
+    // a second run finds nothing more for these rows
+    await admin(`select app.expire_team_registrations()`);
+    expect((await teamRow(late.reg.id)).status).toBe('expired');
+
+    // waitlisted rows are closed out once registration has closed (nobody can be promoted any more)
+    const closing = await createTeamEvent(org, { team_capacity: 1, waitlist_enabled: true });
+    const k1 = await createUser(); const k2 = await createUser();
+    await submit(k1, closing, await createTeam(k1), [k1]);
+    const stuck = await submit(k2, closing, await createTeam(k2), [k2]);
+    expect(stuck.status).toBe('waitlisted');
+    await admin(`update public.events set registration_closes_at = now() - interval '1 minute' where id = $1`, [closing]);
+    await admin(`select app.expire_team_registrations()`);
+    expect(await teamRow(stuck.id)).toMatchObject({ status: 'expired', status_reason: 'registration_closed' });
+    expect(await counters(closing)).toMatchObject({ team_waitlist_count: 0 });
+
+    await expect(asUser(c1, (q) => q(`select app.expire_team_registrations()`))).rejects.toThrow(PERMISSION_DENIED);
+    await expect(asService((q) => q(`select app.recompute_team_registration($1)`, [late.reg.id]))).rejects.toThrow(PERMISSION_DENIED);
+  });
+
+  it('member cancels own registration via cancel_event_registration → member declined, team pending_members (seat kept until hold expiry)', async () => {
+    const org = await createOrg(); const event = await createTeamEvent(org);
+    const captain = await createUser(); const a = await createUser(); const team = await createTeam(captain, [a]);
+    const { reg, rows } = await submitted(captain, event, team, [captain, a]);
+    await respond(captain, rows[captain]!, true); const ra = await respond(a, rows[a]!, true);
+    expect((await teamRow(reg.id)).status).toBe('confirmed');
+    await asUser(a, (q) => q(`select public.cancel_event_registration($1)`, [ra.registration_id]));
+    expect((await memberRow(reg.id, a)).state).toBe('declined');
+    const t = await teamRow(reg.id);
+    expect(t.status).toBe('pending_members');
+    expect(new Date(t.hold_expires_at).getTime()).toBeGreaterThan(Date.now());
+    expect(await counters(event)).toMatchObject({ teams_taken: 1 });
+    expect(await kindsOf(captain)).toEqual(['team_registration.confirmed', 'team_registration.member_declined']);
+  });
+
+  it('guardian denies → the member is declined and the team waits for a roster edit', async () => {
+    const org = await createOrg(); const event = await createTeamEvent(org, { guardian_required_under: 18 });
+    const captain = await createUser(); const minor = await createUser({ age: 14 }); const team = await createTeam(captain, [minor]);
+    const { reg, rows } = await submitted(captain, event, team, [captain, minor]);
+    await respond(captain, rows[captain]!, true); const rm = await respond(minor, rows[minor]!, true);
+    await guardianDecides(minor, rm.registration_id!, false);
+    expect(await regRow(rm.registration_id!)).toMatchObject({ status: 'cancelled', status_reason: 'guardian_denied' });
+    expect((await memberRow(reg.id, minor)).state).toBe('declined');
+    expect(await teamRow(reg.id)).toMatchObject({ status: 'pending_members', roster_version: 2 });
+  });
+
+  it('event cancelled → team rows cancelled too, counters recounted, nobody promoted', async () => {
+    const org = await createOrg(); const event = await createTeamEvent(org, { team_capacity: 1, waitlist_enabled: true });
+    const c1 = await createUser(); const t1 = await createTeam(c1); const first = await submitted(c1, event, t1, [c1]);
+    const r1 = await respond(c1, first.rows[c1]!, true);
+    const c2 = await createUser(); const t2 = await createTeam(c2); const second = await submit(c2, event, t2, [c2]);
+    expect(second.status).toBe('waitlisted');
+    await admin(`update public.events set status = 'cancelled' where id = $1`, [event]);
+    expect(await teamRow(first.reg.id)).toMatchObject({ status: 'cancelled', status_reason: 'event_cancelled' });
+    expect(await teamRow(second.id)).toMatchObject({ status: 'cancelled', status_reason: 'event_cancelled' });
+    expect(await regRow(r1.registration_id!)).toMatchObject({ status: 'cancelled', status_reason: 'event_cancelled' });
+    expect((await memberRow(first.reg.id, c1)).state).toBe('accepted'); // history kept as it was
+    expect(await counters(event)).toEqual({ seats_taken: 0, waitlist_count: 0, teams_taken: 0, team_waitlist_count: 0 });
+    expect(await kindsOf(c1)).toEqual(['team_registration.confirmed', 'event.cancelled']);
+  });
+
+  it('account deletion of a roster member recomputes the team (the cascade cannot leave a stale status)', async () => {
+    const org = await createOrg(); const event = await createTeamEvent(org, { team_min_size: 2 });
+    const captain = await createUser(); const a = await createUser(); const team = await createTeam(captain, [a]);
+    const { reg, rows } = await submitted(captain, event, team, [captain, a]);
+    await respond(captain, rows[captain]!, true); await respond(a, rows[a]!, true);
+    expect((await teamRow(reg.id)).status).toBe('confirmed');
+    await admin(`delete from auth.users where id = $1`, [a]);
+    expect(await teamRow(reg.id)).toMatchObject({ status: 'pending_members', roster_version: 2 });
+  });
+
+  it('volunteer brief: confirmed counts only people who can check in; teams come from confirmed team registrations', async () => {
+    const org = await createOrg(); const event = await createTeamEvent(org, { registration_mode: 'both', capacity: 10, accepts_volunteers: true });
+    const vol = await createUser(); await admin(`insert into public.event_volunteers (event_id, user_id, status) values ($1, $2, 'approved')`, [event, vol]);
+    const solo = await createUser(); await register(solo, event);
+    const captain = await createUser(); const a = await createUser(); const team = await createTeam(captain, [a]);
+    const { reg, rows } = await submitted(captain, event, team, [captain, a]);
+    await respond(captain, rows[captain]!, true);
+    const brief = async () => (await asUser(vol, (q) => q(`select public.volunteer_event_brief($1) j`, [event]))).rows[0].j;
+    expect((await brief()).stats).toMatchObject({ confirmed: 1, confirmed_individual: 1, confirmed_team_members: 0, confirmed_teams: 0, capacity: 10, team_capacity: 10 });
+    expect((await brief()).teams).toEqual([]);
+    await respond(a, rows[a]!, true);
+    expect((await teamRow(reg.id)).status).toBe('confirmed');
+    expect((await brief()).stats).toMatchObject({ confirmed: 3, confirmed_individual: 1, confirmed_team_members: 2, confirmed_teams: 1 });
+    expect((await brief()).teams).toEqual([{ name: 'Test Takımı', category: null }]);
+  });
+
+  it('grants: the new RPCs are authenticated-only; the app.* helpers are not callable by API roles', async () => {
+    const rows = (await admin(`select p.proname, n.nspname, has_function_privilege('anon', p.oid, 'execute') anon,
+                                      has_function_privilege('authenticated', p.oid, 'execute') auth,
+                                      has_function_privilege('service_role', p.oid, 'execute') svc
+                               from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                               where p.proname in ('respond_team_registration', 'update_team_roster', 'cancel_team_registration',
+                                                   'team_registration_detail', 'my_team_registration_invites', 'recompute_team_registration',
+                                                   'expire_team_registrations', 'next_member_status')
+                               order by p.proname`)).rows;
+    expect(rows.map((r) => [r.proname, r.anon, r.auth])).toEqual([
+      ['cancel_team_registration', false, true], ['expire_team_registrations', false, false], ['my_team_registration_invites', false, true],
+      ['next_member_status', false, false], ['recompute_team_registration', false, false], ['respond_team_registration', false, true],
+      ['team_registration_detail', false, true], ['update_team_roster', false, true]]);
+  });
+});

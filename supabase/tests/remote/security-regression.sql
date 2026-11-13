@@ -104,6 +104,7 @@ declare
   v_nt_team uuid; v_nt_id uuid; v_nt_cap uuid; v_nt_req uuid;
   v_tr_org uuid; v_tr_owner uuid; v_tr_editor uuid; v_tr_event uuid; v_tr_team uuid; v_tr_cap uuid; v_tr_minor uuid; v_tr_reg uuid; v_tr_mrow uuid;
   v_t2_cap uuid; v_t2_mentor uuid; v_t2_member uuid; v_t2_event uuid; v_t2_team uuid;
+  v_t3_reg uuid; v_t3_caprow uuid; v_t3_memrow uuid; v_t3_capreg uuid;
   v_out jsonb;
 begin
   -- ================================================================ CV
@@ -501,7 +502,7 @@ begin
   select count(*) into v_n from unnest(app.notification_kinds()) k, app.notification_copy(k, 'Remote İçerik') c
    where c.title || ' ' || c.body ~ '[@!]';
   select count(*) into i from unnest(app.notification_kinds()) k, app.notification_copy(k, 'Remote İçerik') c;
-  perform pg_temp.t_rec('25h notification_copy: every kind has copy, none contains @ or !', v_n = 0 and i = 13,
+  perform pg_temp.t_rec('25h notification_copy: every kind has copy, none contains @ or !', v_n = 0 and i = 17,  -- 13 + 4 team_registration.* (20261113000700)
                         'kinds_with_copy=' || i || ' bad=' || v_n);
   begin
     select string_agg(k || '=' || c.title || ' ' || c.body, ' | ' order by k) into v_text
@@ -655,6 +656,57 @@ begin
   -- block 26's 15-year-old is invited on a live team roster of a 'both' event → no individual registration on top of it
   perform pg_temp.t_fail('27f invited roster member registers individually for the same event → 409 already_on_team_roster', 'authenticated', v_tr_minor,
     format('select public.register_for_event(%L, gen_random_uuid())', v_tr_event), '^PT409 already_on_team_roster');
+
+  -- 20261113000700: team registration lifecycle on block 27's registration (mentor submitted captain + 16-year-old member).
+  -- Nobody answers for someone else; a stale roster version is refused; a member of an unconfirmed team gets no card; the
+  -- detail payload has no e-mail / birth date / guardian field; the expiry job is scheduled where pg_cron exists.
+  begin
+    select id into v_t3_reg from public.team_event_registrations where event_id = v_t2_event and team_id = v_t2_team;
+    select id into v_t3_caprow from public.team_event_registration_members where team_registration_id = v_t3_reg and user_id = v_t2_cap;
+    select id into v_t3_memrow from public.team_event_registration_members where team_registration_id = v_t3_reg and user_id = v_t2_member;
+    j := pg_temp.t_val('authenticated', v_t2_cap,
+      format('select public.respond_team_registration(%L, true, gen_random_uuid())::text', v_t3_caprow))::jsonb;
+    v_t3_capreg := (j ->> 'registration_id')::uuid;
+    perform pg_temp.t_rec('28 captain accepts own invite → own registration confirmed, team still pending_members (control, MUST PASS)',
+      j ->> 'member_state' = 'accepted' and j ->> 'registration_status' = 'confirmed' and j ->> 'team_status' = 'pending_members'
+        and (select team_registration_id from public.event_registrations where id = v_t3_capreg) = v_t3_reg, left(j::text, 300));
+  exception when others then
+    perform pg_temp.t_rec('28 captain accepts own invite → own registration confirmed, team still pending_members (control, MUST PASS)', false, sqlstate || ' ' || sqlerrm);
+  end;
+  perform pg_temp.t_fail('28a captain answers the member''s invite → 403 not_invite_owner', 'authenticated', v_t2_cap,
+    format('select public.respond_team_registration(%L, true, gen_random_uuid())', v_t3_memrow), '^PT403 not_invite_owner');
+  perform pg_temp.t_fail('28b mentor edits the roster with a stale version → 409 roster_changed', 'authenticated', v_t2_mentor,
+    format('select public.update_team_roster(%L, array[%L, %L]::uuid[], 99)', v_t3_reg, v_t2_cap, v_t2_member), '^PT409 roster_changed');
+  perform pg_temp.t_fail('28c confirmed member of an unconfirmed team asks for the card → 409 team_registration_not_confirmed', 'authenticated', v_t2_cap,
+    format('select public.get_participation_card(%L)', v_t3_capreg), '^PT409 team_registration_not_confirmed');
+  begin
+    v_text := pg_temp.t_val('authenticated', v_t2_member, format('select public.team_registration_detail(%L)::text', v_t3_reg));
+    perform pg_temp.t_rec('28d team_registration_detail (member, 16): 2 members, no email / birth / guardian field or @',
+      jsonb_array_length(v_text::jsonb -> 'members') = 2 and v_text !~* '(email|birth|guardian_|@)', left(v_text, 300));
+  exception when others then
+    perform pg_temp.t_rec('28d team_registration_detail (member, 16): 2 members, no email / birth / guardian field or @', false, sqlstate || ' ' || sqlerrm);
+  end;
+  perform pg_temp.t_fail('28d an outsider reads the detail → 404 team_registration_not_found', 'authenticated', v_other,
+    format('select public.team_registration_detail(%L)', v_t3_reg), '^PT404 team_registration_not_found');
+  if to_regclass('cron.job') is null then
+    perform pg_temp.t_rec('28e cron: techapp-expire-team-registrations (pg_cron not installed here — n/a; MUST PASS on staging)', true, 'no cron.job');
+  else
+    execute $q$select string_agg(jobname || ' ' || schedule, ', ') from cron.job where jobname = 'techapp-expire-team-registrations'$q$ into v_text;
+    perform pg_temp.t_rec('28e cron: techapp-expire-team-registrations */10 scheduled (MUST PASS on staging)',
+      coalesce(v_text, '') ~ '^techapp-expire-team-registrations \*/10 \* \* \* \*$', coalesce(v_text, 'missing'));
+  end if;
+  begin
+    select string_agg(p.proname || '=' || has_function_privilege('anon', p.oid, 'execute')::text || '/'
+                      || has_function_privilege('authenticated', p.oid, 'execute')::text, ' ' order by p.proname) into v_text
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where (n.nspname = 'public' and p.proname in ('respond_team_registration', 'update_team_roster', 'cancel_team_registration',
+                                                   'team_registration_detail', 'my_team_registration_invites'))
+        or (n.nspname = 'app' and p.proname in ('recompute_team_registration', 'expire_team_registrations'));
+    perform pg_temp.t_rec('28f grants: the five lifecycle RPCs authenticated-only; recompute / expire not callable by API roles',
+      v_text = 'cancel_team_registration=false/true expire_team_registrations=false/false my_team_registration_invites=false/true '
+               'recompute_team_registration=false/false respond_team_registration=false/true team_registration_detail=false/true '
+               'update_team_roster=false/true', coalesce(v_text, 'missing'));
+  end;
 
   -- ================================================================ report (always rolls back)
   select jsonb_build_object('pass', count(*) filter (where pass), 'fail', count(*) filter (where not pass),

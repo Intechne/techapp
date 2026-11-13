@@ -13,6 +13,8 @@ const KINDS = [
   'registration.expired', 'guardian.denied', 'guardian.revoked',
   'application.status_changed', 'team_join.accepted', 'team_join.rejected', 'team_join.requested',
   'event.reminder_24h', 'event.cancelled',
+  // Faz 3a Task 3 (20261113000700_team_registration_lifecycle): team registration kinds, target 'team_event_registration'
+  'team_registration.invited', 'team_registration.confirmed', 'team_registration.member_declined', 'team_registration.expired',
 ];
 /** Letters only, so the "no digits (age) in the text" check below is meaningful. */
 const tag = () => randomUUID().replace(/[^a-f]/g, '').slice(0, 6).padEnd(4, 'x');
@@ -294,7 +296,7 @@ describe('application and team triggers', () => {
 });
 
 describe('notification copy', () => {
-  it('app.notification_kinds() is exactly the thirteen kinds', async () => {
+  it('app.notification_kinds() is exactly the seventeen kinds', async () => {
     expect((await admin(`select app.notification_kinds() k`)).rows[0].k).toEqual(KINDS);
   });
 
