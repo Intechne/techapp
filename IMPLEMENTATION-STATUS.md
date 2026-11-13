@@ -5,7 +5,7 @@ Plan: `docs/superpowers/plans/2026-11-12-techapp-v5-faz3a-team-registration.md`.
 
 | Görev | Konu | Commit'ler | Staging |
 |---|---|---|---|
-| T1 | Şema, RLS, sayaçlar (`20261113000500_team_registration`): takım satırı + kadro anlık görüntüsü, iki bağımsız kontenjan havuzu (bireysel / takım), sayaç koruması, kritik alanlar | `e01c025` + takip (FOLLOWUP_HASH) | ⏸ bekletildi (pilot sonrası; `20261113000400`'ten sonra, dosya sırası; remote regresyon 26–26h) |
+| T1 | Şema, RLS, sayaçlar (`20261113000500_team_registration`): takım satırı + kadro anlık görüntüsü, iki bağımsız kontenjan havuzu (bireysel / takım), sayaç koruması, kritik alanlar | `e01c025` + takip (`d8aa0b0`) | ⏸ bekletildi (pilot sonrası; `20261113000400`'ten sonra, dosya sırası; remote regresyon 26–26h) |
 
 **T1 — ne geldi (yalnız yerelde kanıtlı: `npm run db:test` 299, remote regresyonun yerel kuru koşusu 85/85 ve Storage'lı 90/90; staging'de koşulmadı):** RPC yok (gönderim T2, üye yanıtı/veli/iptal/süre dolumu T3, organizatör T4). Okuma: takımın etkin üyeleri, etkinlik kurumunun owner|admin|reviewer|checkin_staff'ı, platform admini; kişi kendi kadro satırını her zaman görür, takım arkadaşları yalnız canlı kadroyu (`invited`/`accepted`; başkasının reddettiği/çıkarıldığı satır görünmez); anon hiç göremez; istemcinin iki tabloya yazma yetkisi yok. Takım üyelerinin kendi kayıtları (`team_registration_id` dolu) bireysel `seats_taken`/bekleme listesine sayılmaz ve hiçbir zaman `waitlisted` olamaz. API çağıranı etkinlik eklerken dört sayaç 0'a zorlanır ("dolu" etkinlik oluşturulamaz; servis rolü/migration yolu değişmez). Bildirim türleri henüz yok (T3).
 
