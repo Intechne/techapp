@@ -19,7 +19,7 @@ sunucuda türetilir (`app.recompute_team_registration`). Önce migration + RLS +
 
 ## Global Constraints
 
-- Dal: `feat/v5-team-registration`, pilot etiketinden (`pilot/cezeri-2026-11`, pilot sonrası atılır) dallanır. `main`'e yazılmaz; push/PR kullanıcı onayıyla. Destructive git yok (stash dahil).
+- Dal: `feat/v5-product` (13 Kas 2026 kontrolör kararı: pilot dalına dokunmadan, Faz 3b bildirim türleriyle birlikte; plandaki `feat/v5-team-registration`/pilot etiketi yerine). `main`'e yazılmaz; push/PR kullanıcı onayıyla. Destructive git yok (stash dahil).
 - Yeni tablo = aynı migration dosyasında RLS + test (CLAUDE.md kural 5). Uygulanmış migration düzenlenmez; yeni dosya `YYYYMMDDHHMMSS_team_registration.sql` (20261111000100'dan sonra).
 - Yazma yalnız `SECURITY DEFINER` RPC; istemcinin yeni tablolara INSERT/UPDATE/DELETE yolu yok. Fonksiyonlarda `set search_path = ''`.
 - Kaptan **başkası adına rıza veremez**: her üyenin `event_participation` rızası `granted_by = 'self'`, 18 yaş altında ayrıca `granted_by = 'guardian'`.
@@ -49,9 +49,9 @@ sunucuda türetilir (`app.recompute_team_registration`). Önce migration + RLS +
 | Üye durumu | `team_event_registration_members.state`: `invited · accepted · declined · removed`; `accepted` olunca `registration_id` dolar |
 | Üye kaydı | `event_registrations.team_registration_id uuid null` FK; üye kaydı hiçbir zaman `waitlisted` olmaz (koltuğu takım tutar); `requires_review` üye düzeyinde değil takım düzeyinde uygulanır |
 | Türetme | Tüm üyeler `accepted` + kayıtları `confirmed` + kadro `team_min_size..team_max_size` içinde → `requires_review ? pending_review : confirmed`; aksi halde `pending_members` |
-| Bekleme süresi | `hold_expires_at = least(registration_closes_at, submitted_at + interval '7 days')`; dolunca `expired`, koltuk serbest, bekleme listesindeki ilk takım yükselir. **7 gün kullanıcı kararı** (rapor, açık soru 1) |
+| Bekleme süresi | `hold_expires_at = least(registration_closes_at, submitted_at + interval '7 days')`; dolunca `expired`, koltuk serbest, bekleme listesindeki ilk takım yükselir. **7 gün — kullanıcı kararı 13 Kas 2026** |
 | Idempotency | `unique (submitted_by, idempotency_key)`; aynı takım+etkinlik için canlı satır varsa onu döner (bireysel `register_for_event` ile aynı sözleşme) |
-| Kim gönderir | Yalnız takımın etkin `captain`'ı (mentor değil). Kadroda kaptan zorunlu değil |
+| Kim gönderir | Takımın etkin `captain`'ı **veya** etkin `mentor`'u (kullanıcı kararı 13 Kas 2026). Kadroda kaptan zorunlu değil |
 | Kart/check-in | `get_participation_card` ve `check_in_participant`: kayıt `team_registration_id` taşıyorsa takım `confirmed` olmalı, değilse 409 `team_registration_not_confirmed` |
 
 ---
