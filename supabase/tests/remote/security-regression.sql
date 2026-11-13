@@ -352,6 +352,13 @@ begin
     select format('%s/%s/%s', b.public::text, b.file_size_limit, b.allowed_mime_types) into v_text from storage.buckets b where b.id = 'covers';
     perform pg_temp.t_rec('22c covers bucket: public, 2 MB, image/webp only',
                           v_text = 'true/2097152/{image/webp}', 'bucket=' || coalesce(v_text, 'missing'));
+    -- MUST PASS before the covers migration is accepted on any project: set_cover verifies the uploaded files by reading
+    -- storage.objects as its owner, and storage.objects SELECT is owner-folder only. That works only if the owner bypasses RLS.
+    select format('%s/%s', r.rolname, r.rolbypassrls or r.rolsuper) into v_text
+      from pg_proc p join pg_roles r on r.oid = p.proowner
+     where p.oid = 'public.set_cover(text, uuid, text, text)'::regprocedure;
+    perform pg_temp.t_rec('22k set_cover owner bypasses RLS on storage.objects (MUST PASS — else every cover bind fails)',
+                          split_part(v_text, '/', 2) = 't', 'owner=' || coalesce(v_text, 'missing'));
     -- control: own-folder upload of both sizes, then set_cover on a PUBLISHED event → back to review with a revision row
     begin
       v_cv_path := 'events/' || v_org || '/' || gen_random_uuid() || '.webp';
@@ -363,10 +370,10 @@ begin
       select e.status::text || ' ' || coalesce((select array_to_string(r.changed_fields, ',') from public.content_revisions r
                                                 where r.entity_id = e.id order by r.id desc limit 1), 'no-revision')
         into v_text from public.events e where e.id = v_cv_event;
-      perform pg_temp.t_rec('22g own-folder upload (2 files) + set_cover on a published event → in_review + revision (control)',
+      perform pg_temp.t_rec('22g own-folder upload (2 files) + set_cover on a published event → in_review + revision (control, MUST PASS)',
                             v_n = 2 and v_text = 'in_review cover_path', 'uploaded=' || v_n || ' ' || coalesce(v_text, 'null'));
     exception when others then
-      perform pg_temp.t_rec('22g own-folder upload (2 files) + set_cover on a published event → in_review + revision (control)',
+      perform pg_temp.t_rec('22g own-folder upload (2 files) + set_cover on a published event → in_review + revision (control, MUST PASS)',
                             false, sqlstate || ' ' || sqlerrm);
     end;
   end if;

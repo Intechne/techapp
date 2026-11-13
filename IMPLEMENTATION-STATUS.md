@@ -7,7 +7,7 @@ Plan: `docs/superpowers/plans/2026-11-12-techapp-v5-faz3b-core-modules.md`. Gör
 |---|---|---|---|
 | T1 | Pilot borçları (Katılım etiketi, yenileme, veli sorgusu, kart anahtarı) | `eedcb43`, `584c72a` | — (yalnız istemci) |
 | T2 | `teams.created_by` / `recruitment_posts.created_by` sütun gizliliği (`20261112000300`) | `d4254af` + belge düzeltmesi | ⏸ bekletildi (önce istemci) |
-| T3 | Kapak görselleri — sunucu (`20261113000100_covers`) | `79dd2b1` + fix round 1 (`5e33daf`) + fix round 2 | ⏸ bekletildi |
+| T3 | Kapak görselleri — sunucu (`20261113000100_covers`) | `79dd2b1` + fix round 1 (`5e33daf`) + fix round 2 (`b0fbba4`) | ⏸ bekletildi — staging'de 22g ve 22k geçmeden kabul edilmez |
 | T5 | Takım kapağı mobilde kaptan için | — **ATLANDI** (kullanıcı kararı 13 Kas 2026) | — |
 
 **T3 — ne geldi (yalnız yerelde kanıtlı: `npm run db:test`, remote regresyonun yerel kuru koşusu; staging'de koşulmadı):**

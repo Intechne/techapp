@@ -264,7 +264,7 @@ grant execute on function public.set_cover(text, uuid, text, text) to authentica
 
 -- ================================================================ 6. storage: public bucket + folder-owner policies
 -- The automated test database has no storage schema, so this block is a no-op there (covers.test.ts runs the block below
--- against a rolled-back stand-in; staging is checked by supabase/tests/remote/security-regression.sql 22–22g).
+-- against a rolled-back stand-in; staging is checked by supabase/tests/remote/security-regression.sql 22–22k; 22g and 22k are MUST PASS).
 -- covers-storage:begin
 do $$
 begin
