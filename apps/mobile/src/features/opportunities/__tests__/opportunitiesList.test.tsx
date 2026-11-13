@@ -47,7 +47,7 @@ jest.mock('../../auth/pendingIntent', () => ({ usePendingIntent: () => ({ set: j
 jest.mock('@react-navigation/native', () => ({ useFocusEffect: () => {} }));
 const mockToggle = jest.fn();
 let mockFollowed = new Set<string>();
-jest.mock('../useFollow', () => ({ useFollowedOpportunities: () => ({ ids: mockFollowed, requiresAuth: mockUser === null, toggle: mockToggle, pending: false }) }));
+jest.mock('../../saved/useBookmarks', () => ({ useBookmarks: () => ({ ids: mockFollowed, requiresAuth: mockUser === null, toggle: mockToggle, pending: false, ready: true }) }));
 let mockApps: unknown[] = [];
 jest.mock('../api', () => ({
   ...jest.requireActual('../api'),
@@ -122,7 +122,8 @@ describe('Fırsatlar listesi', () => {
     expect(within(feet[1]!).queryByText(/GÜN/)).toBeNull();
     expect(within(feet[1]!).getByText(/^Son başvuru:/)).toBeTruthy();
   });
-  it('signed in: a save bookmark per row; guest: chevron instead', async () => {
+  it('a save bookmark per row, for guests too (a tap goes to sign-in, see useBookmarks)', async () => {
+    mockUser = null;
     rows = [opp('o1', 'Açık çağrı')];
     await render(wrap(<OpportunitiesScreen {...props<React.ComponentProps<typeof OpportunitiesScreen>>('OpportunitiesHome')} />));
     fireEvent.press(await screen.findByRole('button', { name: 'Son tarihi takip et' }));

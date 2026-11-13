@@ -4,6 +4,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DiscoverScreen } from '../DiscoverScreen';
 
+// Save state is its own module (saved/__tests__); screens here only see ids + toggle.
+const mockSaveToggle = jest.fn(); let mockSavedIds = new Set<string>();
+jest.mock('../../saved/useBookmarks', () => ({ useBookmarks: () => ({ ids: mockSavedIds, toggle: mockSaveToggle, pending: false, requiresAuth: false, ready: true }) }));
+beforeEach(() => { mockSavedIds = new Set(); mockSaveToggle.mockClear(); });
+
 const DAY = 86_400_000;
 const iso = (offsetDays: number) => new Date(Date.now() + offsetDays * DAY).toISOString();
 
@@ -178,6 +183,20 @@ describe('Keşfet ana — bölüm eylemleri', () => {
     await fireEvent.press(links[1]!);
     await fireEvent.press(links[2]!);
     expect(parentNavigate.mock.calls.map((c) => c[0])).toEqual(['EventsTab', 'OpportunitiesTab', 'CommunityTab']);
+  });
+
+  it('posters, opportunity rows and team cards each carry their own save control', async () => {
+    data.events = [event('e1', 'Vitrin'), event('e2', 'İkinci etkinlik'), event('e3', 'Üçüncü etkinlik')];
+    data.opportunities = [opportunity('o1', 'Yaz stajı')];
+    data.teams = [team('t1', 'Robotik Takımı')];
+    await renderScreen();
+    await screen.findByText('Birlikte üretenler');
+    const saves = screen.getAllByRole('button', { name: 'Kaydet' }); // 2 posters + 1 team card
+    expect(saves).toHaveLength(3);
+    await fireEvent.press(saves[0]!); await fireEvent.press(saves[2]!);
+    await fireEvent.press(screen.getByRole('button', { name: 'Son tarihi takip et' }));
+    expect(mockSaveToggle.mock.calls.map((c) => c[0])).toEqual(['e2', 't1', 'o1']);
+    expect(navigate).not.toHaveBeenCalled();
   });
 
   it('opening the vitrin goes to the event detail', async () => {

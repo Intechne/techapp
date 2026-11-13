@@ -106,3 +106,6 @@ export function opportunityIneligibility(o: Pick<OpportunityRow, 'min_age' | 'ma
   if (isMinor === false && o.max_age !== null && o.max_age < 18) return 'Bu fırsat 18 yaş altı katılımcılar için.';
   return null;
 }
+
+/** Saving an opportunity means following its deadline (Son tarihler → Takip ettiklerim): the control is the bookmark, the words stay specific. */
+export const FOLLOW_LABELS = { save: 'Son tarihi takip et', unsave: 'Takipten çıkar' };

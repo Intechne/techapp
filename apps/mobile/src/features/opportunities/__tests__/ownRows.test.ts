@@ -1,4 +1,4 @@
-import { fetchFollowedOpportunityIds, fetchMyApplicationFor, fetchMyApplications, setFollowed } from '../api';
+import { fetchMyApplicationFor, fetchMyApplications } from '../api';
 
 // What org staff see under RLS: their own rows AND every applicant's / follower's rows.
 const STAFF = 'staff-1';
@@ -39,14 +39,5 @@ describe('"my" opportunity queries never rely on RLS alone', () => {
     expect(mockCalls).toContainEqual({ table: 'applications', method: 'eq', args: ['user_id', STAFF] });
     expect(mine?.id).toBe('a1');
     expect(await fetchMyApplicationFor('someone-new', 'o1')).toBeNull();
-  });
-  it('fetchFollowedOpportunityIds filters bookmarks by user_id', async () => {
-    const ids = await fetchFollowedOpportunityIds(STAFF);
-    expect(mockCalls).toContainEqual({ table: 'bookmarks', method: 'eq', args: ['user_id', STAFF] });
-    expect(ids).toEqual(['o1']);
-  });
-  it('unfollow deletes only the caller’s bookmark', async () => {
-    await setFollowed(STAFF, 'o1', false);
-    expect(mockCalls).toContainEqual({ table: 'bookmarks', method: 'eq', args: ['user_id', STAFF] });
   });
 });

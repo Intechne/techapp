@@ -3,13 +3,14 @@ import { Share, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Button, DemoTag, Divider, ErrorState, IconButton, LoadingSkeleton, MetadataRow, Notice, OrganizerRow, Poster, ReadMoreText, RegistrationStatus, Screen, Tag, TechIcon, Text, keepNumbersTogether, semantic, space } from '../../design-system';
+import { AppHeader, BookmarkButton, Button, DemoTag, Divider, ErrorState, IconButton, LoadingSkeleton, MetadataRow, Notice, OrganizerRow, Poster, ReadMoreText, RegistrationStatus, Screen, Tag, TechIcon, Text, keepNumbersTogether, semantic, space } from '../../design-system';
 import { track } from '../../lib/analytics';
 import { formatDate, formatDateRange, formatTime, formatTimeRange } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
 import type { SharedEventParamList } from '../../navigation/types';
 import { useSession } from '../auth/SessionProvider';
 import { usePendingIntent } from '../auth/pendingIntent';
+import { useBookmarks } from '../saved/useBookmarks';
 import { eventKeys, fetchEligibility, fetchEvent } from './api';
 import { primaryBlocker } from './detailBlocker';
 import { VolunteerSection } from '../volunteers/VolunteerSection';
@@ -21,6 +22,7 @@ export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<
   const { eventId } = route.params;
   const { userId } = useSession();
   const intent = usePendingIntent();
+  const saves = useBookmarks('event');
   const event = useQuery({ queryKey: eventKeys.detail(eventId), queryFn: () => fetchEvent(eventId) });
   const eligibility = useQuery({ queryKey: eventKeys.eligibility(eventId, userId), queryFn: () => fetchEligibility(eventId) });
 
@@ -61,10 +63,11 @@ export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<
         <TechIcon name="info" size={18} color={sem.text.secondary} />
         <Text variant="bodySmall" color="textSecondary" style={{ flex: 1 }}>{blockerCopy(blocker.reason).short}</Text>
       </View>
-      {/* 'save' (not yet open) needs Kaydedilenler (Faz 3b); until it exists the helpful action is the same as for a closed event. */}
       {blocker.secondary === 'find_team'
         ? <Button kind="secondary" icon="team" label="Takımını bul" onPress={() => tabs?.navigate('CommunityTab')} />
-        : <Button kind="secondary" icon="event" label="Benzer etkinlikler" onPress={similar} />}
+        : blocker.secondary === 'save'
+          ? <Button kind="secondary" icon="bookmark" label={saves.ids.has(eventId) ? 'Kaydedildi' : 'Kaydet'} onPress={() => saves.toggle(eventId)} />
+          : <Button kind="secondary" icon="event" label="Benzer etkinlikler" onPress={similar} />}
     </>
   ) : (
     <Button label={full ? 'Bekleme listesine katıl' : 'Etkinliğe katıl'} iconRight="arrow" onPress={join} loading={eligibility.isPending} />
@@ -72,8 +75,8 @@ export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<
   const share = () => { void Share.share({ message: `${e.title} · ${formatDateRange(e.starts_at, e.ends_at)}` }); };
 
   return (
-    // No "Etkinlik" title: the content names itself. Back + share (save joins with Kaydedilenler, Faz 3b).
-    <Screen header={<AppHeader onBack={navigation.goBack} right={<IconButton icon="share" accessibilityLabel="Paylaş" onPress={share} />} />} footer={footer}
+    // No "Etkinlik" title: the content names itself. Back + save + share.
+    <Screen header={<AppHeader onBack={navigation.goBack} right={<><BookmarkButton saved={saves.ids.has(eventId)} onToggle={() => saves.toggle(eventId)} /><IconButton icon="share" accessibilityLabel="Paylaş" onPress={share} /></>} />} footer={footer}
       refreshing={event.isRefetching} onRefresh={() => { void event.refetch(); void eligibility.refetch(); }}>
       <Poster large tone={e.tone} icon={EVENT_TYPE_ICON[e.type]} typeLabel={EVENT_TYPE_LABEL[e.type]} line={e.poster_line ?? e.title} cover={{ path: e.cover_path, blurhash: e.cover_blurhash }} />
       <View style={styles.tags}>

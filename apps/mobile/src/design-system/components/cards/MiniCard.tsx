@@ -1,20 +1,31 @@
 import React from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
-import { radius, semantic, space } from '../../tokens';
+import { layout, radius, semantic, space } from '../../tokens';
 import { Text } from '../../Text';
 import { TechIcon, type TechIconName } from '../../TechIcon';
+import { BookmarkButton } from './BookmarkButton';
 import { CardBase } from './CardBase';
 import { cardLabel, clipForSpeech, keepNumbersTogether } from './label';
 import { MINI_SINGLE_COLUMN_BELOW, MINI_SINGLE_COLUMN_FONT_SCALE, cardLayout, cardMetrics } from './metrics';
 
 const sem = semantic.light;
 
-export interface MiniCardProps { icon: TechIconName; title: string; body?: string; onPress?: () => void }
+export interface MiniCardProps {
+  icon: TechIconName; title: string; body?: string; onPress?: () => void;
+  /** Optional save control, top right on the tile's row (same 44 px control as PosterCard / RowCard). */
+  saved?: boolean; onToggleSave?: () => void;
+}
+
+/** The glyph, not the 44 px target, lines up with the body's right edge (same rule as PosterCard). */
+const BOOKMARK_GLYPH_INSET = (layout.touchTarget - 22) / 2;
 
 /** Keşfet rails (team, course): two per row, fixed minimum height, title and body two lines each. Grows to the row's height. */
-export function MiniCard({ icon, title, body, onPress }: MiniCardProps) {
+export function MiniCard({ icon, title, body, onPress, saved, onToggleSave }: MiniCardProps) {
+  const bookmark = onToggleSave
+    ? <View style={styles.bookmarkRow}><BookmarkButton saved={!!saved} onToggle={onToggleSave} /></View>
+    : undefined;
   return (
-    <CardBase label={cardLabel([title, clipForSpeech(body)])} onPress={onPress} style={styles.frame}>
+    <CardBase label={cardLabel([title, clipForSpeech(body)])} onPress={onPress} accessory={bookmark} style={styles.frame}>
       <View testID="mini-body" style={styles.body}>
         <View style={styles.tile}><TechIcon name={icon} color={sem.action.primary} /></View>
         <Text variant="cardTitle" breakStrategy="words" numberOfLines={2} style={styles.title}>{title}</Text>
@@ -59,6 +70,10 @@ const styles = StyleSheet.create({
   tile: {
     width: cardLayout.leadingTile, height: cardLayout.leadingTile, borderRadius: radius.control,
     backgroundColor: sem.action.primarySoft, alignItems: 'center', justifyContent: 'center',
+  },
+  bookmarkRow: {
+    pointerEvents: 'box-none', alignItems: 'flex-end',
+    paddingTop: cardLayout.pad + (cardLayout.leadingTile - layout.touchTarget) / 2, paddingRight: cardLayout.pad - BOOKMARK_GLYPH_INSET,
   },
   title: { marginTop: space[3] },
   text: { marginTop: space[1] },

@@ -9,6 +9,11 @@ import { TeamDetailScreen } from '../../teams/TeamDetailScreen';
 import { TeamWorkspaceScreen } from '../../teams/TeamWorkspaceScreen';
 import { categoryIcon } from '../../teams/categoryIcon';
 
+// Save state is its own module (saved/__tests__); screens here only see ids + toggle.
+const mockSaveToggle = jest.fn(); let mockSavedIds = new Set<string>();
+jest.mock('../../saved/useBookmarks', () => ({ useBookmarks: () => ({ ids: mockSavedIds, toggle: mockSaveToggle, pending: false, requiresAuth: false, ready: true }) }));
+beforeEach(() => { mockSavedIds = new Set(); mockSaveToggle.mockClear(); });
+
 const team = (id: string, name: string, over: Record<string, unknown> = {}) => ({
   id, name, kind: 'team', tagline: null, category: null, city: null, about: null, member_count: 3, is_demo: false, accepts_join_requests: true, ...over,
 });
@@ -114,6 +119,17 @@ describe('Topluluk ana — takım kartları', () => {
     expect(screen.getAllByRole('tab')[0]).toHaveTextContent('Takımlar');
     expect(screen.getAllByRole('tab')[1]).toHaveTextContent('Topluluklar');
     expect(screen.queryByText('BİRLİKTE DAHA FAZLASI')).toBeNull();
+  });
+
+  it('each team row has a save control; saving does not open the team', async () => {
+    mockTeams = [team('t1', 'Orbit Robotik'), team('t2', 'Nova Robotik')];
+    mockSavedIds = new Set(['t2']);
+    await home();
+    await screen.findByText('Orbit Robotik');
+    await fireEvent.press(screen.getByRole('button', { name: 'Kaydet' }));
+    expect(mockSaveToggle).toHaveBeenCalledWith('t1');
+    expect(screen.getByRole('button', { name: 'Kaydedildi' }).props.accessibilityState).toMatchObject({ selected: true });
+    expect(navigate).not.toHaveBeenCalled();
   });
 
   it('a demo team gets one DemoTag; the name is never repeated as "(örnek)" or "Örnek"', async () => {

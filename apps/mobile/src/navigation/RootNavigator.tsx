@@ -21,6 +21,7 @@ import { usePrefs } from '../features/onboarding/PrefsProvider';
 import { useAccountState, useSession } from '../features/auth/SessionProvider';
 import { OpportunitiesScreen } from '../features/opportunities/OpportunitiesScreen';
 import { ProfileScreen } from '../features/profile/ProfileScreen';
+import { SavedScreen } from '../features/saved/SavedScreen';
 import { EditProfileScreen } from '../features/profile/EditProfileScreen';
 import { ExperienceEditorScreen } from '../features/profile/ExperienceEditorScreen';
 import { ExperienceDetailScreen } from '../features/profile/ExperienceDetailScreen';
@@ -82,7 +83,7 @@ const filterSheetOptions: NativeStackNavigationOptions = { presentation: 'formSh
 const EventsStack = () => <Events.Navigator screenOptions={stackOptions}><Events.Screen name="EventsList" component={EventsListScreen} />{eventJourney(Events)}</Events.Navigator>;
 const OpportunitiesStack = () => <Opportunities.Navigator screenOptions={stackOptions}><Opportunities.Screen name="OpportunitiesHome" component={OpportunitiesScreen} /><Opportunities.Screen name="Deadlines" component={DeadlinesScreen} /><Opportunities.Screen name="OpportunityDetail" component={OpportunityDetailScreen} /><Opportunities.Screen name="OpportunityApply" component={OpportunityApplyScreen} /><Opportunities.Screen name="MyApplications" component={MyApplicationsScreen} /></Opportunities.Navigator>;
 const CommunityStack = () => <Community.Navigator screenOptions={stackOptions}><Community.Screen name="CommunityHome" component={CommunityScreen} /><Community.Screen name="TeamDetail" component={TeamDetailScreen} /><Community.Screen name="TeamWorkspace" component={TeamWorkspaceScreen} /><Community.Screen name="TeamTaskEditor" component={TeamTaskEditorScreen} /><Community.Screen name="TeamProjectEditor" component={TeamProjectEditorScreen} /><Community.Screen name="RecruitmentPostEditor" component={RecruitmentPostEditorScreen} /><Community.Screen name="CreateTeam" component={CreateTeamScreen} /></Community.Navigator>;
-const ProfileStack = () => <Profile.Navigator screenOptions={stackOptions}><Profile.Screen name="ProfileHome" component={ProfileScreen} /><Profile.Screen name="CheckIn" component={CheckInScreen} /><Profile.Screen name="EditProfile" component={EditProfileScreen} /><Profile.Screen name="ExperienceEditor" component={ExperienceEditorScreen} /><Profile.Screen name="ExperienceDetail" component={ExperienceDetailScreen} />{eventJourney(Profile)}</Profile.Navigator>;
+const ProfileStack = () => <Profile.Navigator screenOptions={stackOptions}><Profile.Screen name="ProfileHome" component={ProfileScreen} /><Profile.Screen name="CheckIn" component={CheckInScreen} /><Profile.Screen name="Saved" component={SavedScreen} /><Profile.Screen name="EditProfile" component={EditProfileScreen} /><Profile.Screen name="ExperienceEditor" component={ExperienceEditorScreen} /><Profile.Screen name="ExperienceDetail" component={ExperienceDetailScreen} />{eventJourney(Profile)}</Profile.Navigator>;
 
 /** Bottom tab label cap (dp): wide enough for "Etkinlikler" at the 12 pt minimum (57 dp) with a little slack, narrow enough for 5 tabs at 320 dp. */
 const TAB_LABEL_MAX_WIDTH = 64;

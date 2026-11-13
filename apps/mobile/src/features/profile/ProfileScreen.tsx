@@ -231,6 +231,7 @@ export function ProfileScreen({ navigation, route }: NativeStackScreenProps<Prof
             <View style={{ marginTop: space[7] }}>
             <ResponsiveGrid maxColumns={2}>
               <RowCard leading={{ kind: 'icon', icon: 'ticket' }} title="Katılımlarım" secondary="Kayıt durumların ve katılım kartların" trailing={{ kind: 'chevron' }} onPress={() => navigation.navigate('MyRegistrations')} />
+              <RowCard leading={{ kind: 'icon', icon: 'bookmark' }} title="Kaydedilenler" secondary="Etkinlik, fırsat ve takımlar" trailing={{ kind: 'chevron' }} onPress={() => navigation.navigate('Saved')} />
               {canCheckIn && <RowCard leading={{ kind: 'icon', icon: 'verified' }} title="Giriş kontrolü" secondary="Düzenleyen ekip için katılımcı girişi" trailing={{ kind: 'chevron' }} onPress={() => navigation.navigate('CheckIn')} />}
             </ResponsiveGrid>
             </View>

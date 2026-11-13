@@ -13,7 +13,8 @@ import { useMyProfile } from '../profile/api';
 import { fetchEventsPage } from '../events/api';
 import { isRegistrationClosed, toEventPoster } from '../events/labels';
 import { OPPORTUNITY_CARD_COLUMNS, type OpportunityCardRow } from '../opportunities/api';
-import { OPPORTUNITY_ROW_LINES, toOpportunityRow } from '../opportunities/labels';
+import { FOLLOW_LABELS, OPPORTUNITY_ROW_LINES, toOpportunityRow } from '../opportunities/labels';
+import { useBookmarks } from '../saved/useBookmarks';
 import { categoryIcon } from '../teams/categoryIcon';
 import { usePrefs } from '../onboarding/PrefsProvider';
 import { TEAM_PUBLIC_COLUMNS } from '../teams/api';
@@ -38,6 +39,7 @@ async function fetchPreview(): Promise<{ opportunities: OpportunityPreview[]; te
 
 export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverStackParamList, 'DiscoverHome'>) {
   const { prefs } = usePrefs();
+  const eventSaves = useBookmarks('event'); const oppSaves = useBookmarks('opportunity'); const teamSaves = useBookmarks('team');
   const [topic, setTopic] = useState<string | 'all' | 'mine'>(prefs.interestSlugs.length ? 'mine' : 'all');
   const [search, setSearch] = useState('');
   const [submitted, setSubmitted] = useState('');
@@ -123,7 +125,7 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
               {/* No vitrin: the list moves up; nothing reserves the hero's space. */}
               <SectionHeader title={submitted ? 'Sonuçlar' : 'Yaklaşan etkinlikler'} {...(submitted ? {} : { actionLabel: 'Tümünü gör', onAction: () => navigation.getParent()?.navigate('EventsTab') })} />
               <View style={{ gap: space[3] }}>
-                {listed.map((e) => <PosterCard key={e.id} {...toEventPoster(e)} onPress={() => openEvent(e.id)} />)}
+                {listed.map((e) => <PosterCard key={e.id} {...toEventPoster(e)} saved={eventSaves.ids.has(e.id)} onToggleSave={() => eventSaves.toggle(e.id)} onPress={() => openEvent(e.id)} />)}
               </View>
             </>
           )}
@@ -145,7 +147,7 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
           <SectionHeader title="Sıradaki adımın" actionLabel="Tümünü gör" onAction={() => navigation.getParent()?.navigate('OpportunitiesTab')} />
           <View style={{ gap: space[3] }}>
             {p.opportunities.map((o) => (
-              <RowCard key={o.id} {...toOpportunityRow(o)} trailing={{ kind: 'chevron' }} onPress={() => openOpportunity(o.id)} />
+              <RowCard key={o.id} {...toOpportunityRow(o)} trailing={{ kind: 'bookmark', saved: oppSaves.ids.has(o.id), onToggle: () => oppSaves.toggle(o.id), labels: FOLLOW_LABELS }} onPress={() => openOpportunity(o.id)} />
             ))}
           </View>
         </>
@@ -154,7 +156,7 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
         <>
           <SectionHeader title="Birlikte üretenler" actionLabel="Tümünü gör" onAction={() => navigation.getParent()?.navigate('CommunityTab')} />
           <MiniCardGrid>
-            {p.teams.slice(0, 2).map((t) => <MiniCard key={t.id} icon={categoryIcon(t.category_key, t.kind)} title={t.name} body={t.tagline ?? undefined} onPress={() => openTeam(t.id)} />)}
+            {p.teams.slice(0, 2).map((t) => <MiniCard key={t.id} icon={categoryIcon(t.category_key, t.kind)} title={t.name} body={t.tagline ?? undefined} saved={teamSaves.ids.has(t.id)} onToggleSave={() => teamSaves.toggle(t.id)} onPress={() => openTeam(t.id)} />)}
           </MiniCardGrid>
         </>
       )}

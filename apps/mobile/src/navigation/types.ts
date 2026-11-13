@@ -35,6 +35,7 @@ export type ProfileStackParamList = SharedEventParamList & {
   /** `segment`: open the profile with that segment selected (Topluluk > "Tüm takımların"). */
   ProfileHome: { segment?: 'Deneyimler' | 'Katılımlar' | 'Takımlar' } | undefined;
   CheckIn: undefined;
+  Saved: undefined;
   EditProfile: undefined;
   ExperienceEditor: { experienceId?: string };
   ExperienceDetail: { experienceId: string };

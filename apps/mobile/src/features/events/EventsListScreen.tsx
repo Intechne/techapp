@@ -6,6 +6,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppHeader, Chip, ChipRail, EmptyState, ErrorState, LoadingSkeleton, PosterCard, PosterCardSkeleton, Text, TextButton, colors, layout, space } from '../../design-system';
 import { toAppError } from '../../lib/errors';
 import type { EventsStackParamList } from '../../navigation/types';
+import { useBookmarks } from '../saved/useBookmarks';
 import { eventKeys, fetchEventsPage, type EventCursor } from './api';
 import { CLEARED_LIST_PARAMS, activeFilterCount, filterButtonLabel, readListFilters, toListParams, toQueryFilters } from './filters';
 import { EVENT_TYPE_FILTERS, toEventPoster, type EventWithOrg } from './labels';
@@ -29,11 +30,12 @@ export function EventsListScreen({ navigation, route }: NativeStackScreenProps<E
     getNextPageParam: (last) => last.nextCursor,
   });
   const items = useMemo(() => query.data?.pages.flatMap((p) => p.items) ?? [], [query.data]);
+  const saves = useBookmarks('event');
   const clear = () => navigation.setParams(CLEARED_LIST_PARAMS);
 
   const renderItem = useCallback(({ item }: { item: EventWithOrg }) => (
-    <PosterCard {...toEventPoster(item)} onPress={() => navigation.navigate('EventDetail', { eventId: item.id })} />
-  ), [navigation]);
+    <PosterCard {...toEventPoster(item)} saved={saves.ids.has(item.id)} onToggleSave={() => saves.toggle(item.id)} onPress={() => navigation.navigate('EventDetail', { eventId: item.id })} />
+  ), [navigation, saves.ids, saves.toggle]);
 
   // Tab root: one display headline, no slogan eyebrow (eyebrow is for categories and status only).
   const header = (

@@ -4,6 +4,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { EventDetailScreen } from '../EventDetailScreen';
 
+// Save state is its own module (saved/__tests__); screens here only see ids + toggle.
+const mockSaveToggle = jest.fn(); let mockSavedIds = new Set<string>();
+jest.mock('../../saved/useBookmarks', () => ({ useBookmarks: () => ({ ids: mockSavedIds, toggle: mockSaveToggle, pending: false, requiresAuth: false, ready: true }) }));
+beforeEach(() => { mockSavedIds = new Set(); mockSaveToggle.mockClear(); });
+
 const DAY = 86_400_000;
 const iso = (d: number) => new Date(Date.now() + d * DAY).toISOString();
 const baseEvent = {
@@ -111,6 +116,26 @@ describe('Etkinlik detayı — tek engel kutusu, pasif birincil düğme yok', ()
     await renderDetail();
     expect(screen.queryByText('Etkinlik')).toBeNull();
     expect(screen.getByRole('button', { name: 'Paylaş' })).toBeTruthy();
+  });
+
+  it('the header carries the save control next to share; its state is spoken', async () => {
+    await renderDetail();
+    await fireEvent.press(screen.getByRole('button', { name: 'Kaydet' }));
+    expect(mockSaveToggle).toHaveBeenCalledWith('e1');
+  });
+
+  it('saved: the header control reads "Kaydedildi" and is selected', async () => {
+    mockSavedIds = new Set(['e1']);
+    await renderDetail();
+    expect(screen.getByRole('button', { name: 'Kaydedildi' }).props.accessibilityState).toMatchObject({ selected: true });
+  });
+
+  it('registration not open yet: the footer offers "Kaydet" (the one thing that still helps), not a disabled button', async () => {
+    mockEligibility = { ...baseEligibility, eligible: false, reasons: ['registration_not_open'] };
+    await renderDetail();
+    await screen.findByTestId('blocker-footer');
+    expect(screen.getAllByRole('button', { name: 'Kaydet' })).toHaveLength(2); // header + footer
+    expect(disabledButtons()).toHaveLength(0);
   });
 
   it('organiser name is a verified organiser row and never upper-cased', async () => {

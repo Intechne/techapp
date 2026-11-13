@@ -6,6 +6,11 @@ import { EventsListScreen } from '../EventsListScreen';
 import { EventFiltersScreen } from '../EventFiltersScreen';
 import { DEFAULT_LIST_FILTERS, activeFilterCount, findEventsList, readListFilters, toListParams, toQueryFilters, type EventListParams } from '../filters';
 
+// Save state is its own module (saved/__tests__); screens here only see ids + toggle.
+const mockSaveToggle = jest.fn(); let mockSavedIds = new Set<string>();
+jest.mock('../../saved/useBookmarks', () => ({ useBookmarks: () => ({ ids: mockSavedIds, toggle: mockSaveToggle, pending: false, requiresAuth: false, ready: true }) }));
+beforeEach(() => { mockSavedIds = new Set(); mockSaveToggle.mockClear(); });
+
 const DAY = 86_400_000;
 const iso = (d: number) => new Date(Date.now() + d * DAY).toISOString();
 const event = (id: string, title: string) => ({
@@ -102,6 +107,20 @@ describe('Etkinlikler listesi — filtreler', () => {
     await screen.findAllByText('Robot atölyesi');
     await fireEvent.press(screen.getByRole('button', { name: 'Hackathon' }));
     expect(await screen.findByRole('button', { name: 'Filtrele · 2' })).toBeTruthy();
+  });
+
+  it('every poster carries the save control: filled + "Kaydedildi" when saved, a tap toggles that event only', async () => {
+    data.events = [event('e1', 'Robot atölyesi'), event('e2', 'Hackathon günü')];
+    mockSavedIds = new Set(['e2']);
+    await render(wrap(<ListHarness />));
+    await screen.findAllByText('Robot atölyesi');
+    const save = screen.getByRole('button', { name: 'Kaydet' });
+    const saved = screen.getByRole('button', { name: 'Kaydedildi' });
+    expect(saved.props.accessibilityState).toMatchObject({ selected: true });
+    expect(save.props.accessibilityState).toMatchObject({ selected: false });
+    await fireEvent.press(save);
+    expect(mockSaveToggle).toHaveBeenCalledWith('e1');
+    expect(navigate).not.toHaveBeenCalledWith('EventDetail', expect.anything());
   });
 
   it('the slogan eyebrow is gone (eyebrow is for categories only)', async () => {

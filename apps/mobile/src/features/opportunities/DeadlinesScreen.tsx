@@ -6,17 +6,15 @@ import { AppHeader, EmptyState, ErrorState, LoadingSkeleton, ResponsiveGrid, Row
 import { toAppError } from '../../lib/errors';
 import type { OpportunitiesStackParamList } from '../../navigation/types';
 import { fetchOpportunities, opportunityKeys } from './api';
-import { OPPORTUNITY_ROW_LINES, groupByHorizon, toOpportunityRow } from './labels';
-import { useFollowedOpportunities } from './useFollow';
+import { FOLLOW_LABELS, OPPORTUNITY_ROW_LINES, groupByHorizon, toOpportunityRow } from './labels';
+import { useBookmarks } from '../saved/useBookmarks';
 
 const SEGMENTS = ['Tüm son tarihler', 'Takip ettiklerim'] as const;
-const FOLLOW_LABELS = { save: 'Son tarihi takip et', unsave: 'Takipten çıkar' };
-
 /** Deadline calendar: every open call ordered by its closing date, grouped Bu hafta / Bu ay / Sonra. */
 export function DeadlinesScreen({ navigation }: NativeStackScreenProps<OpportunitiesStackParamList, 'Deadlines'>) {
   const [segment, setSegment] = useState<(typeof SEGMENTS)[number]>('Tüm son tarihler');
   const q = useQuery({ queryKey: opportunityKeys.list('all'), queryFn: () => fetchOpportunities('all') });
-  const follow = useFollowedOpportunities();
+  const follow = useBookmarks('opportunity');
   const groups = useMemo(() => groupByHorizon((q.data ?? []).filter((o) => segment === 'Tüm son tarihler' || follow.ids.has(o.id))), [q.data, segment, follow.ids]);
 
   return (
@@ -35,7 +33,7 @@ export function DeadlinesScreen({ navigation }: NativeStackScreenProps<Opportuni
             <ResponsiveGrid>
               {g.items.map((o) => (
                 <RowCard key={o.id} {...toOpportunityRow(o)}
-                  trailing={follow.requiresAuth ? { kind: 'chevron' } : { kind: 'bookmark', saved: follow.ids.has(o.id), onToggle: () => follow.toggle(o.id), labels: FOLLOW_LABELS }}
+                  trailing={{ kind: 'bookmark', saved: follow.ids.has(o.id), onToggle: () => follow.toggle(o.id), labels: FOLLOW_LABELS }}
                   onPress={() => navigation.navigate('OpportunityDetail', { opportunityId: o.id })} />
               ))}
             </ResponsiveGrid>

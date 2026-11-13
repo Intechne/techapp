@@ -7,6 +7,7 @@ import { toAppError } from '../../lib/errors';
 import type { CommunityStackParamList } from '../../navigation/types';
 import { useSession } from '../auth/SessionProvider';
 import { fetchMyTeams, fetchTeams, teamKeys } from '../teams/api';
+import { useBookmarks } from '../saved/useBookmarks';
 import { ROLE_NAME } from '../teams/labels';
 import { categoryIcon } from '../teams/categoryIcon';
 
@@ -17,6 +18,7 @@ const TEAM_ROW_LINES: RowLines = { title: 1, secondary: 2, footnote: 'text' };
 
 export function CommunityScreen({ navigation }: NativeStackScreenProps<CommunityStackParamList, 'CommunityHome'>) {
   const { userId } = useSession();
+  const saves = useBookmarks('team');
   const [segment, setSegment] = useState<(typeof SEGMENTS)[number]>('Takımlar');
   const kind = segment === 'Takımlar' ? 'team' : 'community';
   const list = useQuery({ queryKey: teamKeys.list(kind), queryFn: () => fetchTeams(kind) });
@@ -60,7 +62,7 @@ export function CommunityScreen({ navigation }: NativeStackScreenProps<Community
                 {list.data.map((t) => (
                   <RowCard key={t.id} leading={{ kind: 'icon', icon: categoryIcon(t.category_key, t.kind) }} title={t.name} secondary={t.tagline ?? undefined}
                     footnote={metaJoin([formatCount(t.member_count, MEMBER), t.category, t.city])} isDemo={t.is_demo}
-                    trailing={{ kind: 'chevron' }} onPress={() => navigation.navigate('TeamDetail', { teamId: t.id })} />
+                    trailing={{ kind: 'bookmark', saved: saves.ids.has(t.id), onToggle: () => saves.toggle(t.id) }} onPress={() => navigation.navigate('TeamDetail', { teamId: t.id })} />
                 ))}
               </ResponsiveGrid>
             )}

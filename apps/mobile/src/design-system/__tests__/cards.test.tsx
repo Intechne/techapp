@@ -125,7 +125,7 @@ describe('RowCard', () => {
   it('trailing bookmark presses do not reach the card; status reads in the label', async () => {
     const open = jest.fn(); const toggle = jest.fn();
     const { unmount } = await render(<RowCard leading={{ kind: 'icon', icon: 'opportunity' }} title="Genç Mucit Hibesi" trailing={{ kind: 'bookmark', saved: true, onToggle: toggle }} onPress={open} />);
-    await fireEvent.press(screen.getByRole('button', { name: 'Kaydı kaldır' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Kaydedildi' }));
     expect(toggle).toHaveBeenCalledTimes(1); expect(open).not.toHaveBeenCalled();
     await unmount();
     await render(<RowCard leading={{ kind: 'image', path: null, fallbackIcon: 'team' }} title="Başvurum" trailing={{ kind: 'status', view: { label: 'İNCELEMEDE', tone: 'iris' } }} onPress={open} />);
@@ -317,6 +317,20 @@ describe('numbers with short units', () => {
   });
 });
 
+describe('MiniCard save slot', () => {
+  it('is optional; with it the card gets its own 44 px save button that does not open the card', async () => {
+    const open = jest.fn(); const save = jest.fn();
+    const { unmount } = await render(<MiniCard icon="team" title="Orbit Robotik" onPress={open} />);
+    expect(screen.queryByRole('button', { name: 'Kaydet' })).toBeNull();
+    await unmount();
+    await render(<MiniCard icon="team" title="Orbit Robotik" saved onToggleSave={save} onPress={open} />);
+    const btn = screen.getByRole('button', { name: 'Kaydedildi' });
+    expect(btn.props.accessibilityState).toMatchObject({ selected: true });
+    await fireEvent.press(btn);
+    expect(save).toHaveBeenCalledTimes(1); expect(open).not.toHaveBeenCalled();
+  });
+});
+
 describe('BookmarkButton', () => {
   it('names its state and keeps a 44×44 target', async () => {
     const { unmount } = await render(<BookmarkButton saved={false} onToggle={jest.fn()} />);
@@ -325,7 +339,7 @@ describe('BookmarkButton', () => {
     expect(flat(btn).height).toBeGreaterThanOrEqual(layout.touchTarget);
     await unmount();
     await render(<BookmarkButton saved onToggle={jest.fn()} />);
-    expect(screen.getByRole('button', { name: 'Kaydı kaldır' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Kaydedildi' }).props.accessibilityState).toMatchObject({ selected: true });
   });
   it('accepts domain wording (follow a deadline) without changing the control', async () => {
     await render(<BookmarkButton saved={false} onToggle={jest.fn()} labels={{ save: 'Son tarihi takip et', unsave: 'Takipten çıkar' }} />);

@@ -5,6 +5,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { makeError } from '../../../lib/errors';
 import { TeamDetailScreen } from '../TeamDetailScreen';
 
+// Save state is its own module (saved/__tests__); screens here only see ids + toggle.
+const mockSaveToggle = jest.fn(); let mockSavedIds = new Set<string>();
+jest.mock('../../saved/useBookmarks', () => ({ useBookmarks: () => ({ ids: mockSavedIds, toggle: mockSaveToggle, pending: false, requiresAuth: false, ready: true }) }));
+beforeEach(() => { mockSavedIds = new Set(); mockSaveToggle.mockClear(); });
+
 const team = (over: Record<string, unknown> = {}) => ({
   id: 't1', name: 'Orbit Robotik', kind: 'team', tagline: null, category: 'Robotik', category_key: 'robotics', city: null, about: 'Haftada üç gün atölyede.',
   member_count: 15, is_demo: false, accepts_join_requests: true, cover_path: null, cover_blurhash: null, ...over,
@@ -57,6 +62,12 @@ const order = (...titles: string[]) => {
 };
 
 describe('Takım profili — bölümler', () => {
+  it('the header carries the save control for this team', async () => {
+    await detail();
+    await fireEvent.press(await screen.findByRole('button', { name: 'Kaydet' }));
+    expect(mockSaveToggle).toHaveBeenCalledWith('t1');
+  });
+
   it('sections run Hakkında → Rol dağılımı → Açık roller → Projeler → Etkinlikler', async () => {
     mockPosts = [post()]; mockProjects = [project()]; mockProfile = profile({ events: [{ id: 'e1', title: 'Bahar kampı', starts_at: '2027-03-01T09:00:00Z' }] });
     await detail();

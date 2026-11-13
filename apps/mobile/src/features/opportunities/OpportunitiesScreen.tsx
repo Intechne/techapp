@@ -8,16 +8,13 @@ import { toAppError } from '../../lib/errors';
 import type { OpportunityType } from '../../lib/database.types';
 import type { OpportunitiesStackParamList } from '../../navigation/types';
 import { fetchOpportunities, opportunityKeys } from './api';
-import { OPPORTUNITY_TYPE, OPPORTUNITY_ROW_LINES, TYPE_FILTERS, isOpen, toOpportunityRow } from './labels';
-import { useFollowedOpportunities } from './useFollow';
-
-/** Saving an opportunity means following its deadline: the control is the card bookmark, the words stay specific. */
-const FOLLOW_LABELS = { save: 'Son tarihi takip et', unsave: 'Takipten çıkar' };
+import { FOLLOW_LABELS, OPPORTUNITY_TYPE, OPPORTUNITY_ROW_LINES, TYPE_FILTERS, isOpen, toOpportunityRow } from './labels';
+import { useBookmarks } from '../saved/useBookmarks';
 
 export function OpportunitiesScreen({ navigation }: NativeStackScreenProps<OpportunitiesStackParamList, 'OpportunitiesHome'>) {
   const [type, setType] = useState<OpportunityType | 'all'>('all');
   const q = useQuery({ queryKey: opportunityKeys.list(type), queryFn: () => fetchOpportunities(type) });
-  const follow = useFollowedOpportunities();
+  const follow = useBookmarks('opportunity');
   // The server only returns open calls; this also drops one whose deadline passed while the screen stayed open.
   const rows = (q.data ?? []).filter((o) => isOpen(o));
   const open = (id: string) => { track('opportunity_opened', { opportunity_id: id }); navigation.navigate('OpportunityDetail', { opportunityId: id }); };
@@ -39,7 +36,7 @@ export function OpportunitiesScreen({ navigation }: NativeStackScreenProps<Oppor
             <ResponsiveGrid>
               {rows.map((o) => (
                 <RowCard key={o.id} {...toOpportunityRow(o)}
-                  trailing={follow.requiresAuth ? { kind: 'chevron' } : { kind: 'bookmark', saved: follow.ids.has(o.id), onToggle: () => follow.toggle(o.id), labels: FOLLOW_LABELS }}
+                  trailing={{ kind: 'bookmark', saved: follow.ids.has(o.id), onToggle: () => follow.toggle(o.id), labels: FOLLOW_LABELS }}
                   onPress={() => open(o.id)} />
               ))}
             </ResponsiveGrid>

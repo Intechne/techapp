@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, ApplicationStatus, Button, Divider, ErrorState, IconButton, LoadingSkeleton, MetadataRow, Notice, OrganizerRow, Poster, ReadMoreText, Screen, Tag, TechIcon, Text, colors, semantic, space, useToast } from '../../design-system';
+import { AppHeader, ApplicationStatus, Button, BookmarkButton, Divider, ErrorState, LoadingSkeleton, MetadataRow, Notice, OrganizerRow, Poster, ReadMoreText, Screen, Tag, TechIcon, Text, semantic, space, useToast } from '../../design-system';
 import { formatDate } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
 import { openExternalUrl } from '../../lib/links';
@@ -11,8 +11,8 @@ import type { OpportunitiesStackParamList } from '../../navigation/types';
 import { useAccountState, useSession } from '../auth/SessionProvider';
 import { usePendingIntent } from '../auth/pendingIntent';
 import { fetchMyApplicationFor, fetchOpportunity, opportunityKeys } from './api';
-import { OPPORTUNITY_TYPE, SHARED_FIELD_LABEL, deadlineTag, deadlineView, opportunityIneligibility, placeOf } from './labels';
-import { useFollowedOpportunities } from './useFollow';
+import { FOLLOW_LABELS, OPPORTUNITY_TYPE, SHARED_FIELD_LABEL, deadlineTag, deadlineView, opportunityIneligibility, placeOf } from './labels';
+import { useBookmarks } from '../saved/useBookmarks';
 
 const sem = semantic.light;
 
@@ -21,7 +21,7 @@ export function OpportunityDetailScreen({ navigation, route }: NativeStackScreen
   const { userId } = useSession(); const account = useAccountState(); const intent = usePendingIntent(); const toast = useToast();
   const q = useQuery({ queryKey: opportunityKeys.detail(opportunityId), queryFn: () => fetchOpportunity(opportunityId) });
   const mine = useQuery({ queryKey: opportunityKeys.myApplicationFor(opportunityId, userId), queryFn: () => fetchMyApplicationFor(userId!, opportunityId), enabled: !!userId });
-  const follow = useFollowedOpportunities();
+  const follow = useBookmarks('opportunity');
 
   useFocusEffect(useCallback(() => {
     if (userId && intent.consume('apply_opportunity')) navigation.navigate('OpportunityApply', { opportunityId });
@@ -52,13 +52,13 @@ export function OpportunityDetailScreen({ navigation, route }: NativeStackScreen
           <TechIcon name="info" size={18} color={sem.text.secondary} />
           <Text variant="bodySmall" color="textSecondary" style={{ flex: 1 }}>{blocker.reason}</Text>
         </View>
-        {blocker.saveable && !follow.requiresAuth && <Button kind="secondary" icon="bookmark" label={saved ? 'Kaydedildi' : 'Kaydet'} onPress={() => follow.toggle(o.id)} />}
+        {blocker.saveable && <Button kind="secondary" icon="bookmark" label={saved ? 'Kaydedildi' : 'Kaydet'} onPress={() => follow.toggle(o.id)} />}
       </>
     ) : <Button label={external ? 'Başvuru sayfasına git' : 'Başvurunu hazırla'} iconRight={external ? 'link' : 'arrow'} onPress={apply} />;
   const tag = closed ? { label: 'BAŞVURULAR KAPANDI', tone: 'neutral' as const, icon: 'clock' as const } : deadlineTag(o.closes_at);
 
   return (
-    <Screen header={<AppHeader onBack={navigation.goBack} right={follow.requiresAuth ? undefined : <IconButton icon="bookmark" filled={follow.ids.has(o.id)} color={follow.ids.has(o.id) ? colors.primary : colors.ink} accessibilityLabel={follow.ids.has(o.id) ? 'Takipten çıkar' : 'Son tarihi takip et'} onPress={() => follow.toggle(o.id)} />} />}
+    <Screen header={<AppHeader onBack={navigation.goBack} right={<BookmarkButton saved={saved} labels={FOLLOW_LABELS} onToggle={() => follow.toggle(o.id)} />} />}
       footer={footer} refreshing={q.isRefetching} onRefresh={() => { void q.refetch(); void mine.refetch(); }}>
       <Poster large tone={o.tone as 'iris' | 'moss' | 'apricot' | 'ink'} icon={type.icon} typeLabel={type.label.toLocaleUpperCase('tr')} line={o.reward_note ?? o.title} cover={{ path: o.cover_path, blurhash: o.cover_blurhash }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginTop: space[4] }}>

@@ -5,6 +5,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { CommunityScreen } from '../../community/CommunityScreen';
 import { fetchMyTeams } from '../api';
 
+// Save state is its own module (saved/__tests__); screens here only see ids + toggle.
+const mockSaveToggle = jest.fn(); let mockSavedIds = new Set<string>();
+jest.mock('../../saved/useBookmarks', () => ({ useBookmarks: () => ({ ids: mockSavedIds, toggle: mockSaveToggle, pending: false, requiresAuth: false, ready: true }) }));
+
 // A captain's RLS view of team_memberships: own rows AND every row of the teams they manage (incl. join notes).
 const MOCK_CAPTAIN = 'cap-1';
 const team = (id: string, name: string) => ({ id, name, kind: 'team', tagline: null, category: null, city: null, member_count: 3, is_demo: false });

@@ -3,13 +3,14 @@ import { useFocusEffect } from '@react-navigation/native';
 import { StyleSheet, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, ApplicationStatus, Avatar, BottomSheet, Button, Card, DemoTag, Divider, ErrorState, LoadingSkeleton, MetadataRow, Notice, Screen, StatusBadge, Tag, Text, TextArea, TextButton, colors, formatCount, membershipStatusView, radius, space, useToast } from '../../design-system';
+import { AppHeader, ApplicationStatus, Avatar, BookmarkButton, BottomSheet, Button, Card, DemoTag, Divider, ErrorState, LoadingSkeleton, MetadataRow, Notice, Screen, StatusBadge, Tag, Text, TextArea, TextButton, colors, formatCount, membershipStatusView, radius, space, useToast } from '../../design-system';
 import { formatDate } from '../../lib/dates';
 import { openExternalUrl } from '../../lib/links';
 import { toAppError } from '../../lib/errors';
 import type { CommunityStackParamList } from '../../navigation/types';
 import { useSession } from '../auth/SessionProvider';
 import { usePendingIntent } from '../auth/pendingIntent';
+import { useBookmarks } from '../saved/useBookmarks';
 import { fetchMyMembership, fetchMyRecruitmentApplications, fetchOpenPosts, fetchTeam, fetchTeamProfile, fetchTeamProjects, requestJoin, teamKeys, withdrawJoin, type RecruitmentPost } from './api';
 import { categoryIcon } from './categoryIcon';
 import { KIND_LABEL, RECRUITMENT_STATUS, ROLE_LABEL, ROLE_NAME, ROLE_TONE } from './labels';
@@ -26,6 +27,7 @@ export function TeamDetailScreen({ navigation, route }: NativeStackScreenProps<C
   const { userId } = useSession();
   const qc = useQueryClient(); const toast = useToast();
   const intent = usePendingIntent();
+  const saves = useBookmarks('team');
   const [sheet, setSheet] = useState(false); const [message, setMessage] = useState(''); const [applyTo, setApplyTo] = useState<RecruitmentPost | null>(null);
 
   const team = useQuery({ queryKey: teamKeys.detail(teamId), queryFn: () => fetchTeam(teamId) });
@@ -65,7 +67,7 @@ export function TeamDetailScreen({ navigation, route }: NativeStackScreenProps<C
         : <Button label="Katılma isteği gönder" loading={!!userId && membership.isPending} onPress={openJoin} />;
 
   return (
-    <Screen header={<AppHeader onBack={navigation.goBack} />} footer={footer}
+    <Screen header={<AppHeader onBack={navigation.goBack} right={<BookmarkButton saved={saves.ids.has(teamId)} onToggle={() => saves.toggle(teamId)} />} />} footer={footer}
       refreshing={team.isRefetching} onRefresh={() => { void team.refetch(); void posts.refetch(); void profile.refetch(); void projects.refetch(); if (userId) void membership.refetch(); }}>
       <TeamCover label={[KIND_LABEL[t.kind], t.category?.toLocaleUpperCase('tr')].filter(Boolean).join(' · ')} name={t.name} tagline={t.tagline} icon={categoryIcon(t.category_key, t.kind)} cover={{ path: t.cover_path, blurhash: t.cover_blurhash }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginTop: space[4] }}>

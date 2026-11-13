@@ -94,9 +94,11 @@ describe('Profil üst kartı', () => {
     } finally { Object.defineProperty(Platform, 'OS', { value: OS, configurable: true }); }
   });
 
-  it('does not show dead entries for modules that do not exist yet (Kaydedilenler, Bildirimler, Ayarlar)', async () => {
+  it('shows Kaydedilenler and still no dead entries for modules that do not exist yet (Bildirimler, Ayarlar)', async () => {
     await open();
-    for (const name of [/Kaydedilenler/, /Bildirimler/, /Ayarlar/]) expect(screen.queryByText(name)).toBeNull();
+    for (const name of [/Bildirimler/, /Ayarlar/]) expect(screen.queryByText(name)).toBeNull();
+    await fireEvent.press(screen.getByText('Kaydedilenler'));
+    expect(navigate).toHaveBeenCalledWith('Saved');
   });
 });
 

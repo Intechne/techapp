@@ -90,25 +90,10 @@ export async function fetchMyApplicationFor(userId: string, opportunityId: strin
   return data;
 }
 
-/** "Takip et": a followed call shows up in Son tarihler → Takip ettiklerim. Stored as the user's own bookmark (RLS). */
-export async function fetchFollowedOpportunityIds(userId: string): Promise<string[]> {
-  const { data, error } = await getSupabase().from('bookmarks').select('target_id').eq('user_id', userId).eq('target_type', 'opportunity');
-  if (error) throw toAppError(error);
-  return data.map((b) => b.target_id);
-}
-export async function setFollowed(userId: string, opportunityId: string, follow: boolean): Promise<void> {
-  const supabase = getSupabase();
-  const { error } = follow
-    ? await supabase.from('bookmarks').upsert({ user_id: userId, target_type: 'opportunity', target_id: opportunityId }, { onConflict: 'user_id,target_type,target_id', ignoreDuplicates: true })
-    : await supabase.from('bookmarks').delete().eq('user_id', userId).eq('target_type', 'opportunity').eq('target_id', opportunityId);
-  if (error) throw toAppError(error);
-}
-
 export const opportunityKeys = {
   list: (type: string) => ['opportunities', 'list', type] as const,
   detail: (id: string) => ['opportunities', 'detail', id] as const,
   preview: (id: string, userId: string | null) => ['opportunities', 'preview', id, userId] as const,
   myApplications: (userId: string | null) => ['applications', 'mine', userId] as const,
   myApplicationFor: (id: string, userId: string | null) => ['applications', 'for', id, userId] as const,
-  followed: (userId: string | null) => ['opportunities', 'followed', userId] as const,
 };
