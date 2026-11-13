@@ -30,12 +30,12 @@ export function EventsListScreen({ navigation, route }: NativeStackScreenProps<E
     getNextPageParam: (last) => last.nextCursor,
   });
   const items = useMemo(() => query.data?.pages.flatMap((p) => p.items) ?? [], [query.data]);
-  const saves = useBookmarks('event');
+  const { ids: savedIds, toggle: toggleSave } = useBookmarks('event');
   const clear = () => navigation.setParams(CLEARED_LIST_PARAMS);
 
   const renderItem = useCallback(({ item }: { item: EventWithOrg }) => (
-    <PosterCard {...toEventPoster(item)} saved={saves.ids.has(item.id)} onToggleSave={() => saves.toggle(item.id)} onPress={() => navigation.navigate('EventDetail', { eventId: item.id })} />
-  ), [navigation, saves.ids, saves.toggle]);
+    <PosterCard {...toEventPoster(item)} saved={savedIds.has(item.id)} onToggleSave={() => toggleSave(item.id)} onPress={() => navigation.navigate('EventDetail', { eventId: item.id })} />
+  ), [navigation, savedIds, toggleSave]);
 
   // Tab root: one display headline, no slogan eyebrow (eyebrow is for categories and status only).
   const header = (
