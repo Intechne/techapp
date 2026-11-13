@@ -5,12 +5,15 @@
 -- The first segment is the entity kind, the second is the OWNER folder (organisation or team id). The uploader produces two
 -- files: the main image and a 640 px copy with the same name plus `-640` (`<uuid>-640.webp`). The thumbnail name is a client
 -- convention only: the database stores the main path; clients derive the thumbnail by replacing `.webp` with `-640.webp`.
--- No image transformation service (paid plan feature). The bucket accepts image/webp only: clients (T4 admin, T5 mobile)
+-- No image transformation service (paid plan feature). The bucket accepts image/webp only: clients (T4 admin; T5 mobile when re-enabled)
 -- MUST re-encode every picture to WebP before upload, which also strips EXIF/GPS metadata from camera photos.
 --
 -- Who may write a folder (app.can_write_cover_folder — the same rule backs set_cover AND the storage policies):
---   events / opportunities → owner | admin | editor of that organisation · teams → an ACTIVE captain of that team ·
---   platform admin → every folder.
+--   events / opportunities → owner | admin | editor of that organisation · platform admin → every folder ·
+--   teams → platform admin ONLY for now. Kullanıcı kararı 13 Kas 2026: takım kapağı hukuki inceleme ve fotoğraf politikasına
+--   kadar kapalı (team photos usually show minors; Faz 3b Task 5 skipped). The captain rule (an ACTIVE captain of that team)
+--   is kept behind one switch, app.team_cover_writes_enabled() = false; the team's own captain gets 403 team_cover_disabled
+--   from set_cover and from the storage upload. Re-enable = a new migration that redefines that switch to return true.
 --
 -- One write path: public.set_cover(). A trigger refuses any other write of cover_path / cover_blurhash. set_cover marks its own
 -- UPDATE with the transaction-local setting app.cover_write = '<table>:<row id>' and clears it right after. API clients cannot
@@ -39,7 +42,7 @@
 --   The delete policy enforces the order: a file in use cannot be deleted.
 --   CDN caveat: public URLs may be cached at the CDN / in clients (expo-image disk cache) for a while after the delete.
 --
--- Orphan policy: the T4 (admin) and T5 (mobile) clients delete the old file pair through the Storage API after a successful
+-- Orphan policy: the T4 (admin) client (and T5 mobile, if re-enabled) deletes the old file pair through the Storage API after a successful
 -- replace or remove. Files left behind (failed uploads, crashes) are removed by a scheduled cleanup that is NOT built yet:
 -- an Edge Function on a schedule, using the Storage API (not SQL DELETE), deleting `covers` objects that are not in use
 -- (app.cover_object_in_use) and older than 24 h. Target: Faz 6 ops (no Faz 3b task fits).
@@ -84,14 +87,32 @@ language sql immutable set search_path = '' as $$
          '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(-640)?\.webp$';
 $$;
 
+-- Kullanıcı kararı 13 Kas 2026: takım kapağı hukuki inceleme ve fotoğraf politikasına kadar kapalı.
+-- Team photos usually show minors; until legal review and a photo policy exist, teams keep the fallback circuit poster and
+-- only a platform admin can write a team cover. This is the single switch for the captain rule below — re-enable it with a
+-- new migration that redefines this function to return true (do not edit the rule itself).
+create or replace function app.team_cover_writes_enabled() returns boolean
+language sql immutable set search_path = '' as $$ select false $$;
+
 create or replace function app.can_write_cover_folder(p_kind text, p_folder uuid) returns boolean
 language sql stable security definer set search_path = '' as $$
   select (select auth.uid()) is not null and p_folder is not null and (
     app.is_platform_admin()
     or (p_kind in ('events', 'opportunities')
         and app.has_org_role(p_folder, array['owner', 'admin', 'editor']::public.org_member_role[]))
-    or (p_kind = 'teams' and app.is_team_captain(p_folder)));
+    or (p_kind = 'teams' and app.team_cover_writes_enabled() and app.is_team_captain(p_folder)));
 $$;
+
+-- While team covers are closed, the team's own active captain gets a dedicated code instead of a bare 403 / RLS refusal, so
+-- an app build that still offers the action can say why. Everyone else falls through to the normal checks.
+create or replace function app.fail_if_team_cover_disabled(p_kind text, p_folder uuid) returns void
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if p_kind = 'teams' and not app.team_cover_writes_enabled() and not app.is_platform_admin()
+     and app.is_team_captain(p_folder) then
+    perform app.fail(403, 'team_cover_disabled');
+  end if;
+end $$;
 
 -- Storage policy check for an object name: well-formed and inside a folder the caller may write.
 create or replace function app.can_write_cover_object(p_name text) returns boolean
@@ -100,6 +121,17 @@ declare m text[] := regexp_match(p_name, app.cover_object_pattern());
 begin
   if m is null then return false; end if;
   return app.can_write_cover_folder(m[1], m[2]::uuid);
+end $$;
+
+-- Storage INSERT check: well-formed, a folder the caller may write, and not a name a row uses (a bound path is never refilled).
+-- Separate from can_write_cover_object because it may raise team_cover_disabled — never from a SELECT/DELETE policy.
+create or replace function app.can_insert_cover_object(p_name text) returns boolean
+language plpgsql stable security definer set search_path = '' as $$
+declare m text[] := regexp_match(p_name, app.cover_object_pattern());
+begin
+  if m is null then return false; end if;
+  perform app.fail_if_team_cover_disabled(m[1], m[2]::uuid);
+  return app.can_write_cover_folder(m[1], m[2]::uuid) and not app.cover_object_in_use(p_name);
 end $$;
 
 -- True when a row currently uses this object as its cover (the main file or its -640 copy).
@@ -112,9 +144,11 @@ language sql stable security definer set search_path = '' as $$
 $$;
 
 -- Not callable by the API roles except where a storage policy needs it (policies run with the caller's privileges).
-revoke execute on function app.cover_object_pattern(), app.can_write_cover_folder(text, uuid),
-  app.can_write_cover_object(text), app.cover_object_in_use(text) from public, anon;
-grant execute on function app.can_write_cover_object(text), app.cover_object_in_use(text) to authenticated;
+revoke execute on function app.cover_object_pattern(), app.team_cover_writes_enabled(), app.can_write_cover_folder(text, uuid),
+  app.fail_if_team_cover_disabled(text, uuid), app.can_write_cover_object(text), app.can_insert_cover_object(text),
+  app.cover_object_in_use(text) from public, anon;
+grant execute on function app.can_write_cover_object(text), app.can_insert_cover_object(text), app.cover_object_in_use(text)
+  to authenticated;
 
 -- ================================================================ 3. one write path
 create or replace function app.guard_cover_columns() returns trigger
@@ -185,6 +219,7 @@ begin
   end if;
   if v_owner is null then perform app.fail(404, 'cover_target_not_found'); end if;
   -- Removing is a write too: the same people.
+  perform app.fail_if_team_cover_disabled(p_entity, v_owner); -- user decision 13 Nov 2026 (see the switch above)
   if not app.can_write_cover_folder(p_entity, v_owner) then perform app.fail(403, 'cover_forbidden'); end if;
 
   if p_path is null then
@@ -255,7 +290,7 @@ begin
   -- A name that a row uses cannot be uploaded again (after any deletion of it), so a bound path is never refilled.
   execute $sql$
     create policy covers_owner_insert on storage.objects for insert to authenticated
-      with check (bucket_id = 'covers' and app.can_write_cover_object(name) and not app.cover_object_in_use(name))
+      with check (bucket_id = 'covers' and app.can_insert_cover_object(name))
   $sql$;
   -- No UPDATE policy on purpose: objects are immutable (upload with upsert = false; a new image = a new uuid).
   -- Takedown = set_cover(..., null) first, then delete (see header). No exception for platform admins: the row is always

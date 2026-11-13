@@ -53,6 +53,7 @@ const COPY: Record<string, string> = {
   cover_path_invalid: 'Görsel yolu geçersiz. Yeniden yükle.', cover_blurhash_invalid: 'Görsel önizlemesi hazırlanamadı. Yeniden yükle.',
   cover_upload_missing: 'Görsel dosyaları (tam boy ve 640 px) yüklenmemiş. Yeniden yükle.', cover_entity_invalid: 'Bu içerik türüne kapak eklenemez.',
   cover_target_not_found: 'Kapak eklenecek içerik bulunamadı.', cover_write_forbidden: 'Kapak yalnızca kapak yükleme adımıyla değiştirilebilir.',
+  team_cover_disabled: 'Takım kapakları şimdilik kapalı (hukuki inceleme ve fotoğraf politikası bekleniyor); yalnız platform yöneticisi ekleyebilir.',
   otp_disabled: 'Bu e-posta ile kayıtlı bir ekip hesabı yok.', otp_expired: 'Kod hatalı ya da süresi dolmuş.', over_email_send_rate_limit: 'Çok sık denedin. Biraz bekleyip tekrar dene.',
   '23505': 'Bu kısa ad (slug) zaten kullanılıyor.', '23514': 'Alanlardan biri kurallara uymuyor (tarih sırası, yaş aralığı ya da metin uzunluğu).',
   '42501': 'Bu işlem için yetkin yok.',

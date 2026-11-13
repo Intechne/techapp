@@ -96,6 +96,7 @@ const COPY: Record<string, string> = {
   cover_upload_missing: 'Görsel yüklemesi tamamlanmadı. Yeniden yükleyip dener misin?',
   cover_entity_invalid: 'Bu içeriğe kapak eklenemiyor.',
   cover_target_not_found: 'Kapak eklemek istediğin içerik bulunamadı.',
+  team_cover_disabled: 'Takım kapağı şimdilik eklenemiyor. Takımın devre posteriyle görünmeye devam ediyor.',
   // opportunities, experiences, learning
   opportunity_not_found: 'Bu fırsat artık yayında değil.',
   applications_not_open: 'Bu fırsatın başvuruları henüz açılmadı.',

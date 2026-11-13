@@ -92,7 +92,9 @@ Kart/ekran görselliği Faz 4'ün onaylı kart ailesini kullanır; Faz 4 önizle
 - [ ] **Step 4:** `verify` + `doctor` 21/21 + admin typecheck/test; yerel yığında admin'den kapak yükle → mobil web'de liste + detay; kapaksız etkinlik yedek poster (ekran görüntüleri 390/320).
 - [ ] **Step 5: Commit** `feat: kapak görselleri — admin yükleme (iki boyut + blurhash), mobilde expo-image ve Open Circuit yedek posteri`
 
-### Task 5: Takım kapağı mobilde kaptan için (karar bekliyor)
+### Task 5: Takım kapağı mobilde kaptan için (karar bekliyor) — ATLANDI (kullanıcı kararı 13 Kas 2026)
+
+> Takım fotoğrafları çoğunlukla 18 yaş altını gösterir; hukuki inceleme ve fotoğraf politikası olana kadar takımlar devre posteriyle kalır, sunucuda takım kapağı yazımı yalnız platform yöneticisine açık (`app.team_cover_writes_enabled() = false`).
 
 > `expo-image-picker` yeni izin beyanı demektir (iOS `NSPhotoLibraryUsageDescription`; Android 13+ sistem seçicisi izinsiz). Kullanıcı onaylamazsa bu task atlanır, takım kapağı yedek posterle kalır.
 

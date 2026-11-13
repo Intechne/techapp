@@ -321,9 +321,13 @@ begin
     '^PT403 cover_forbidden');
   perform pg_temp.t_fail('22h anon cannot call set_cover', 'anon', null,
     format($q$select public.set_cover('events', %L, null, null)$q$, v_cv_event), '^42501');
+  -- user decision 13 Nov 2026: team covers closed until legal review + photo policy; the team's own captain gets a dedicated code
+  perform pg_temp.t_fail('22i team captain set_cover → team_cover_disabled (team covers closed, 13 Nov 2026)', 'authenticated', v_captain,
+    format($q$select public.set_cover('teams', %L, %L, null)$q$, v_team, 'teams/' || v_team || '/' || gen_random_uuid() || '.webp'),
+    '^PT403 team_cover_disabled');
   if to_regclass('storage.objects') is null then
     -- local dry-run only (the embedded/dev database has no storage schema); staging always has it
-    perform pg_temp.t_rec('22 / 22b / 22c / 22g SKIPPED: no storage schema on this database', true, 'skipped');
+    perform pg_temp.t_rec('22 / 22b / 22c / 22g / 22j SKIPPED: no storage schema on this database', true, 'skipped');
   else
     v_cv_path := 'events/' || v_org || '/' || gen_random_uuid() || '.webp';
     insert into storage.objects (bucket_id, name) values ('covers', v_cv_path);
@@ -342,6 +346,9 @@ begin
     perform pg_temp.t_fail('22b org A editor cannot upload into org B''s covers folder', 'authenticated', v_editor,
       format($q$insert into storage.objects (bucket_id, name) values ('covers', %L)$q$, 'events/' || v_org_b || '/' || gen_random_uuid() || '.webp'),
       '^42501');
+    perform pg_temp.t_fail('22j team captain upload into the team''s covers folder → team_cover_disabled', 'authenticated', v_captain,
+      format($q$insert into storage.objects (bucket_id, name) values ('covers', %L)$q$, 'teams/' || v_team || '/' || gen_random_uuid() || '.webp'),
+      '^PT403 team_cover_disabled');
     select format('%s/%s/%s', b.public::text, b.file_size_limit, b.allowed_mime_types) into v_text from storage.buckets b where b.id = 'covers';
     perform pg_temp.t_rec('22c covers bucket: public, 2 MB, image/webp only',
                           v_text = 'true/2097152/{image/webp}', 'bucket=' || coalesce(v_text, 'missing'));

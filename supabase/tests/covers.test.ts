@@ -129,25 +129,50 @@ describe('set_cover · organisation content', () => {
   });
 });
 
-describe('set_cover · teams', () => {
-  it('only an active captain binds the team cover; mentor, member, former and pending captains get 403', async () => {
-    const t = await createTeam();
+// Kullanıcı kararı 13 Kas 2026: team covers are closed until legal review and a photo policy exist (team photos usually show
+// minors). Only a platform admin writes them; the captain rule is kept behind app.team_cover_writes_enabled() = false.
+describe('set_cover · teams (closed for captains — user decision 13 Nov 2026)', () => {
+  it('an active captain gets 403 team_cover_disabled (set and remove); mentor, member, former and pending captains get cover_forbidden', async () => {
+    const t = await createTeam(); const pa = await platformAdmin();
+    await expectFail(setCover(t.captain, 'teams', t.id, path('teams', t.id)), 403, 'team_cover_disabled');
     for (const uid of [t.mentor, t.member, t.formerCaptain, t.pending]) {
       await expectFail(setCover(uid, 'teams', t.id, path('teams', t.id)), 403, 'cover_forbidden');
     }
     const p = path('teams', t.id);
-    await setCover(t.captain, 'teams', t.id, p);
+    await setCover(pa, 'teams', t.id, p); // platform admin only
     expect(await cover('teams', t.id)).toEqual({ cover_path: p, cover_blurhash: BLUR });
-    // and the mentor cannot remove it either
+    await expectFail(setCover(t.captain, 'teams', t.id, null), 403, 'team_cover_disabled');
     await expectFail(setCover(t.mentor, 'teams', t.id, null), 403, 'cover_forbidden');
     expect((await cover('teams', t.id)).cover_path).toBe(p);
   });
 
-  it('a captain cannot use another team\'s folder, nor set another team\'s cover', async () => {
+  it('a captain of another team gets cover_forbidden (the dedicated code is only for the team\'s own captain)', async () => {
     const t = await createTeam(); const other = await createTeam();
-    await expectFail(setCover(t.captain, 'teams', t.id, path('teams', other.id)), 403, 'cover_path_forbidden');
-    await expectFail(setCover(t.captain, 'teams', other.id, path('teams', t.id)), 403, 'cover_forbidden');
     await expectFail(setCover(t.captain, 'teams', other.id, path('teams', other.id)), 403, 'cover_forbidden');
+    await expectFail(setCover(t.captain, 'teams', other.id, path('teams', t.id)), 403, 'cover_forbidden');
+  });
+
+  it('the captain rule is kept behind one switch: with app.team_cover_writes_enabled() = true (rolled back) the captain may write again', async () => {
+    const t = await createTeam(); const other = await createTeam();
+    const c = await pool.connect();
+    try {
+      await c.query('begin');
+      await c.query(`create or replace function app.team_cover_writes_enabled() returns boolean language sql immutable set search_path = '' as $$ select true $$`);
+      await c.query(`set local role authenticated`);
+      await c.query(`select set_config('request.jwt.claims', $1, true)`, [JSON.stringify({ sub: t.captain, role: 'authenticated' })]);
+      const p = path('teams', t.id);
+      await c.query(`select public.set_cover('teams', $1, $2, null)`, [t.id, p]);
+      expect((await c.query(`select cover_path from public.teams where id = $1`, [t.id])).rows[0].cover_path).toBe(p);
+      await c.query('savepoint s');
+      await expectFail(c.query(`select public.set_cover('teams', $1, $2, null)`, [t.id, path('teams', other.id)]), 403, 'cover_path_forbidden');
+      await c.query('rollback to savepoint s');
+      await expectFail(c.query(`select public.set_cover('teams', $1, $2, null)`, [other.id, path('teams', other.id)]), 403, 'cover_forbidden');
+    } finally {
+      await c.query('rollback').catch(() => {});
+      c.release();
+    }
+    expect((await admin(`select app.team_cover_writes_enabled() v`)).rows[0].v).toBe(false);
+    expect((await cover('teams', t.id)).cover_path).toBeNull();
   });
 
   it('organisation roles give no power over teams (even of the same organisation)', async () => {
@@ -160,12 +185,13 @@ describe('set_cover · teams', () => {
     const t = await createTeam(); const o = await twoOrgs();
     await admin(`update public.teams set organization_id = $2 where id = $1`, [t.id, o.orgA]);
     const before = (await admin(`select moderation_status from public.teams where id = $1`, [t.id])).rows[0];
-    await setCover(t.captain, 'teams', t.id, path('teams', t.id));
-    await setCover(t.captain, 'teams', t.id, null);
+    const pa = await platformAdmin();
+    await setCover(pa, 'teams', t.id, path('teams', t.id));
+    await setCover(pa, 'teams', t.id, null);
     const rows = (await audits(t.id)).filter((a) => a.action.startsWith('team.cover'));
     expect(rows.map((a) => a.action)).toEqual(['team.cover_set', 'team.cover_removed']);
     for (const a of rows) {
-      expect(a.actor_id).toBe(t.captain);
+      expect(a.actor_id).toBe(pa);
       expect(a.organization_id).toBe(o.orgA);
       expect(a.metadata).toEqual({}); // no path, no blurhash, no names
     }
@@ -372,14 +398,18 @@ describe('set_cover · grants', () => {
         has_function_privilege('anon', p.oid, 'execute') anon, has_function_privilege('authenticated', p.oid, 'execute') auth,
         exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a where a.grantee = 0 and a.privilege_type = 'EXECUTE') pub
       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-      where n.nspname = 'app' and p.proname in ('cover_object_pattern', 'can_write_cover_folder', 'can_write_cover_object', 'cover_object_in_use', 'guard_cover_columns')
+      where n.nspname = 'app' and p.proname in ('cover_object_pattern', 'can_write_cover_folder', 'can_write_cover_object', 'cover_object_in_use',
+                                                'guard_cover_columns', 'can_insert_cover_object', 'team_cover_writes_enabled', 'fail_if_team_cover_disabled')
       order by p.proname`);
     expect(rows).toEqual([
+      { proname: 'can_insert_cover_object', anon: false, auth: true, pub: false },
       { proname: 'can_write_cover_folder', anon: false, auth: false, pub: false },
       { proname: 'can_write_cover_object', anon: false, auth: true, pub: false },
       { proname: 'cover_object_in_use', anon: false, auth: true, pub: false },
       { proname: 'cover_object_pattern', anon: false, auth: false, pub: false },
+      { proname: 'fail_if_team_cover_disabled', anon: false, auth: false, pub: false },
       { proname: 'guard_cover_columns', anon: false, auth: false, pub: false },
+      { proname: 'team_cover_writes_enabled', anon: false, auth: false, pub: false },
     ]);
     await expect(asAnon((q) => q(`select app.cover_object_in_use('events/x/y.webp')`))).rejects.toThrow(PERMISSION_DENIED);
   });
@@ -390,7 +420,7 @@ describe('set_cover · grants', () => {
     const p = path('events', o.orgA);
     await setCover(o.editor, 'events', event, p);
     await admin(`update public.events set status = 'published' where id = $1`, [event]);
-    await setCover(t.captain, 'teams', t.id, path('teams', t.id));
+    await setCover(await platformAdmin(), 'teams', t.id, path('teams', t.id));
     expect((await asAnon((q) => q(`select cover_path, cover_blurhash from public.events where id = $1`, [event]))).rows).toEqual([{ cover_path: p, cover_blurhash: BLUR }]);
     expect((await asAnon((q) => q(`select cover_path from public.teams where id = $1`, [t.id]))).rows[0].cover_path).toMatch(/^teams\//);
   });
@@ -524,14 +554,15 @@ describe('covers bucket · storage policies (stand-in storage schema, rolled bac
     });
   });
 
-  it('upload: only into a folder the caller owns (org editor+, active team captain, platform admin)', async () => {
+  it('upload: only into a folder the caller owns (org editor+, platform admin; team folders: platform admin only for now)', async () => {
     const o = await twoOrgs(); const t = await createTeam(); const pa = await platformAdmin();
     await withStorage(async (run) => {
       const file = randomUUID();
       expect((await run(user(o.editor), put(`events/${o.orgA}/${file}.webp`))).rowCount).toBe(1);
       expect((await run(user(o.editor), put(`events/${o.orgA}/${file}-640.webp`))).rowCount).toBe(1); // thumbnail
       expect((await run(user(o.adminUser), put(`opportunities/${o.orgA}/${randomUUID()}.webp`))).rowCount).toBe(1);
-      expect((await run(user(t.captain), put(`teams/${t.id}/${randomUUID()}.webp`))).rowCount).toBe(1);
+      // the team's own active captain: dedicated code (user decision 13 Nov 2026), not a bare RLS refusal
+      await expectFail(run(user(t.captain), put(`teams/${t.id}/${randomUUID()}.webp`)), 403, 'team_cover_disabled');
       expect((await run(user(pa), put(`teams/${t.id}/${randomUUID()}.webp`))).rowCount).toBe(1);
       expect((await run(user(pa), put(`events/${o.orgB}/${randomUUID()}.webp`))).rowCount).toBe(1);
       const refused: [Who, string][] = [
@@ -571,7 +602,7 @@ describe('covers bucket · storage policies (stand-in storage schema, rolled bac
       expect(await names(user(o.editor))).toEqual([a]);
       expect(await names(user(o.editorB))).toEqual([b]);
       expect(await names(user(o.both))).toEqual([a, b].sort());
-      expect(await names(user(t.captain))).toEqual([tm]);
+      expect(await names(user(t.captain))).toEqual([]); // team covers closed for captains (13 Nov 2026)
       expect(await names(user(pa))).toEqual([a, b, tm].sort());
     });
   });
@@ -633,8 +664,8 @@ describe('covers bucket · storage policies (stand-in storage schema, rolled bac
         .toEqual([{ status: 'published', cover_path: null }]); // the approver's change is the review
       // a team cover the same way (e.g. a parent asks for a photo to be removed)
       const tf = randomUUID(); const tmain = `teams/${t.id}/${tf}.webp`;
-      await run(user(t.captain), put(tmain)); await run(user(t.captain), put(`teams/${t.id}/${tf}-640.webp`));
-      await run(user(t.captain), `select public.set_cover('teams', '${t.id}', '${tmain}', null)`);
+      await run(user(pa), put(tmain)); await run(user(pa), put(`teams/${t.id}/${tf}-640.webp`));
+      await run(user(pa), `select public.set_cover('teams', '${t.id}', '${tmain}', null)`);
       await run(user(pa), `select public.set_cover('teams', '${t.id}', null, null)`);
       expect((await run(user(pa), `delete from storage.objects where name in ('${tmain}', 'teams/${t.id}/${tf}-640.webp')`)).rowCount).toBe(2);
     });
