@@ -30,6 +30,13 @@ export const teamRegistrationStatusView: Record<TeamRegistrationStatus, StatusVi
   expired: { label: 'SÜRESİ DOLDU', tone: 'neutral' },
 };
 
+/**
+ * A member's own registration inside a team registration. Their own confirmation is not the team's: until the team is confirmed
+ * (or while that is still unknown) the card is not theirs yet, so "KATILIMIN ONAYLANDI" must not show. Fails closed.
+ */
+export const teamAwareRegistrationView = (status: RegStatus, teamStatus: TeamRegistrationStatus | undefined): StatusView =>
+  status === 'confirmed' && teamStatus !== 'confirmed' ? { label: 'TAKIMIN BEKLENİYOR', tone: 'apricot', icon: 'clock' } : registrationStatusView[status];
+
 /** One roster member of a team registration. `guardian` only says a guardian's answer is awaited: nothing more about it. */
 export const teamMemberStepView: Record<TeamMemberStep, StatusView> = {
   invited: { label: 'DAVET BEKLİYOR', tone: 'iris', icon: 'clock' },

@@ -3,7 +3,7 @@ import { FlatList, RefreshControl, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Button, Card, EmptyState, ErrorState, LoadingSkeleton, MetadataRow, Notice, OfflineLabel, RowCard, Text, colors, layout, registrationStatusView, space, teamMemberStepView, type RowLines } from '../../design-system';
+import { AppHeader, Button, Card, EmptyState, ErrorState, LoadingSkeleton, MetadataRow, Notice, OfflineLabel, RowCard, Text, colors, layout, registrationStatusView, space, teamAwareRegistrationView, teamMemberStepView, type RowLines } from '../../design-system';
 import { formatDateRange, formatDateTime, formatLastUpdated } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
 import { features } from '../../lib/features';
@@ -12,7 +12,7 @@ import { useSession } from '../auth/SessionProvider';
 import { eventKeys, fetchMyRegistrations } from './api';
 import { dropCards, isNetworkClassError, listCards } from './offlineCard';
 import { placeLabel } from './labels';
-import { fetchMyTeamInvites, teamRegistrationKeys } from '../teamRegistration/api';
+import { fetchMyTeamInvites, fetchTeamStatuses, teamRegistrationKeys } from '../teamRegistration/api';
 
 const SLOW_LOAD_MS = 3000;
 /** A Katılımlarım row: two-line title, date · place, status under the text on phones (approved Q6). */
@@ -25,6 +25,9 @@ export function MyRegistrationsScreen({ navigation }: NativeStackScreenProps<Sha
   // Team invites (flag on only): the section exists only while there is one. A failed read shows nothing here; the invite stays reachable from its notification.
   const invites = useQuery({ queryKey: teamRegistrationKeys.invites(userId), queryFn: fetchMyTeamInvites, enabled: features.teamRegistration && !!userId, retry: false });
   const pendingInvites = features.teamRegistration ? invites.data ?? [] : [];
+  // Own registrations that belong to a team registration: the team's status decides whether "confirmed" may be shown (one cached read for the list).
+  const teamIds = features.teamRegistration ? [...new Set((q.data ?? []).filter((r) => r.status === 'confirmed' && r.team_registration_id).map((r) => r.team_registration_id!))].sort() : [];
+  const teamStatuses = useQuery({ queryKey: teamRegistrationKeys.statuses(teamIds.join(',')), queryFn: () => fetchTeamStatuses(teamIds), enabled: teamIds.length > 0 });
   // Registrations the server lists as not confirmed must not keep an offline card (cancelled elsewhere, rejected, expired).
   const notConfirmed = (q.data ?? []).filter((r) => r.status !== 'confirmed').map((r) => r.id).join(',');
   useEffect(() => {
@@ -84,7 +87,7 @@ export function MyRegistrationsScreen({ navigation }: NativeStackScreenProps<Sha
         renderItem={({ item }) => (
           <RowCard leading={{ kind: 'icon', icon: 'ticket' }} title={item.event.title}
             secondary={`${formatDateRange(item.event.starts_at, item.event.ends_at)} · ${placeLabel(item.event)}`}
-            trailing={{ kind: 'status', view: registrationStatusView[item.status] }} isDemo={item.event.is_demo}
+            trailing={{ kind: 'status', view: features.teamRegistration && item.team_registration_id ? teamAwareRegistrationView(item.status, teamStatuses.data?.[item.team_registration_id]) : registrationStatusView[item.status] }} isDemo={item.event.is_demo}
             onPress={() => navigation.navigate('RegistrationStatus', { registrationId: item.id })} />
         )}
         ListEmptyComponent={

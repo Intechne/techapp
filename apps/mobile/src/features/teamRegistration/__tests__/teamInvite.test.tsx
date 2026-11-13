@@ -150,4 +150,22 @@ describe('Takım daveti', () => {
     await fireEvent.press(screen.getByText('Katılımlarım'));
     expect(nav.navigate).toHaveBeenCalledWith('MyRegistrations');
   });
+
+  it('an accept that returns no registration is an honest error, not a success', async () => {
+    mockRespond = () => ok({ member_state: 'accepted', registration_id: null, registration_status: null, team_status: 'pending_members' });
+    await renderInvite();
+    await fireEvent.press(await screen.findByText('Katılıyorum'));
+    expect(await screen.findByText(/Beklenmedik bir sorun/)).toBeTruthy();
+    expect(nav.replace).not.toHaveBeenCalled();
+    expect(nav.goBack).not.toHaveBeenCalled();
+    await settle();
+  });
+
+  it('a failed decline shows its error once (in the modal, not behind it)', async () => {
+    mockRespond = () => fail('invite_not_pending', 409);
+    await renderInvite();
+    await fireEvent.press(await screen.findByText('Katılmıyorum'));
+    await fireEvent.press(await screen.findByText('Evet, katılmıyorum'));
+    await waitFor(() => expect(screen.getAllByText(/artık yanıt beklemiyor/)).toHaveLength(1));
+  });
 });

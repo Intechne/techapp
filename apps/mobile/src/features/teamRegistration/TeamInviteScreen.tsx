@@ -26,6 +26,7 @@ export function TeamInviteScreen({ navigation, route }: NativeStackScreenProps<S
   const fresh = (): { for: string | undefined; accept: string; decline: string } => ({ for: inviteRef, accept: Crypto.randomUUID(), decline: Crypto.randomUUID() });
   const [keys, setKeys] = useState(fresh);
   if (keys.for !== inviteRef) setKeys(fresh());
+  const [inconsistent, setInconsistent] = useState(false);
   const inFlight = useRef(false);
   const invite = invites.data?.find((i) => (memberId ? i.member_id === memberId : i.team_registration_id === teamRegistrationId));
 
@@ -34,13 +35,15 @@ export function TeamInviteScreen({ navigation, route }: NativeStackScreenProps<S
     onSuccess: (res, accept) => {
       setConfirmDecline(false);
       void Promise.all([qc.invalidateQueries({ queryKey: teamRegistrationKeys.all }), qc.invalidateQueries({ queryKey: ['registrations'] }), qc.invalidateQueries({ queryKey: ['events'] })]);
-      if (!accept || !res.registration_id) { toast.show('Yanıtın takıma iletildi.'); navigation.goBack(); return; }
+      if (!accept) { toast.show('Yanıtın takıma iletildi.'); navigation.goBack(); return; }
+      // An accept without a registration is an inconsistent answer: never a success message.
+      if (!res.registration_id) { setInconsistent(true); return; }
       if (res.registration_status === 'pending_guardian') navigation.replace('GuardianRequest', { registrationId: res.registration_id });
       else navigation.replace('RegistrationStatus', { registrationId: res.registration_id, fresh: true });
     },
     onSettled: () => { inFlight.current = false; },
   });
-  const answer = (accept: boolean) => { if (inFlight.current || !invite) return; inFlight.current = true; respond.mutate(accept); };
+  const answer = (accept: boolean) => { setInconsistent(false); if (inFlight.current || !invite) return; inFlight.current = true; respond.mutate(accept); };
 
   if (invites.isPending) return <Screen header={<AppHeader onBack={navigation.goBack} />}><LoadingSkeleton cards={1} /></Screen>;
   if (invites.isError) return <Screen header={<AppHeader onBack={navigation.goBack} />}><ErrorState error={toAppError(invites.error)} onRetry={() => void invites.refetch()} /></Screen>;
@@ -53,7 +56,7 @@ export function TeamInviteScreen({ navigation, route }: NativeStackScreenProps<S
     );
   }
 
-  const err = respond.error ? toAppError(respond.error) : null;
+  const err = respond.error ? toAppError(respond.error) : inconsistent ? toAppError({ code: 'unknown', message: '' }) : null;
   return (
     <Screen header={<AppHeader onBack={navigation.goBack} title="Takım daveti" />}
       footer={<>
@@ -70,7 +73,7 @@ export function TeamInviteScreen({ navigation, route }: NativeStackScreenProps<S
       </Card>
       <View style={{ gap: space[3], marginTop: space[3] }}>
         {invite.team_status === 'waitlisted' && <Notice tone="warning" title="Takımın bekleme listesinde">Yer açılınca davetini kabul edebilirsin.</Notice>}
-        {err && <Notice tone="danger">{err.message}</Notice>}
+        {err && !confirmDecline && <Notice tone="danger">{err.message}</Notice>}
         {err?.code === 'profile_incomplete' && (
           <Button kind="secondary" label="Profilimi tamamla" onPress={() => navigation.getParent()?.getParent()?.navigate('ProfileBootstrap')} />
         )}

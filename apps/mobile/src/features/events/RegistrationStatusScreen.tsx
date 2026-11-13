@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Button, Card, ErrorState, LoadingSkeleton, Skeleton, MetadataRow, Modal, Notice, RegistrationStatus, Screen, StatusBadge, StatusTimeline, TechIcon, Text, colors, radius, guardianStatusView, registrationSteps, space, useToast, type TechIconName } from '../../design-system';
+import { AppHeader, Button, Card, ErrorState, LoadingSkeleton, Skeleton, MetadataRow, Modal, Notice, RegistrationStatus, Screen, StatusBadge, StatusTimeline, TechIcon, Text, colors, radius, guardianStatusView, registrationSteps, space, teamAwareRegistrationView, useToast, type TechIconName } from '../../design-system';
 import { formatDateRange, formatDateTime, isPast } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
 import type { RegistrationStatus as Status } from '../../lib/database.types';
@@ -25,6 +25,9 @@ const HEADLINE: Record<Status, { title: string; body: string; icon: TechIconName
   rejected: { title: 'Bu sefer olmadı.', body: 'Başvurun bu etkinlik için uygun bulunmadı. Sana uyan başka etkinlikler var.', icon: 'close', good: false },
   expired: { title: 'Onay süresi doldu.', body: 'Veli onayı zamanında gelmediği için yerin serbest bırakıldı. Kayıtlar açıksa yeniden deneyebilirsin.', icon: 'clock', good: false },
 };
+
+/** Own registration confirmed, team not (or not known yet): the person is told exactly that, never "Yerini ayırdık." */
+const TEAM_PENDING_HEADLINE = { title: 'Senin kaydın tamam.', body: 'Takımdaki herkes hazır olunca takım kaydı onaylanır; kartın o zaman açılır.', icon: 'clock' as TechIconName, good: false };
 
 export function RegistrationStatusScreen({ navigation, route }: NativeStackScreenProps<SharedEventParamList, 'RegistrationStatus'>) {
   const { registrationId } = route.params;
@@ -50,7 +53,7 @@ export function RegistrationStatusScreen({ navigation, route }: NativeStackScree
       setConfirmCancel(false);
       // The card is void now: an offline copy must not keep showing a valid-looking QR.
       if (userId) await dropCard(userId, registrationId).catch(() => {});
-      await Promise.all([qc.invalidateQueries({ queryKey: ['registrations'] }), qc.invalidateQueries({ queryKey: ['events'] })]);
+      await Promise.all([qc.invalidateQueries({ queryKey: ['registrations'] }), qc.invalidateQueries({ queryKey: ['events'] }), ...(teamRegistrationId ? [qc.invalidateQueries({ queryKey: teamRegistrationKeys.all })] : [])]);
       toast.show('Kaydın iptal edildi.');
     },
   });
@@ -64,13 +67,16 @@ export function RegistrationStatusScreen({ navigation, route }: NativeStackScree
   if (reg.isPending) return <Screen header={<AppHeader onBack={navigation.goBack} />}><LoadingSkeleton cards={1} /></Screen>;
   if (reg.isError) return <Screen header={<AppHeader onBack={navigation.goBack} />}><ErrorState error={toAppError(reg.error)} onRetry={() => void reg.refetch()} /></Screen>;
 
-  const r = reg.data; const h = HEADLINE[r.status];
+  const r = reg.data;
+  
   const live = (['confirmed', 'waitlisted', 'pending_guardian', 'pending_review'] as Status[]).includes(r.status);
   const teamLinked = !!teamRegistrationId;
   // Their own registration can be confirmed while the team is not: the card (and check-in) wait for the team.
-  const teamWaiting = teamLinked && r.status === 'confirmed' && team.data !== undefined && team.data.status !== 'confirmed';
+  // Fails closed: while the team is loading, or its read failed, the registration is NOT shown as confirmed.
+  const teamPending = teamLinked && r.status === 'confirmed' && team.data?.status !== 'confirmed';
+  const h = teamPending ? TEAM_PENDING_HEADLINE : HEADLINE[r.status];
   const guardianView = guardianStatusView[guardian.data?.status ?? 'not_sent'];
-  const steps = registrationSteps(r.status, guardianRequired).map((st) => (teamWaiting && st.key === 'card' ? { ...st, state: 'todo' as const } : st));
+  const steps = registrationSteps(r.status, guardianRequired).map((st) => (teamPending && st.key === 'card' ? { ...st, state: 'todo' as const } : st));
   // Until the server has said whether a guardian step belongs in the line, draw a 4-step skeleton so the card does not grow later.
   const stepsUnknown = !guardianRequired && eligibility.isPending && r.status !== 'cancelled';
   const canSendGuardian = needsGuardian && (!guardian.data || guardian.data.status !== 'pending');
@@ -79,8 +85,12 @@ export function RegistrationStatusScreen({ navigation, route }: NativeStackScree
     <Screen header={<AppHeader onBack={navigation.goBack} title="Kayıt durumu" />} refreshing={reg.isRefetching}
       onRefresh={() => { void reg.refetch(); void eligibility.refetch(); if (guardianRequired) void guardian.refetch(); }}
       footer={
-        teamWaiting ? <Text variant="label" center>Takımın tamamlanınca kartın açılır</Text>
-          : teamLinked && r.status === 'confirmed' && team.isPending ? undefined
+        teamPending ? (
+          <>
+            <Text variant="label" center>Takımın tamamlanınca kartın açılır</Text>
+            {team.isError && <Button kind="secondary" label="Takım durumunu yenile" onPress={() => void team.refetch()} />}
+          </>
+        )
           : r.status === 'confirmed' ? <Button label="Katılım kartını göster" icon="ticket" onPress={() => navigation.navigate('ParticipationCard', { registrationId })} />
           : needsGuardian ? <Button label={canSendGuardian ? 'Veli onayı iste' : 'Bağlantıyı yeniden gönder'} icon="shield" onPress={() => navigation.navigate('GuardianRequest', { registrationId })} />
             : !live ? <Button kind="secondary" label="Etkinliğe dön" onPress={() => navigation.navigate('EventDetail', { eventId: r.event_id })} /> : undefined
@@ -89,10 +99,10 @@ export function RegistrationStatusScreen({ navigation, route }: NativeStackScree
         <TechIcon name={h.icon} size={32} color={h.good ? colors.moss : colors.primary} />
       </View>
       <Text variant="title" center>{h.title}</Text>
-      <Text variant="body" color="textSecondary" center style={{ marginTop: space[3] }}>{teamWaiting ? 'Senin kaydın tamam. Takımdaki herkes hazır olunca takım kaydı onaylanır.' : h.body}</Text>
+      <Text variant="body" color="textSecondary" center style={{ marginTop: space[3] }}>{h.body}</Text>
 
       <Card style={{ marginTop: space[6], gap: space[2] }}>
-        <RegistrationStatus status={r.status} />
+        {teamPending ? <StatusBadge view={teamAwareRegistrationView(r.status, team.data?.status)} /> : <RegistrationStatus status={r.status} />}
         <Text variant="cardTitle">{r.event.title}</Text>
         <MetadataRow icon="event">{formatDateRange(r.event.starts_at, r.event.ends_at)}</MetadataRow>
         <MetadataRow icon="location">{placeLabel(r.event)}</MetadataRow>

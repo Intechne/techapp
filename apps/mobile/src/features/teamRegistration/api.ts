@@ -1,7 +1,7 @@
 import { getSupabase } from '../../lib/supabase';
 import { parsePayload, toAppError } from '../../lib/errors';
 import { z } from 'zod';
-import { teamInviteSchema, teamRegistrationDetailSchema, teamRespondSchema, type TeamInvite, type TeamRegistrationDetail, type TeamRespondResult } from '../../lib/database.types';
+import { teamInviteSchema, teamRegistrationDetailSchema, teamRespondSchema, type TeamInvite, type TeamRegistrationDetail, type TeamRespondResult, type TeamRegistrationStatus } from '../../lib/database.types';
 import type { Database } from '../../lib/database.generated';
 import { fetchRoster, type RosterEntry } from '../teams/api';
 
@@ -10,6 +10,7 @@ export type TeamEventRegistrationRow = Database['public']['Functions']['submit_t
 export const teamRegistrationKeys = {
   all: ['teamRegistrations'] as const,
   detail: (id: string) => ['teamRegistrations', 'detail', id] as const,
+  statuses: (ids: string) => ['teamRegistrations', 'statuses', ids] as const,
   invites: (userId: string | null) => ['teamRegistrations', 'invites', userId] as const,
   roster: (teamId: string) => ['teamRegistrations', 'roster', teamId] as const,
 };
@@ -63,4 +64,11 @@ export async function respondTeamRegistration(input: { memberId: string; accept:
   });
   if (error) throw toAppError(error);
   return parsePayload(teamRespondSchema, data);
+}
+
+/** Status of the team registrations behind a member's own registrations (RLS: the team's active members read them). One cached query for the list. */
+export async function fetchTeamStatuses(ids: string[]): Promise<Record<string, TeamRegistrationStatus>> {
+  const { data, error } = await getSupabase().from('team_event_registrations').select('id, status').in('id', ids);
+  if (error) throw toAppError(error);
+  return Object.fromEntries((data ?? []).map((r) => [r.id, r.status as TeamRegistrationStatus]));
 }
