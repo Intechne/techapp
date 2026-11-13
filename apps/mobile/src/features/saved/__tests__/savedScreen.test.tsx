@@ -110,4 +110,11 @@ describe('Kaydedilenler', () => {
     await waitFor(() => expect(screen.getByText('Bir şey ters gitti')).toBeTruthy());
     expect(screen.queryByText('Henüz kaydettiğin bir şey yok')).toBeNull();
   });
+
+  it('a saved course opens its detail (Profil stack route)', async () => {
+    mockItems = [{ type: 'course', id: 'c1', title: 'Arduino’ya giriş', available: true }];
+    await open();
+    await fireEvent.press(await screen.findByRole('button', { name: /Arduino’ya giriş/ }));
+    expect(navigate).toHaveBeenCalledWith('CourseDetail', { courseId: 'c1' });
+  });
 });

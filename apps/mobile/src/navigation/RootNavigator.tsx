@@ -40,6 +40,9 @@ import { DeadlinesScreen } from '../features/opportunities/DeadlinesScreen';
 import { OpportunityDetailScreen } from '../features/opportunities/OpportunityDetailScreen';
 import { OpportunityApplyScreen } from '../features/opportunities/OpportunityApplyScreen';
 import { MyApplicationsScreen } from '../features/opportunities/MyApplicationsScreen';
+import { CourseListScreen } from '../features/learning/CourseListScreen';
+import { CourseDetailScreen } from '../features/learning/CourseDetailScreen';
+import { LessonScreen } from '../features/learning/LessonScreen';
 import { VolunteerHubScreen } from '../features/volunteers/VolunteerHubScreen';
 import { useLayout } from '../design-system';
 import { env } from '../lib/env';
@@ -63,6 +66,18 @@ const DesignPreviewScreen: React.ComponentType | null = __DEV__ && env.appEnv ==
 
 const stackOptions = { headerShown: false, contentStyle: { backgroundColor: colors.canvas } } as const;
 
+/** Gelişim (course list → course → lesson) is shared by Keşfet, Etkinlikler and Profil (Kaydedilenler); each tab keeps its own history. */
+function learningJourney<T extends typeof Discover | typeof Events | typeof Profile>(Stack: T) {
+  const S = Stack as typeof Events;
+  return (
+    <>
+      <S.Screen name="CourseList" component={CourseListScreen} />
+      <S.Screen name="CourseDetail" component={CourseDetailScreen} />
+      <S.Screen name="Lesson" component={LessonScreen} />
+    </>
+  );
+}
+
 /** The event journey is shared by several tabs; each tab keeps its own history, filters and scroll position. */
 function eventJourney<T extends typeof Discover | typeof Events | typeof Profile>(Stack: T) {
   const S = Stack as typeof Events;
@@ -79,16 +94,16 @@ function eventJourney<T extends typeof Discover | typeof Events | typeof Profile
   );
 }
 
-const DiscoverStack = () => <Discover.Navigator screenOptions={stackOptions}><Discover.Screen name="DiscoverHome" component={DiscoverScreen} /><Discover.Screen name="Notifications" component={NotificationsScreen} />{eventJourney(Discover)}</Discover.Navigator>;
+const DiscoverStack = () => <Discover.Navigator screenOptions={stackOptions}><Discover.Screen name="DiscoverHome" component={DiscoverScreen} /><Discover.Screen name="Notifications" component={NotificationsScreen} />{eventJourney(Discover)}{learningJourney(Discover)}</Discover.Navigator>;
 /**
  * Etkinlikler filters: a native form sheet resting at 60 % or full height (react-native-screens 4.26). On the root stack, not
  * in the Events tab: inside a tab Android draws the tab bar over the sheet and it stays tappable.
  */
 const filterSheetOptions: NativeStackNavigationOptions = { presentation: 'formSheet', sheetAllowedDetents: [0.6, 1], sheetGrabberVisible: true, sheetCornerRadius: radius.hero, contentStyle: { backgroundColor: colors.surface } };
-const EventsStack = () => <Events.Navigator screenOptions={stackOptions}><Events.Screen name="EventsList" component={EventsListScreen} />{eventJourney(Events)}</Events.Navigator>;
+const EventsStack = () => <Events.Navigator screenOptions={stackOptions}><Events.Screen name="EventsList" component={EventsListScreen} />{eventJourney(Events)}{learningJourney(Events)}</Events.Navigator>;
 const OpportunitiesStack = () => <Opportunities.Navigator screenOptions={stackOptions}><Opportunities.Screen name="OpportunitiesHome" component={OpportunitiesScreen} /><Opportunities.Screen name="Deadlines" component={DeadlinesScreen} /><Opportunities.Screen name="OpportunityDetail" component={OpportunityDetailScreen} /><Opportunities.Screen name="OpportunityApply" component={OpportunityApplyScreen} /><Opportunities.Screen name="MyApplications" component={MyApplicationsScreen} /></Opportunities.Navigator>;
 const CommunityStack = () => <Community.Navigator screenOptions={stackOptions}><Community.Screen name="CommunityHome" component={CommunityScreen} /><Community.Screen name="TeamDetail" component={TeamDetailScreen} /><Community.Screen name="TeamWorkspace" component={TeamWorkspaceScreen} /><Community.Screen name="TeamTaskEditor" component={TeamTaskEditorScreen} /><Community.Screen name="TeamProjectEditor" component={TeamProjectEditorScreen} /><Community.Screen name="RecruitmentPostEditor" component={RecruitmentPostEditorScreen} /><Community.Screen name="CreateTeam" component={CreateTeamScreen} /></Community.Navigator>;
-const ProfileStack = () => <Profile.Navigator screenOptions={stackOptions}><Profile.Screen name="ProfileHome" component={ProfileScreen} /><Profile.Screen name="CheckIn" component={CheckInScreen} /><Profile.Screen name="Saved" component={SavedScreen} /><Profile.Screen name="Notifications" component={NotificationsScreen} /><Profile.Screen name="EditProfile" component={EditProfileScreen} /><Profile.Screen name="Settings" component={SettingsScreen} /><Profile.Screen name="NotificationSettings" component={NotificationSettingsScreen} /><Profile.Screen name="Privacy" component={PrivacyScreen} /><Profile.Screen name="ConsentCenter" component={ConsentCenterScreen} /><Profile.Screen name="ExperienceEditor" component={ExperienceEditorScreen} /><Profile.Screen name="ExperienceDetail" component={ExperienceDetailScreen} />{eventJourney(Profile)}</Profile.Navigator>;
+const ProfileStack = () => <Profile.Navigator screenOptions={stackOptions}><Profile.Screen name="ProfileHome" component={ProfileScreen} /><Profile.Screen name="CheckIn" component={CheckInScreen} /><Profile.Screen name="Saved" component={SavedScreen} /><Profile.Screen name="Notifications" component={NotificationsScreen} /><Profile.Screen name="EditProfile" component={EditProfileScreen} /><Profile.Screen name="Settings" component={SettingsScreen} /><Profile.Screen name="NotificationSettings" component={NotificationSettingsScreen} /><Profile.Screen name="Privacy" component={PrivacyScreen} /><Profile.Screen name="ConsentCenter" component={ConsentCenterScreen} /><Profile.Screen name="ExperienceEditor" component={ExperienceEditorScreen} /><Profile.Screen name="ExperienceDetail" component={ExperienceDetailScreen} />{eventJourney(Profile)}{learningJourney(Profile)}</Profile.Navigator>;
 
 /** Bottom tab label cap (dp): wide enough for "Etkinlikler" at the 12 pt minimum (57 dp) with a little slack, narrow enough for 5 tabs at 320 dp. */
 const TAB_LABEL_MAX_WIDTH = 64;

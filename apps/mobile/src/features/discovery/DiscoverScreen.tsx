@@ -18,6 +18,8 @@ import { useBookmarks } from '../saved/useBookmarks';
 import { categoryIcon } from '../teams/categoryIcon';
 import { usePrefs } from '../onboarding/PrefsProvider';
 import { TEAM_PUBLIC_COLUMNS } from '../teams/api';
+import { fetchCourses, learningKeys } from '../learning/api';
+import { courseMeta } from '../learning/labels';
 import { pickFeatured } from './featured';
 import { NotificationBell } from '../notifications/NotificationBell';
 
@@ -40,7 +42,7 @@ async function fetchPreview(): Promise<{ opportunities: OpportunityPreview[]; te
 
 export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverStackParamList, 'DiscoverHome'>) {
   const { prefs } = usePrefs();
-  const eventSaves = useBookmarks('event'); const oppSaves = useBookmarks('opportunity'); const teamSaves = useBookmarks('team');
+  const courseSaves = useBookmarks('course'); const eventSaves = useBookmarks('event'); const oppSaves = useBookmarks('opportunity'); const teamSaves = useBookmarks('team');
   const [topic, setTopic] = useState<string | 'all' | 'mine'>(prefs.interestSlugs.length ? 'mine' : 'all');
   const [search, setSearch] = useState('');
   const [submitted, setSubmitted] = useState('');
@@ -56,6 +58,8 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
   const filters = useMemo(() => ({ type: 'all' as const, topicInterestIds: topicIds, search: submitted, registrationOpenOnly: !submitted }), [topicIds, submitted]);
   const events = useQuery({ queryKey: ['discover', 'events', filters], queryFn: () => fetchEventsPage(filters, null), enabled: topic === 'all' || interests.isSuccess });
   const preview = useQuery({ queryKey: ['discover', 'preview'], queryFn: fetchPreview });
+  // Gelişim: two published courses; the section exists only while there are any (a failed request just leaves it out).
+  const courses = useQuery({ queryKey: learningKeys.preview(), queryFn: () => fetchCourses(2) });
 
   const items = events.data?.items ?? [];
   // "Yaklaşan" is what can still be joined: events whose registration closed stay in the Etkinlikler list only (approved Q4a).
@@ -80,9 +84,10 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
 
   const filteredTopic = topic !== 'all' || !!submitted;
   const p = submitted ? null : preview.data;
-  const hasRest = !!p && (p.opportunities.length > 0 || p.teams.length > 0);
+  const courseList = submitted ? [] : courses.data ?? [];
+  const hasRest = !!p && (p.opportunities.length > 0 || p.teams.length > 0 || courseList.length > 0);
   // Every section hides when it has nothing; only when all of them are empty does one empty state stand in for the page.
-  const allEmpty = events.isSuccess && upcoming.length === 0 && !filteredTopic && preview.isSuccess && !hasRest;
+  const allEmpty = events.isSuccess && upcoming.length === 0 && !filteredTopic && preview.isSuccess && !courses.isPending && !hasRest;
 
   // Nothing else on the page could render, and the secondary query is what failed: say so instead of showing a blank page.
   const previewFailedAlone = preview.isError && events.isSuccess && upcoming.length === 0 && !filteredTopic;
@@ -91,7 +96,7 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
 
   return (
     <Screen header={<><AppHeader brand right={<><NotificationBell onPress={() => navigation.navigate('Notifications')} /><IconButton icon="ticket" accessibilityLabel="Katılımlarım" onPress={() => navigation.navigate('MyRegistrations')} /></>} />{offline && <OfflineBanner />}</>}
-      refreshing={events.isRefetching} onRefresh={() => { void events.refetch(); void preview.refetch(); void interests.refetch(); }}>
+      refreshing={events.isRefetching} onRefresh={() => { void events.refetch(); void preview.refetch(); void courses.refetch(); void interests.refetch(); }}>
       <Text variant="bodySmall" color="textSecondary">{firstName ? `Merhaba ${firstName}` : 'Merhaba'}</Text>
       <Text variant="display" style={{ marginTop: space[1], marginBottom: space[5] }}>Bir fikrin varsa,{'\n'}bir yerin var.</Text>
 
@@ -161,7 +166,14 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
           </MiniCardGrid>
         </>
       )}
-      {/* Gelişim stays hidden until a course screen exists (approved Q4b); no course request either. */}
+      {!allEmpty && courseList.length > 0 && (
+        <>
+          <SectionHeader title="Gelişim" actionLabel="Tümünü gör" onAction={() => navigation.navigate('CourseList')} />
+          <MiniCardGrid>
+            {courseList.slice(0, 2).map((c) => <MiniCard key={c.id} icon="learn" title={c.title} body={courseMeta(c)} saved={courseSaves.ids.has(c.id)} onToggleSave={() => courseSaves.toggle(c.id)} onPress={() => navigation.navigate('CourseDetail', { courseId: c.id })} />)}
+          </MiniCardGrid>
+        </>
+      )}
     </Screen>
   );
 }

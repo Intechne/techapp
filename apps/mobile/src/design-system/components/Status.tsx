@@ -70,6 +70,13 @@ export const volunteerStatusView = {
   withdrawn: { label: 'GÖNÜLLÜLÜKTEN ÇEKİLDİN', tone: 'neutral' },
 } as const satisfies Record<string, StatusView>;
 
+/** Course progress (server percent). Not started = no badge; finished = TAMAMLANDI. */
+export function courseProgressView(percent: number, completed: boolean): StatusView | null {
+  if (completed || percent >= 100) return { label: 'TAMAMLANDI', tone: 'moss', icon: 'check' };
+  return percent > 0 ? { label: `%${percent} TAMAMLANDI`, tone: 'iris' } : null;
+}
+export const lessonDoneView = { label: 'TAMAMLANDI', tone: 'moss', icon: 'check' } as const satisfies StatusView;
+
 /** Staff check-in outcomes: title for the result block + spoken prefix for the screen-reader announcement. */
 export const checkInOutcomeView = {
   checked_in: { title: 'GİRİŞ ONAYLANDI', tone: 'moss', icon: 'check', spoken: 'Giriş onaylandı' },

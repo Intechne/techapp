@@ -29,10 +29,11 @@ const opportunity = (id: string, title: string) => ({
   id, title, type: 'internship', status: 'published', closes_at: iso(12), is_remote: true, city: null,
   audience_note: null, reward_note: null, is_demo: false,
 });
+const course = (id: string, title: string) => ({ id, title, poster_line: null, summary: 'Özet', level: 'beginner', tone: 'moss', estimated_minutes: 30, lesson_count: 4, is_demo: false, published_at: iso(-1), status: 'published' });
 const team = (id: string, name: string) => ({ id, name, kind: 'team', category: 'Robotik', tagline: 'Birlikte üretiyoruz', city: 'İstanbul', member_count: 4, is_demo: false });
 
-const data: { events: unknown[]; opportunities: unknown[]; teams: unknown[]; interests: unknown[]; pending: boolean; pendingTables: string[]; errorTables: string[] } = {
-  events: [], opportunities: [], teams: [], interests: [], pending: false, pendingTables: [], errorTables: [],
+const data: { events: unknown[]; opportunities: unknown[]; teams: unknown[]; courses: unknown[]; interests: unknown[]; pending: boolean; pendingTables: string[]; errorTables: string[] } = {
+  events: [], opportunities: [], teams: [], courses: [], interests: [], pending: false, pendingTables: [], errorTables: [],
 };
 const calls: { table: string }[] = [];
 const queryCalls: { table: string; method: string; args: unknown[] }[] = [];
@@ -62,7 +63,7 @@ jest.mock('../../../lib/analytics', () => ({ track: jest.fn() }));
 jest.mock('../../profile/api', () => ({ useMyProfile: () => ({ data: mockProfile }) }));
 
 beforeEach(() => {
-  Object.assign(data, { events: [], opportunities: [], teams: [], interests: [], pending: false, pendingTables: [], errorTables: [] });
+  Object.assign(data, { events: [], opportunities: [], teams: [], courses: [], interests: [], pending: false, pendingTables: [], errorTables: [] });
   calls.length = 0;
   queryCalls.length = 0;
   mockPrefs = { interestSlugs: [] };
@@ -144,13 +145,33 @@ describe('Keşfet ana — bölüm hiyerarşisi', () => {
     expect(screen.getAllByText('Ikinci açık etkinlik').length).toBeGreaterThan(0);
   });
 
-  it('never renders Gelişim (no course screen yet) and makes no course request', async () => {
+  it('Gelişim is hidden while no course is published', async () => {
     data.events = [event('e1', 'Etkinlik')];
     data.opportunities = [opportunity('o1', 'Yaz stajı')];
     await renderScreen();
     await screen.findByText('Sıradaki adımın');
     expect(screen.queryByText('Gelişim')).toBeNull();
-    expect(calls.some((c) => c.table === 'courses')).toBe(false);
+  });
+
+  it('Gelişim comes last (after Birlikte üretenler) with two course MiniCards, and only published courses are requested', async () => {
+    data.events = [event('e1', 'Etkinlik'), event('e2', 'Etkinlik iki')];
+    data.opportunities = [opportunity('o1', 'Yaz stajı')];
+    data.teams = [team('t1', 'Robotik Takımı')];
+    data.courses = [course('c1', 'Arduino’ya giriş'), course('c2', 'Lehim 101'), course('c3', 'Üçüncü kurs')];
+    await renderScreen();
+    await screen.findByText('Gelişim');
+    expect(headingOrder()).toEqual(['Yaklaşan etkinlikler', 'Sıradaki adımın', 'Birlikte üretenler', 'Gelişim']);
+    expect(screen.getByText('Arduino’ya giriş')).toBeTruthy();
+    expect(screen.getByText('Lehim 101')).toBeTruthy();
+    expect(screen.queryByText('Üçüncü kurs')).toBeNull();
+    expect(queryCalls.filter((c) => c.table === 'courses' && c.method === 'eq')).toContainEqual({ table: 'courses', method: 'eq', args: ['status', 'published'] });
+  });
+
+  it('a course alone is enough content: no "Şu an yayında içerik yok"', async () => {
+    data.courses = [course('c1', 'Arduino’ya giriş')];
+    await renderScreen();
+    await screen.findByText('Gelişim');
+    expect(screen.queryByText('Şu an yayında içerik yok')).toBeNull();
   });
 
   it('hides an empty section; the rest stay', async () => {

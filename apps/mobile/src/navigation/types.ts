@@ -12,9 +12,16 @@ export type SharedEventParamList = {
   VolunteerHub: { eventId: string };
 };
 
-export type DiscoverStackParamList = SharedEventParamList & { DiscoverHome: undefined; Notifications: undefined };
+/** Gelişim: reachable from Keşfet, Etkinlikler ("Bu etkinliğe hazırlan") and Profil > Kaydedilenler. */
+export type SharedLearningParamList = {
+  CourseList: undefined;
+  CourseDetail: { courseId: string };
+  Lesson: { courseId: string; lessonId: string };
+};
+
+export type DiscoverStackParamList = SharedEventParamList & SharedLearningParamList & { DiscoverHome: undefined; Notifications: undefined };
 /** Etkinlikler list filters travel as route params (strings on web); the filter sheet starts from and returns the same shape. */
-export type EventsStackParamList = SharedEventParamList & { EventsList: EventListParams };
+export type EventsStackParamList = SharedEventParamList & SharedLearningParamList & { EventsList: EventListParams };
 export type OpportunitiesStackParamList = {
   OpportunitiesHome: undefined;
   Deadlines: undefined;
@@ -32,7 +39,7 @@ export type CommunityStackParamList = {
   RecruitmentPostEditor: { teamId: string; postId?: string };
   CreateTeam: undefined;
 };
-export type ProfileStackParamList = SharedEventParamList & {
+export type ProfileStackParamList = SharedEventParamList & SharedLearningParamList & {
   /** `segment`: open the profile with that segment selected (Topluluk > "Tüm takımların"). */
   ProfileHome: { segment?: 'Deneyimler' | 'Katılımlar' | 'Takımlar' } | undefined;
   CheckIn: undefined;

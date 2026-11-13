@@ -30,6 +30,11 @@ jest.mock('../api', () => ({
   fetchEligibility: async () => mockEligibility,
   eventKeys: { detail: (id: string) => ['events', 'detail', id], eligibility: (id: string, u: string | null) => ['events', 'eligibility', id, u] },
 }));
+let mockCourses: unknown[] = [];
+jest.mock('../../learning/api', () => ({
+  fetchEventCourses: async () => mockCourses,
+  learningKeys: { eventCourses: (id: string) => ['learning', 'event-courses', id] },
+}));
 jest.mock('../../auth/SessionProvider', () => ({ useSession: () => ({ userId: 'u1' }) }));
 jest.mock('../../../lib/analytics', () => ({ track: jest.fn() }));
 jest.mock('../../volunteers/VolunteerSection', () => ({ VolunteerSection: () => null }));
@@ -37,7 +42,7 @@ jest.mock('@react-navigation/native', () => ({ useFocusEffect: () => {} }));
 
 const navigate = jest.fn();
 const tabNavigate = jest.fn();
-beforeEach(() => { mockEvent = { ...baseEvent }; mockEligibility = { ...baseEligibility }; navigate.mockClear(); tabNavigate.mockClear(); });
+beforeEach(() => { mockCourses = []; mockEvent = { ...baseEvent }; mockEligibility = { ...baseEligibility }; navigate.mockClear(); tabNavigate.mockClear(); });
 
 const metrics = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
 async function renderDetail() {
@@ -48,6 +53,27 @@ async function renderDetail() {
   await screen.findAllByText('Robotik Günü');
 }
 const disabledButtons = () => screen.queryAllByRole('button').filter((b) => b.props.accessibilityState?.disabled);
+
+describe('Etkinlik detayı — Bu etkinliğe hazırlan', () => {
+  it('no linked course: the section does not exist', async () => {
+    mockEvent = { ...baseEvent, sessions: [{ id: 's1', title: 'Açılış', starts_at: iso(10), location_note: null } as never] };
+    await renderDetail();
+    await screen.findByText('Program');
+    expect(screen.queryByText('Bu etkinliğe hazırlan')).toBeNull();
+  });
+
+  it('linked courses: listed after Program', async () => {
+    mockEvent = { ...baseEvent, sessions: [{ id: 's1', title: 'Açılış', starts_at: iso(10), location_note: null } as never] };
+    mockCourses = [{ id: 'c1', title: 'Arduino’ya giriş', level: 'beginner', lesson_count: 3, estimated_minutes: 45, is_demo: false }];
+    await renderDetail();
+    expect(await screen.findByText('Bu etkinliğe hazırlan')).toBeTruthy();
+    const texts: string[] = [];
+    const walk = (n: unknown): void => { if (typeof n === 'string') texts.push(n); else if (n && typeof n === 'object') { const o = n as { children?: unknown[] | null }; (o.children ?? []).forEach(walk); } };
+    const json = screen.toJSON(); (Array.isArray(json) ? json : [json]).forEach(walk);
+    expect(texts.indexOf('Program')).toBeLessThan(texts.indexOf('Bu etkinliğe hazırlan'));
+    expect(screen.getByText('Arduino’ya giriş')).toBeTruthy();
+  });
+});
 
 describe('Etkinlik detayı — tek engel kutusu, pasif birincil düğme yok', () => {
   it('registration open: one primary "Etkinliğe katıl", no notice', async () => {

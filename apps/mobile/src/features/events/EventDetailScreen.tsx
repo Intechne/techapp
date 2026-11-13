@@ -3,14 +3,16 @@ import { Share, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, BookmarkButton, Button, DemoTag, Divider, ErrorState, IconButton, LoadingSkeleton, MetadataRow, Notice, OrganizerRow, Poster, ReadMoreText, RegistrationStatus, Screen, Tag, TechIcon, Text, keepNumbersTogether, semantic, space } from '../../design-system';
+import { AppHeader, BookmarkButton, Button, DemoTag, Divider, ErrorState, IconButton, LoadingSkeleton, MetadataRow, Notice, OrganizerRow, Poster, ReadMoreText, RegistrationStatus, RowCard, Screen, Tag, TechIcon, Text, keepNumbersTogether, semantic, space } from '../../design-system';
 import { track } from '../../lib/analytics';
 import { formatDate, formatDateRange, formatTime, formatTimeRange } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
-import type { SharedEventParamList } from '../../navigation/types';
+import type { SharedEventParamList, SharedLearningParamList } from '../../navigation/types';
 import { useSession } from '../auth/SessionProvider';
 import { usePendingIntent } from '../auth/pendingIntent';
 import { useBookmarks } from '../saved/useBookmarks';
+import { fetchEventCourses, learningKeys } from '../learning/api';
+import { courseMeta, levelLabel } from '../learning/labels';
 import { eventKeys, fetchEligibility, fetchEvent } from './api';
 import { primaryBlocker } from './detailBlocker';
 import { VolunteerSection } from '../volunteers/VolunteerSection';
@@ -18,12 +20,14 @@ import { EVENT_TYPE_ICON, EVENT_TYPE_LABEL, audienceLabel, availability, blocker
 
 const sem = semantic.light;
 
-export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<SharedEventParamList, 'EventDetail'>) {
+export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<SharedEventParamList & SharedLearningParamList, 'EventDetail'>) {
   const { eventId } = route.params;
   const { userId } = useSession();
   const intent = usePendingIntent();
   const saves = useBookmarks('event');
   const event = useQuery({ queryKey: eventKeys.detail(eventId), queryFn: () => fetchEvent(eventId) });
+  // Courses that prepare for this event; nothing is shown (and nothing fails loudly) when there are none or the request fails.
+  const courses = useQuery({ queryKey: learningKeys.eventCourses(eventId), queryFn: () => fetchEventCourses(eventId) });
   const eligibility = useQuery({ queryKey: eventKeys.eligibility(eventId, userId), queryFn: () => fetchEligibility(eventId) });
 
   useEffect(() => { track('event_opened', { event_id: eventId }); }, [eventId]);
@@ -121,6 +125,16 @@ export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<
                 <Text variant="label" color="primary" style={styles.sessionTime}>{formatTime(s.starts_at)}</Text>
                 <View style={{ flex: 1 }}><Text variant="bodySmall">{s.title}</Text>{s.location_note && <Text variant="caption" color="textSecondary">{s.location_note}</Text>}</View>
               </View>
+            ))}
+          </View></>
+      )}
+
+      {courses.data && courses.data.length > 0 && (
+        <><Divider /><Text variant="section">Bu etkinliğe hazırlan</Text>
+          <View style={{ gap: space[3], marginTop: space[3] }}>
+            {courses.data.map((c) => (
+              <RowCard key={c.id} leading={{ kind: 'icon', icon: 'learn' }} title={c.title} secondary={`${levelLabel(c.level)} · ${courseMeta(c)}`} isDemo={c.is_demo}
+                trailing={{ kind: 'chevron' }} onPress={() => navigation.navigate('CourseDetail', { courseId: c.id })} />
             ))}
           </View></>
       )}

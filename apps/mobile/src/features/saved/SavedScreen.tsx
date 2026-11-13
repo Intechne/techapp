@@ -18,8 +18,8 @@ const GONE_TOAST = 'Bu içerik artık yayında değil. İstersen listeden çıka
 /**
  * Profil > Kaydedilenler. One list for every kind, newest first. A target that is no longer published keeps its row
  * (dimmed, "Artık yayında değil") with the one action that makes sense: take it off the list. Nothing here opens a 404.
- * "Eğitim" is offered only while a course is saved: no course screen or save control exists yet (Gelişim, Task 12), so an
- * always-present chip would be a filter for something a person cannot do.
+ * "Eğitim" is offered only while a course is saved (a course's save control lives on its cards and detail), so a person
+ * who never saved one is not shown a filter for it.
  */
 export function SavedScreen({ navigation }: NativeStackScreenProps<ProfileStackParamList, 'Saved'>) {
   const { userId } = useSession();
@@ -38,7 +38,7 @@ export function SavedScreen({ navigation }: NativeStackScreenProps<ProfileStackP
     if (i.type === 'event') navigation.navigate('EventDetail', { eventId: i.id });
     else if (i.type === 'opportunity') tabs?.navigate('OpportunitiesTab', { screen: 'OpportunityDetail', params: { opportunityId: i.id }, initial: false });
     else if (i.type === 'team') tabs?.navigate('CommunityTab', { screen: 'TeamDetail', params: { teamId: i.id }, initial: false });
-    else toast.show('Eğitimler yakında burada açılacak.');
+    else navigation.navigate('CourseDetail', { courseId: i.id });
   };
 
   return (
