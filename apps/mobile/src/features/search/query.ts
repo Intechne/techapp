@@ -36,24 +36,48 @@ export const toTurkishUpper = (s: string): string => s.replace(/i/g, 'İ').repla
 
 /** LIKE never escapes a wildcard we add here: the replacement runs after escaping and only touches ı / I. */
 const DOTLESS = /[ıI]/g;
+const HAS_DOTLESS = /[ıI]/;
 const asciiFold = (s: string) => s.replace(/[A-Z]/g, (c) => c.toLowerCase());
+/** Letters only (cased characters): emoji, digits and punctuation do not count. Engine-agnostic (no \p{L}). */
+const letterCount = (s: string) => Array.from(s).filter((c) => c.toLowerCase() !== c.toUpperCase()).length;
+/**
+ * Below this many letters ı / I stay literal: "AI" → "%A_%" or "IT" → "%_T%" would match almost every title.
+ * Short queries rely on the Turkish lower / upper variants alone (a short "ıs" can miss "IS…" under a Unicode collation).
+ */
+export const MIN_WILDCARD_LETTERS = 4;
+/** A wildcard request asks for this many rows (at least), so noise the client filters out cannot crowd out real hits. */
+export const WILDCARD_WINDOW = 30;
+
+export interface SearchPattern { pattern: string; wildcard: boolean }
 
 /**
- * The patterns one search runs (each its own request; rows merged by id). Pinned against Postgres in
- * supabase/tests/search.test.ts:
+ * The patterns one search runs (each its own request; rows merged by id, then filtered with matchesQuery). Pinned
+ * against Postgres in supabase/tests/search.test.ts:
  * - Unicode-aware collations fold İ and I to i but keep ı, so "ısparta" would miss "ISPARTA" and "ığdır" would miss
- *   "Iğdır": ı and I therefore become `_` (one character).
+ *   "Iğdır": in queries of 4+ letters ı and I therefore become `_` (one character). `*` becomes `_` too (toIlikePattern).
  * - A "C" collation folds ASCII only, so "istanbul" misses "İstanbul" and "gençlik" misses "GENÇLİK": the Turkish
  *   lower and Turkish upper forms are searched too.
  * Variants that differ only in ASCII case are dropped (every collation folds ASCII), so most queries are one request.
  */
-export function searchPatterns(q: string): string[] {
-  const out: string[] = [];
+export function searchPlan(q: string): SearchPattern[] {
+  const dotless = letterCount(q) >= MIN_WILDCARD_LETTERS;
+  const out: SearchPattern[] = [];
   const seen = new Set<string>();
   for (const variant of [q, toTurkishLower(q), toTurkishUpper(q)]) {
-    const pattern = toIlikePattern(variant).replace(DOTLESS, '_');
+    const escaped = toIlikePattern(variant);
+    const pattern = dotless ? escaped.replace(DOTLESS, '_') : escaped;
     const key = asciiFold(pattern);
-    if (!seen.has(key)) { seen.add(key); out.push(pattern); }
+    if (!seen.has(key)) { seen.add(key); out.push({ pattern, wildcard: variant.includes('*') || (dotless && HAS_DOTLESS.test(variant)) }); }
   }
   return out;
 }
+export const searchPatterns = (q: string): string[] => searchPlan(q).map((p) => p.pattern);
+
+/** Turkish-insensitive fold: every I-form (İ I ı i) → i, then Turkish lower case. */
+export const foldTurkish = (s: string): string => toTurkishLower(s.normalize('NFC').replace(/[İIı]/g, 'i'));
+
+/**
+ * The client-side check every returned row must pass (title / team name): the folded text contains the folded query.
+ * It removes what a wildcard let through ("Iş" in "İşte"…) and keeps the result list the same under every collation.
+ */
+export const matchesQuery = (text: string, q: string): boolean => foldTurkish(text).includes(foldTurkish(q));

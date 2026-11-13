@@ -19,16 +19,18 @@ const data: Record<string, Row[]> = { events: [], opportunities: [], teams: [], 
 let errorTables: string[] = [];
 /** Pattern → a promise the test resolves itself (stale-response test). */
 const gates = new Map<string, Promise<void>>();
-const requests: { table: string; pattern: string; limit: number }[] = [];
+const requests: { table: string; pattern: string; limit: number; signal: AbortSignal | null; retry: boolean | null }[] = [];
 const toRegex = (pattern: string) => new RegExp(`^${pattern.replace(/\\([%_\\])|([%_])|([.*+?^${}()|[\]])/g, (_m, esc, wild, meta) => (esc ? `\\${esc}` : wild === '%' ? '.*' : wild === '_' ? '.' : `\\${meta}`))}$`, 'is');
 function mockBuilder(table: string) {
-  let pattern = ''; let column = ''; let limit = 0;
+  let pattern = ''; let column = ''; let limit = 0; let signal: AbortSignal | null = null; let retry: boolean | null = null;
   const b: Record<string, unknown> = {};
   for (const m of ['select', 'eq', 'gt', 'gte', 'order']) b[m] = () => b;
   b.ilike = (c: string, p: string) => { column = c; pattern = p; return b; };
   b.limit = (n: number) => { limit = n; return b; };
+  b.retry = (v: boolean) => { retry = v; return b; };
+  b.abortSignal = (s: AbortSignal) => { signal = s; return b; };
   b.then = (resolve: (v: unknown) => unknown) => {
-    requests.push({ table, pattern, limit });
+    requests.push({ table, pattern, limit, signal, retry });
     const gate = gates.get(pattern) ?? Promise.resolve();
     return gate.then(() => {
       if (errorTables.includes(table)) return { data: null, error: { message: 'Failed to fetch', code: '' } };
@@ -176,7 +178,7 @@ describe('Arama — sonuç yok, hata, eski yanıt', () => {
     errorTables = ['events'];
     await renderScreen();
     await type('robot');
-    expect(await screen.findByText('Etkinlikler yüklenemedi')).toBeTruthy();
+    expect(await screen.findByText('Etkinlikler yüklenemedi', {}, { timeout: 3_000 })).toBeTruthy(); // after its one retry (1 s)
     expect(screen.getByText('Robot stajı')).toBeTruthy();
     expect(screen.getByText('Robot Takımı')).toBeTruthy();
     expect(screen.queryByText('“robot” için sonuç yok')).toBeNull();
@@ -202,6 +204,42 @@ describe('Arama — sonuç yok, hata, eski yanıt', () => {
   });
 });
 
+describe('Arama — tekrar deneme ve iptal (fix round 1)', () => {
+  afterEach(() => jest.useRealTimers());
+
+  it('a failing group shows its inline error after one retry (1 s), never the app-wide stack of retries', async () => {
+    jest.useFakeTimers();
+    data.teams = [team('t1', 'Robot Takımı')];
+    errorTables = ['events'];
+    await renderScreen();
+    await type('robot');
+    const tick = (ms: number) => act(async () => { await jest.advanceTimersByTimeAsync(ms); });
+    await tick(SEARCH_DEBOUNCE_MS + 50);
+    expect(requests.filter((r) => r.table === 'events')).toHaveLength(1);
+    expect(screen.queryByText('Etkinlikler yüklenemedi')).toBeNull();
+    await tick(1_100); // react-query's first retry delay
+    expect(requests.filter((r) => r.table === 'events')).toHaveLength(2);
+    expect(screen.getByText('Etkinlikler yüklenemedi')).toBeTruthy();
+    expect(screen.getByText('Robot Takımı')).toBeTruthy();
+    await tick(10_000);
+    expect(requests.filter((r) => r.table === 'events')).toHaveLength(2); // no further attempts
+    expect(requests.every((r) => r.retry === false)).toBe(true); // postgrest-js retries off on every request
+  });
+
+  it('a superseded query’s requests are aborted', async () => {
+    data.events = [event('e1', 'Lehim atölyesi')];
+    gates.set('%robot%', new Promise<void>(() => {}));
+    await renderScreen();
+    await type('robot');
+    await waitFor(() => expect(requests.some((r) => r.pattern === '%robot%')).toBe(true));
+    const old = requests.filter((r) => r.pattern === '%robot%');
+    expect(old.every((r) => r.signal && !r.signal.aborted)).toBe(true);
+    await type('lehim');
+    expect(await screen.findByText('Lehim atölyesi')).toBeTruthy();
+    expect(old.every((r) => r.signal!.aborted)).toBe(true);
+  });
+});
+
 describe('Arama — tek grup ("Tümünü gör")', () => {
   it('shows only that group, prefilled, up to 30 rows', async () => {
     data.events = Array.from({ length: 8 }, (_, i) => event(`e${i}`, `Robot etkinliği ${i}`));
@@ -212,7 +250,7 @@ describe('Arama — tek grup ("Tümünü gör")', () => {
     expect(screen.getAllByText(/^Robot etkinliği \d$/)).toHaveLength(8);
     expect(screen.queryByText('Robot Takımı')).toBeNull();
     expect(new Set(requests.map((r) => r.table))).toEqual(new Set(['events']));
-    expect(requests[0]!.limit).toBe(31);
+    expect(requests[0]!.limit).toBe(31); // 'robot' has no wildcard: limit + 1
     expect(screen.queryByText('Tümünü gör')).toBeNull();
   });
 });

@@ -13,7 +13,7 @@ function mockBuilder(table: string) {
   let pattern = '';
   const b: Record<string, unknown> = {};
   // `or`, `filter`, `ilikeAnyOf`, `textSearch` are recorded so a test can prove user text never reaches them.
-  for (const m of ['select', 'eq', 'gt', 'gte', 'in', 'order', 'limit', 'or', 'filter', 'ilikeAnyOf', 'textSearch', 'match', 'not']) {
+  for (const m of ['select', 'eq', 'gt', 'gte', 'in', 'order', 'limit', 'or', 'filter', 'ilikeAnyOf', 'textSearch', 'match', 'not', 'retry', 'abortSignal']) {
     b[m] = (...args: unknown[]) => { mockCalls.push({ table, method: m, args }); return b; };
   }
   b.ilike = (...args: unknown[]) => { mockCalls.push({ table, method: 'ilike', args }); pattern = String(args[1]); return b; };
@@ -106,11 +106,51 @@ describe('search api — Turkish case: second pattern, merged by id', () => {
   });
 
   it('each group sorts like its list: teams by member count, courses newest first, opportunities by deadline', async () => {
-    mockRows['teams|%_ş_k%'] = [{ id: 'a', member_count: 1 }, { id: 'b', member_count: 9 }];
+    mockRows['teams|%_ş_k%'] = [{ id: 'a', name: 'Işık', member_count: 1 }, { id: 'b', name: 'IŞIK Robotik', member_count: 9 }];
     expect((await SEARCH.teams('ışık', 5)).hits.map((t) => t.id)).toEqual(['b', 'a']);
-    mockRows['courses|%arduino%'] = [{ id: 'old', published_at: '2026-01-01T00:00:00Z' }, { id: 'new', published_at: '2026-10-01T00:00:00Z' }];
+    mockRows['courses|%arduino%'] = [{ id: 'old', title: 'Arduino 1', published_at: '2026-01-01T00:00:00Z' }, { id: 'new', title: 'Arduino 2', published_at: '2026-10-01T00:00:00Z' }];
     expect((await SEARCH.courses('arduino', 5)).hits.map((c) => c.id)).toEqual(['new', 'old']);
-    mockRows['opportunities|%staj%'] = [{ id: 'late', closes_at: '2026-12-30T00:00:00Z' }, { id: 'soon', closes_at: '2026-11-20T00:00:00Z' }];
+    mockRows['opportunities|%staj%'] = [{ id: 'late', title: 'Yaz stajı', closes_at: '2026-12-30T00:00:00Z' }, { id: 'soon', title: 'Kış stajı', closes_at: '2026-11-20T00:00:00Z' }];
     expect((await SEARCH.opportunities('staj', 5)).hits.map((o) => o.id)).toEqual(['soon', 'late']);
+  });
+});
+
+describe('search api — fix round 1: client filter, wildcard window, no stacked retries, abort', () => {
+  it('rows whose title does not contain the query (Turkish-folded) are dropped before top-N and hasMore', async () => {
+    mockRows['events|%_ğd_r%'] = [
+      { id: 'n1', title: 'Bağdat Turu', starts_at: '2026-11-20T10:00:00Z' }, // wildcard noise
+      { id: 'r1', title: 'Iğdır Bilim Günü', starts_at: '2026-11-21T10:00:00Z' },
+      ...Array.from({ length: 6 }, (_, i) => ({ id: `n${i + 2}`, title: `Eğdar ${i}`, starts_at: '2026-11-19T10:00:00Z' })),
+    ];
+    const r = await searchGroup('events', 'ığdır', 5);
+    expect(r.hits.map((e) => e.id)).toEqual(['r1']);
+    expect(r.hasMore).toBe(false);
+  });
+
+  it('a wildcard pattern asks for a 30-row window; a plain one for limit + 1', async () => {
+    await searchGroup('events', 'ığdır', 5);
+    expect(of('events', 'limit')).toEqual([[30], [30]]);
+    mockCalls.length = 0;
+    await searchGroup('events', 'robot', 5);
+    expect(of('events', 'limit')).toEqual([[6]]);
+    mockCalls.length = 0;
+    await searchGroup('events', 'ığdır', 30); // the single-group screen: wider still
+    expect(of('events', 'limit')).toEqual([[62], [62]]);
+  });
+
+  it('"AI" runs no wildcard and returns only titles that contain it', async () => {
+    mockRows['events|%AI%'] = [{ id: 'a', title: 'Yapay Zekâ AI Kampı', starts_at: '2026-11-20T10:00:00Z' }, { id: 'x', title: 'Ankara Teknoloji Günü', starts_at: '2026-11-20T10:00:00Z' }];
+    const r = await searchGroup('events', 'AI', 5);
+    for (const [, p] of of('events', 'ilike')) expect(p).not.toContain('_');
+    expect(r.hits.map((e) => e.id)).toEqual(['a']);
+  });
+
+  it('every request turns postgrest-js retries off and carries the abort signal', async () => {
+    const controller = new AbortController();
+    for (const g of ['events', 'opportunities', 'teams', 'courses'] as const) await searchGroup(g, 'İSTANBUL', 5, controller.signal);
+    const requests = mockCalls.filter((c) => c.method === 'ilike').length;
+    expect(requests).toBe(8);
+    expect(mockCalls.filter((c) => c.method === 'retry').map((c) => c.args)).toEqual(Array(requests).fill([false]));
+    expect(mockCalls.filter((c) => c.method === 'abortSignal').map((c) => c.args[0])).toEqual(Array(requests).fill(controller.signal));
   });
 });

@@ -1,4 +1,4 @@
-import { MAX_QUERY_LENGTH, normalizeQuery, searchPatterns, toIlikePattern, toTurkishLower, toTurkishUpper } from '../query';
+import { MAX_QUERY_LENGTH, WILDCARD_WINDOW, foldTurkish, matchesQuery, normalizeQuery, searchPatterns, searchPlan, toIlikePattern, toTurkishLower, toTurkishUpper } from '../query';
 
 // Review focus 3: user text reaches PostgREST only as the value of one `.ilike(column, pattern)` filter (URL-encoded by
 // supabase-js, bound as a parameter by PostgREST). These helpers decide WHAT that value is; api tests prove WHERE it goes.
@@ -85,6 +85,41 @@ describe('Turkish case', () => {
 
   it('keeps escapes intact while adding wildcards', () => {
     expect(searchPatterns('100%_robot')).toEqual(['%100\\%\\_robot%']);
-    expect(searchPatterns('I_I')).toEqual(['%_\\__%']);
+    expect(searchPatterns('IIII_')).toEqual(['%____\\_%']);
+    expect(searchPatterns('I_I')).toEqual(['%I\\_I%', '%ı\\_ı%']); // 2 letters: no wildcard
+  });
+});
+
+describe('short queries never get the ı/I wildcard (fix round 1)', () => {
+  it.each(['AI', 'IT', 'IoT', 'Iş', 'ısı', 'ıs'])('%s → no "_" in any pattern', (q) => {
+    for (const p of searchPatterns(q)) expect(p).not.toContain('_');
+    for (const p of searchPlan(q)) expect(p.wildcard).toBe(false);
+  });
+
+  it('from 4 letters on the wildcard applies and the plan says so', () => {
+    expect(searchPlan('ığdır').map((p) => p.wildcard)).toEqual([true, true]);
+    expect(searchPlan('robot').map((p) => p.wildcard)).toEqual([false]);
+    expect(searchPlan('a*b').map((p) => p.wildcard)).toEqual([true]); // PostgREST * → our `_`
+    expect(WILDCARD_WINDOW).toBe(30);
+  });
+});
+
+describe('matchesQuery — the Turkish-insensitive client filter', () => {
+  it('folds every I-form to i and lower-cases the Turkish way', () => {
+    expect(foldTurkish('IĞDIR İÇİN Işıl')).toBe('iğdir için işil');
+    expect(foldTurkish('ığdır ılgaz')).toBe('iğdir ilgaz');
+  });
+
+  it('"AI" does not match "Ankara Teknoloji Günü" (what the old %A_% pattern let through)', () => {
+    expect(matchesQuery('Ankara Teknoloji Günü', 'AI')).toBe(false);
+    expect(matchesQuery('Yapay Zekâ AI Kampı', 'ai')).toBe(true);
+    expect(matchesQuery('Bağdat Turu', 'ığdır')).toBe(false); // %_ğd_r% noise
+  });
+
+  it('keeps the Turkish matches: IĞDIR → Iğdır, ığdır → IĞDIR, İSTANBUL → istanbul, gençlik → GENÇLİK', () => {
+    expect(matchesQuery('Iğdır Bilim Günü', 'IĞDIR')).toBe(true);
+    expect(matchesQuery('IĞDIR İÇİN', 'ığdır')).toBe(true);
+    expect(matchesQuery('istanbul robot buluşması', 'İSTANBUL')).toBe(true);
+    expect(matchesQuery('ISPARTA GENÇLİK ŞENLİĞİ', 'gençlik')).toBe(true);
   });
 });
