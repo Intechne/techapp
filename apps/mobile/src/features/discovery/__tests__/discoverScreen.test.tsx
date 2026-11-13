@@ -389,19 +389,18 @@ describe('Keşfet ana — filtre ve arama', () => {
     expect(screen.getByText('Sıradaki adımın')).toBeTruthy();
   });
 
-  it('search results have no "Tümünü gör" (the Etkinlikler tab takes no search param)', async () => {
+  it('tapping the search field navigates to Search; Keşfet itself never searches in place', async () => {
     data.events = [event('e1', 'Robot atölyesi')];
     await renderScreen();
     await screen.findByText('Yaklaşan etkinlikler');
-    await fireEvent.changeText(screen.getByPlaceholderText('Etkinlik ara'), 'robot');
-    await fireEvent(screen.getByPlaceholderText('Etkinlik ara'), 'submitEditing');
-    expect(await screen.findByText('Sonuçlar')).toBeTruthy();
-    expect(screen.queryByText('Tümünü gör')).toBeNull();
+    // The input inside is display only and hidden from assistive tech: the button carries the label.
+    expect(screen.getByPlaceholderText('Etkinlik, fırsat, takım ara', { includeHiddenElements: true }).props.editable).toBe(false);
+    await fireEvent.press(screen.getByRole('button', { name: 'Ara: etkinlik, fırsat, takım ve eğitim' }));
+    expect(navigate).toHaveBeenCalledWith('Search');
+    // The events feed carries no text filter at all (the old in-place search built an or() string).
+    expect(queryCalls.filter((c) => c.table === 'events' && (c.method === 'or' || c.method === 'ilike'))).toEqual([]);
   });
 
-  // 3b'ye bağlı, atlandı: the Search screen and notification bell are Faz 3b modules (not merged). Until a `Search`
-  // route exists the field keeps submitting an in-place event search, and the bell is omitted.
-  it.todo('tapping the search field navigates to Search (Faz 3b — needs the Search route)');
   it('signed-in header shows the notification bell with the unread badge and opens Bildirimler', async () => {
     mockUserId = 'u1'; mockUnread = 3;
     await renderScreen();

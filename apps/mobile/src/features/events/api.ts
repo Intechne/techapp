@@ -21,7 +21,7 @@ const EVENT_SELECT = `${EVENT_PUBLIC_COLUMNS}, organization:organizations(id, na
 export const PAGE_SIZE = 10;
 
 export interface EventCursor { startsAt: string; id: string }
-export interface EventFilters { type: EventType | 'all'; topicInterestIds?: number[]; search?: string;
+export interface EventFilters { type: EventType | 'all'; topicInterestIds?: number[];
   /** Skip events whose registration already closed, server-side, so a 10-row page is not eaten by them (Keşfet, list filter). */
   registrationOpenOnly?: boolean;
   /** Can attend in this way: hybrid events count for both. */
@@ -45,10 +45,6 @@ export async function fetchEventsPage(filters: EventFilters, cursor: EventCursor
   if (filters.city) query = query.eq('city', filters.city);
   if (filters.within) query = query.lte('starts_at', new Date(Date.now() + WITHIN_DAYS[filters.within] * DAY_MS).toISOString());
   if (filters.topicInterestIds?.length) query = query.in('topic_interest_id', filters.topicInterestIds);
-  if (filters.search?.trim()) {
-    const term = filters.search.trim().replace(/[%,()]/g, ' ');
-    query = query.or(`title.ilike.%${term}%,summary.ilike.%${term}%`);
-  }
   if (cursor) query = query.or(`starts_at.gt.${cursor.startsAt},and(starts_at.eq.${cursor.startsAt},id.gt.${cursor.id})`);
 
   const { data, error } = await query.overrideTypes<EventWithOrg[], { merge: false }>();

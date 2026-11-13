@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -44,8 +44,6 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
   const { prefs } = usePrefs();
   const courseSaves = useBookmarks('course'); const eventSaves = useBookmarks('event'); const oppSaves = useBookmarks('opportunity'); const teamSaves = useBookmarks('team');
   const [topic, setTopic] = useState<string | 'all' | 'mine'>(prefs.interestSlugs.length ? 'mine' : 'all');
-  const [search, setSearch] = useState('');
-  const [submitted, setSubmitted] = useState('');
 
   const interests = useQuery({ queryKey: ['interests'], queryFn: fetchInterests, staleTime: 3_600_000 });
   const topicIds = useMemo(() => {
@@ -55,7 +53,7 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
     return all.filter((i) => slugs.includes(i.slug)).map((i) => i.id);
   }, [topic, interests.data, prefs.interestSlugs]);
 
-  const filters = useMemo(() => ({ type: 'all' as const, topicInterestIds: topicIds, search: submitted, registrationOpenOnly: !submitted }), [topicIds, submitted]);
+  const filters = useMemo(() => ({ type: 'all' as const, topicInterestIds: topicIds, registrationOpenOnly: true }), [topicIds]);
   const events = useQuery({ queryKey: ['discover', 'events', filters], queryFn: () => fetchEventsPage(filters, null), enabled: topic === 'all' || interests.isSuccess });
   const preview = useQuery({ queryKey: ['discover', 'preview'], queryFn: fetchPreview });
   // Gelişim: two published courses; the section exists only while there are any. A failed request is reported (inline Notice below), never hidden.
@@ -63,11 +61,10 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
 
   const items = events.data?.items ?? [];
   // "Yaklaşan" is what can still be joined: events whose registration closed stay in the Etkinlikler list only (approved Q4a).
-  // A search is a result list, not "Yaklaşan", so it keeps every match.
   const now = new Date();
-  const upcoming = submitted ? items : items.filter((e) => !isRegistrationClosed(e, now.getTime()));
-  const featured = submitted ? null : pickFeatured(upcoming, now);
-  const listed = (submitted ? upcoming : upcoming.filter((e) => e.id !== featured?.id)).slice(0, 3);
+  const upcoming = items.filter((e) => !isRegistrationClosed(e, now.getTime()));
+  const featured = pickFeatured(upcoming, now);
+  const listed = upcoming.filter((e) => e.id !== featured?.id).slice(0, 3);
   const openEvent = (id: string) => { track('discovery_item_opened', { kind: 'event', id }); navigation.navigate('EventDetail', { eventId: id }); };
   const tabs = navigation.getParent<BottomTabNavigationProp<MainTabParamList>>();
   // Straight to the detail inside the right tab; initial: false keeps that tab's list underneath, so Back returns to it.
@@ -82,19 +79,19 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
   const firstName = useMyProfile().data?.display_name?.split(' ')[0];
   const offline = events.isError && toAppError(events.error).code === 'network_unreachable' && !!events.data;
 
-  const filteredTopic = topic !== 'all' || !!submitted;
-  const p = submitted ? null : preview.data;
-  const courseList = submitted ? [] : courses.data ?? [];
+  const filteredTopic = topic !== 'all';
+  const p = preview.data;
+  const courseList = courses.data ?? [];
   const hasRest = !!p && (p.opportunities.length > 0 || p.teams.length > 0 || courseList.length > 0);
   // Every section hides when it has nothing; only when all of them are empty does one empty state stand in for the page.
   const allEmpty = events.isSuccess && upcoming.length === 0 && !filteredTopic && preview.isSuccess && !courses.isPending && !courses.isError && !hasRest;
 
   // Nothing else on the page could render, and the secondary query is what failed: say so instead of showing a blank page.
   const previewFailedAlone = preview.isError && events.isSuccess && upcoming.length === 0 && !filteredTopic;
-  const previewFailedInline = preview.isError && !submitted && !previewFailedAlone;
+  const previewFailedInline = preview.isError && !previewFailedAlone;
   const interestsFailed = topic !== 'all' && interests.isError;
   // A failed Gelişim request is told, not hidden. When the preview already failed alone its ErrorState retries both.
-  const coursesFailedInline = courses.isError && !submitted && !previewFailedAlone && !interestsFailed;
+  const coursesFailedInline = courses.isError && !previewFailedAlone && !interestsFailed;
   const sectionsFailed = (previewFailedInline && !interestsFailed ? 1 : 0) + (coursesFailedInline ? 1 : 0);
   const failedTitle = sectionsFailed > 1 ? 'Bazı bölümler yüklenemedi' : previewFailedInline && !interestsFailed ? 'Fırsatlar ve takımlar yüklenemedi' : 'Gelişim yüklenemedi';
   const failedError = previewFailedInline && !interestsFailed ? preview.error : courses.error;
@@ -106,8 +103,12 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
       <Text variant="bodySmall" color="textSecondary">{firstName ? `Merhaba ${firstName}` : 'Merhaba'}</Text>
       <Text variant="display" style={{ marginTop: space[1], marginBottom: space[5] }}>Bir fikrin varsa,{'\n'}bir yerin var.</Text>
 
-      {/* 3b'ye bağlı: once the Search route exists this field only navigates to it (no in-place search). */}
-      <SearchInput placeholder="Etkinlik ara" value={search} onChangeText={(t) => { setSearch(t); if (!t) setSubmitted(''); }} onSubmitEditing={() => setSubmitted(search)} />
+      {/* The field only opens Arama (no in-place search): the whole field is one button; the input inside is display only. */}
+      <Pressable accessibilityRole="button" accessibilityLabel="Ara: etkinlik, fırsat, takım ve eğitim" onPress={() => navigation.navigate('Search')}>
+        <View pointerEvents="none" importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+          <SearchInput placeholder="Etkinlik, fırsat, takım ara" editable={false} focusable={false} />
+        </View>
+      </Pressable>
       <View style={{ marginTop: space[3], marginBottom: space[5] }}>
         <ChipRail>
           {prefs.interestSlugs.length > 0 && <Chip label="Sana göre" icon="spark" selected={topic === 'mine'} onPress={() => setTopic('mine')} />}
@@ -124,10 +125,10 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
         : events.isError && !events.data ? <ErrorState error={toAppError(events.error)} onRetry={() => void events.refetch()} />
           : upcoming.length === 0 ? (filteredTopic && (
             <>
-              <SectionHeader title={submitted ? 'Sonuçlar' : 'Yaklaşan etkinlikler'} />
-              <EmptyState icon="filter" title={submitted ? `“${submitted}” için sonuç yok` : 'Bu filtrelerle sonuç yok'}
+              <SectionHeader title="Yaklaşan etkinlikler" />
+              <EmptyState icon="filter" title="Bu filtrelerle sonuç yok"
                 body="Başka bir konuya bakabilir ya da tüm etkinlikleri görebilirsin." actionLabel="Filtreleri temizle"
-                onAction={() => { setTopic('all'); setSearch(''); setSubmitted(''); }} />
+                onAction={() => setTopic('all')} />
             </>
           )) : (
             <>
@@ -135,7 +136,7 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
                 <HeroCard category={m.typeLabel} title={line} accent={line.split(' ').slice(-1)[0]} meta={metaJoin([m.dateLabel, m.placeLabel, m.feeLabel])} cta="Detayları gör" cover={m.cover} onPress={() => openEvent(featured.id)} />
               ); })()}
               {/* No vitrin: the list moves up; nothing reserves the hero's space. */}
-              <SectionHeader title={submitted ? 'Sonuçlar' : 'Yaklaşan etkinlikler'} {...(submitted ? {} : { actionLabel: 'Tümünü gör', onAction: () => navigation.getParent()?.navigate('EventsTab') })} />
+              <SectionHeader title="Yaklaşan etkinlikler" actionLabel="Tümünü gör" onAction={() => navigation.getParent()?.navigate('EventsTab')} />
               <View style={{ gap: space[3] }}>
                 {listed.map((e) => <PosterCard key={e.id} {...toEventPoster(e)} saved={eventSaves.ids.has(e.id)} onToggleSave={() => eventSaves.toggle(e.id)} onPress={() => openEvent(e.id)} />)}
               </View>
@@ -148,7 +149,7 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
           <TextButton label="Tekrar dene" onPress={retryFailed} />
         </View>
       )}
-      {!allEmpty && !submitted && !events.isPending && preview.isPending && (
+      {!allEmpty && !events.isPending && preview.isPending && (
         <>
           <SectionHeader title="Sıradaki adımın" />
           <LoadingSkeleton variant="row" cards={2} rowLines={OPPORTUNITY_ROW_LINES} />

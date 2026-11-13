@@ -1,5 +1,6 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
 import type { EventFiltersTarget, EventListParams } from '../features/events/filters';
+import type { SearchGroupKey } from '../features/search/api';
 
 /** Screens reachable from more than one tab (event journey). Registered in every stack that needs them. */
 export type SharedEventParamList = {
@@ -19,7 +20,12 @@ export type SharedLearningParamList = {
   Lesson: { courseId: string; lessonId: string };
 };
 
-export type DiscoverStackParamList = SharedEventParamList & SharedLearningParamList & { DiscoverHome: undefined; Notifications: undefined };
+export type DiscoverStackParamList = SharedEventParamList & SharedLearningParamList & {
+  DiscoverHome: undefined;
+  Notifications: undefined;
+  /** Birleşik arama. `group` + `query`: one group's "Tümünü gör" (the same screen, that group alone). Not deep-linked. */
+  Search: { query?: string; group?: SearchGroupKey } | undefined;
+};
 /** Etkinlikler list filters travel as route params (strings on web); the filter sheet starts from and returns the same shape. */
 export type EventsStackParamList = SharedEventParamList & SharedLearningParamList & { EventsList: EventListParams };
 export type OpportunitiesStackParamList = {

@@ -8,6 +8,7 @@ import { ProfileBootstrapScreen } from '../features/auth/ProfileBootstrapScreen'
 import { CheckInScreen } from '../features/checkin/CheckInScreen';
 import { CommunityScreen } from '../features/community/CommunityScreen';
 import { DiscoverScreen } from '../features/discovery/DiscoverScreen';
+import { SearchScreen } from '../features/search/SearchScreen';
 import { EventDetailScreen } from '../features/events/EventDetailScreen';
 import { EventRegistrationScreen } from '../features/events/EventRegistrationScreen';
 import { EventsListScreen } from '../features/events/EventsListScreen';
@@ -94,7 +95,7 @@ function eventJourney<T extends typeof Discover | typeof Events | typeof Profile
   );
 }
 
-const DiscoverStack = () => <Discover.Navigator screenOptions={stackOptions}><Discover.Screen name="DiscoverHome" component={DiscoverScreen} /><Discover.Screen name="Notifications" component={NotificationsScreen} />{eventJourney(Discover)}{learningJourney(Discover)}</Discover.Navigator>;
+const DiscoverStack = () => <Discover.Navigator screenOptions={stackOptions}><Discover.Screen name="DiscoverHome" component={DiscoverScreen} /><Discover.Screen name="Notifications" component={NotificationsScreen} /><Discover.Screen name="Search" component={SearchScreen} />{eventJourney(Discover)}{learningJourney(Discover)}</Discover.Navigator>;
 /**
  * Etkinlikler filters: a native form sheet resting at 60 % or full height (react-native-screens 4.26). On the root stack, not
  * in the Events tab: inside a tab Android draws the tab bar over the sheet and it stays tappable.
