@@ -82,7 +82,7 @@ const COPY: Record<string, string> = {
   demote_captain_first: 'Bir kaptanı çıkarmadan önce rolünü değiştirmen gerekiyor.',
   cannot_change_own_role: 'Kendi rolünü değiştiremezsin. Bunu takımdaki başka bir kaptan yapabilir.',
   cannot_remove_self: 'Kendini takımdan çıkaramazsın; istersen takımdan ayrılabilirsin.',
-  // team event registration (submit_team_registration). The server never says which member: no name or age leaves it.
+  // team event registration (submit_team_registration). Per-member failures carry only member ids in detail, never a name or age.
   not_team_manager: 'Takımı etkinliğe yalnızca kaptan ya da mentor kaydedebilir.',
   team_size_out_of_range: 'Kadro, etkinliğin istediği takım büyüklüğüne uymuyor.',
   member_not_active: 'Kadrodaki herkes takımın aktif üyesi olmalı.',
@@ -90,6 +90,7 @@ const COPY: Record<string, string> = {
   member_age_not_eligible: 'Kadrodan biri bu etkinliğin yaş aralığına uymuyor.',
   individual_registration_only: 'Bu etkinliğe yalnızca bireysel kayıt olunabiliyor.',
   team_event_full: 'Takım kontenjanı doldu ve bekleme listesi kapalı.',
+  already_on_team_roster: 'Bu etkinlik için bir takımın kadrosundasın. Bireysel kayıt için önce takım davetini reddetmen gerekiyor.',
   task_not_found: 'Bu görev bulunamadı.',
   task_forbidden: 'Bu görevi yalnızca sorumlusu ya da takımın kaptanı ve mentoru güncelleyebilir.',
   assignee_not_team_member: 'Görevi yalnızca takımın aktif üyelerinden birine verebilirsin.',

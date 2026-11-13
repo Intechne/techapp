@@ -23,8 +23,11 @@
 -- Seat hold: hold_expires_at = least(registration_closes_at, submitted_at + 7 days) (user decision 13 Nov 2026) on every
 -- seat-holding row; a waitlisted row holds no seat and gets its hold when promoted (app.promote_team_waitlist).
 --
--- Privacy: members include minors. Errors are bare machine codes (no detail): never a name, an age, or even which member
--- failed. The audit row carries ids, the status and the roster size only.
+-- Privacy: members include minors. Errors never carry a name, an age or a birth date. The three per-member failures
+-- (member_not_active, member_age_not_eligible, member_already_registered) put the OFFENDING MEMBER IDS in the error detail as
+-- a JSON array of uuids (e.g. '["…","…"]'), so the client can mark them: the caller is the team's manager and sent exactly
+-- these ids. Every other error has no detail. The audit row carries ids, the status and the roster size only.
+-- Reverse guard: register_for_event (20261113000500) refuses someone on a live team roster → 409 already_on_team_roster.
 --
 -- event_eligibility gains ADDITIVE keys only (mobile parses the old shape today): registration_mode, team_seats_left,
 -- manageable_teams [{team_id, name, role, active_member_count, registration_id, registration_status}] — the teams the
@@ -34,7 +37,9 @@
 -- Remote regression 27–27e after the push.
 
 -- ---------------------------------------------------------------- waitlist promotion
--- Give freed team seats to waitlisted teams, oldest first. Caller must hold the event row lock (lock order step 1).
+-- Give freed team seats to waitlisted teams, oldest first. Caller must hold the event row lock (lock order step 1) and pass
+-- the events row it read under its OWN `select … for update`, read AFTER any capacity change it made (a stale row would use
+-- an old team_capacity / registration_closes_at).
 -- After registration has closed nobody is promoted: the hold would already be over (hold ≤ registration_closes_at).
 create or replace function app.promote_team_waitlist(p_event public.events) returns void
 language plpgsql security definer set search_path = '' as $$
@@ -67,7 +72,7 @@ language plpgsql security definer set search_path = '' as $$
 declare
   v_uid uuid := (select auth.uid());
   e public.events; v_reg public.team_event_registrations;
-  v_members uuid[]; v_member uuid; v_size int; v_taken int; v_bad int;
+  v_members uuid[]; v_member uuid; v_size int; v_taken int; v_bad_ids uuid[];
   v_status public.team_registration_status; v_hold timestamptz;
 begin
   if v_uid is null then perform app.fail(401, 'auth_required'); end if;
@@ -83,6 +88,9 @@ begin
   -- Lock order 1: serialises every team registration change for this event — the last seat cannot be sold twice.
   select * into e from public.events where id = p_event_id and status = 'published' for update;
   if not found then perform app.fail(404, 'event_not_found'); end if;
+
+  -- A lapsed guardian request must not keep a member's individual pending_guardian registration live (same as register_for_event).
+  perform app.expire_guardian_requests(e.id);
 
   -- Same key again under the lock (a concurrent double tap waited on the lock above).
   select * into v_reg from public.team_event_registrations where submitted_by = v_uid and idempotency_key = p_idempotency_key;
@@ -118,35 +126,39 @@ begin
     perform pg_advisory_xact_lock(hashtextextended(e.id::text || ':' || v_member::text, 0));
   end loop;
 
-  -- Lock order 3 + eligibility in one pass: every person is an ACTIVE member of the team (rows held FOR SHARE) …
+  -- Lock order 3 + eligibility: every person is an ACTIVE member of the team (rows held FOR SHARE) …
+  -- (each failure names the offending member ids only — detail = JSON array of uuids, ascending)
   with roster as (select unnest(v_members) as user_id),
   active as (
     select m.user_id from public.team_memberships m
     where m.team_id = p_team_id and m.status = 'active' and m.user_id = any (v_members)
     order by m.user_id for share
   )
-  select count(*) filter (where a.user_id is null) into v_bad from roster r left join active a on a.user_id = r.user_id;
-  if v_bad > 0 then perform app.fail(422, 'member_not_active'); end if;
+  select array(select r.user_id from roster r left join active a on a.user_id = r.user_id
+               where a.user_id is null order by r.user_id) into v_bad_ids;
+  if cardinality(v_bad_ids) > 0 then perform app.fail(422, 'member_not_active', to_jsonb(v_bad_ids)::text); end if;
 
   -- … within the event's age range (unknown birth date counts as outside a limit) …
   if e.min_age is not null or e.max_age is not null then
-    select count(*) into v_bad from unnest(v_members) u(user_id)
-      cross join lateral (select app.age_years(u.user_id) as age) a
-     where a.age is null or (e.min_age is not null and a.age < e.min_age) or (e.max_age is not null and a.age > e.max_age);
-    if v_bad > 0 then perform app.fail(403, 'member_age_not_eligible'); end if;
+    select array(select u.user_id from unnest(v_members) u(user_id)
+                 cross join lateral (select app.age_years(u.user_id) as age) a
+                 where a.age is null or (e.min_age is not null and a.age < e.min_age) or (e.max_age is not null and a.age > e.max_age)
+                 order by u.user_id) into v_bad_ids;
+    if cardinality(v_bad_ids) > 0 then perform app.fail(403, 'member_age_not_eligible', to_jsonb(v_bad_ids)::text); end if;
   end if;
 
   -- … and not already taking part: no live registration of their own (individual or as a team member), and not on the live
   -- roster of another team's live registration (waitlisted included) for this event.
-  if exists (select 1 from public.event_registrations r
-             where r.event_id = e.id and r.user_id = any (v_members)
-               and r.status in ('pending_guardian', 'pending_review', 'confirmed', 'waitlisted'))
-     or exists (select 1 from public.team_event_registration_members tm
-                join public.team_event_registrations t on t.id = tm.team_registration_id
-                where t.event_id = e.id and tm.user_id = any (v_members) and tm.state in ('invited', 'accepted')
-                  and t.status in ('pending_members', 'pending_review', 'confirmed', 'waitlisted')) then
-    perform app.fail(409, 'member_already_registered');
-  end if;
+  select array(select u.user_id from unnest(v_members) u(user_id)
+               where exists (select 1 from public.event_registrations r
+                             where r.event_id = e.id and r.user_id = u.user_id
+                               and r.status in ('pending_guardian', 'pending_review', 'confirmed', 'waitlisted'))
+                  or exists (select 1 from public.team_event_registration_members tm
+                             join public.team_event_registrations t on t.id = tm.team_registration_id
+                             where t.event_id = e.id and tm.user_id = u.user_id and tm.state in ('invited', 'accepted')
+                               and t.status in ('pending_members', 'pending_review', 'confirmed', 'waitlisted'))
+               order by u.user_id) into v_bad_ids;
+  if cardinality(v_bad_ids) > 0 then perform app.fail(409, 'member_already_registered', to_jsonb(v_bad_ids)::text); end if;
 
   -- Team capacity from the rows (never from teams_taken).
   select count(*) into v_taken from public.team_event_registrations

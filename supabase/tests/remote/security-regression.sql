@@ -652,6 +652,9 @@ begin
     perform pg_temp.t_rec('27e grants: submit_team_registration authenticated-only, promote_team_waitlist not callable by API roles',
       v_text = 'promote_team_waitlist=false/false submit_team_registration=false/true', coalesce(v_text, 'missing'));
   end;
+  -- block 26's 15-year-old is invited on a live team roster of a 'both' event → no individual registration on top of it
+  perform pg_temp.t_fail('27f invited roster member registers individually for the same event → 409 already_on_team_roster', 'authenticated', v_tr_minor,
+    format('select public.register_for_event(%L, gen_random_uuid())', v_tr_event), '^PT409 already_on_team_roster');
 
   -- ================================================================ report (always rolls back)
   select jsonb_build_object('pass', count(*) filter (where pass), 'fail', count(*) filter (where not pass),

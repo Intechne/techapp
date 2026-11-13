@@ -211,7 +211,10 @@ begin
   end loop;
 end $$;
 
--- Same as 0002; only the capacity count is individual-only.
+-- Same as 0002; the capacity count is individual-only, and someone on a live team roster for this event (invited or accepted,
+-- team row live) cannot also register individually → 409 already_on_team_roster (the reverse of submit_team_registration's
+-- member_already_registered: one live participation per person per event). Checked under the event row lock, which every
+-- team-registration write path also takes first.
 create or replace function public.register_for_event(
   p_event_id uuid, p_idempotency_key uuid, p_answers jsonb default '{}'::jsonb
 ) returns public.event_registrations
@@ -244,6 +247,12 @@ begin
     perform app.fail(409, 'registration_not_open'); end if;
   if now() >= e.registration_closes_at then perform app.fail(409, 'registration_closed'); end if;
   if e.registration_mode = 'team' then perform app.fail(409, 'team_registration_only'); end if;
+  if exists (select 1 from public.team_event_registration_members tm
+             join public.team_event_registrations t on t.id = tm.team_registration_id
+             where t.event_id = e.id and tm.user_id = v_uid and tm.state in ('invited', 'accepted')
+               and t.status in ('pending_members', 'pending_review', 'confirmed', 'waitlisted')) then
+    perform app.fail(409, 'already_on_team_roster');
+  end if;
 
   v_age := app.age_years(v_uid);
   if v_age is null then perform app.fail(409, 'profile_incomplete'); end if;

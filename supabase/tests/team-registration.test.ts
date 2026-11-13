@@ -322,6 +322,13 @@ async function failure(promise: Promise<unknown>) {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** The per-member failures name the offending member ids (JSON array in detail) — never a name, age or birth date. */
+async function failsWithIds(promise: Promise<unknown>, status: number, code: string) {
+  const err = await failure(promise);
+  expect([err.code, err.message]).toEqual([`PT${status}`, code]);
+  return JSON.parse(err.detail ?? 'null') as string[];
+}
+
 /**
  * A real race: a gate connection holds the event row lock while the submits start on their own connections; only when
  * pg_stat_activity shows every one of them blocked on a lock does the gate commit and let them go at once.
@@ -434,11 +441,15 @@ describe('team registration · submit', () => {
   it('pending/left/removed member in roster → 422 member_not_active', async () => {
     const org = await createOrg(); const event = await createTeamEvent(org);
     const captain = await createUser(); const active = await createUser(); const team = await createTeam(captain, [active]);
+    const inactive: string[] = [];
     for (const status of ['pending', 'left', 'removed', null] as const) {
       const user = await createUser();
       if (status) await addMember(team, user, 'member', status);
-      await expectFail(submit(captain, event, team, [captain, active, user]), 422, 'member_not_active');
+      expect(await failsWithIds(submit(captain, event, team, [captain, active, user]), 422, 'member_not_active')).toEqual([user]);
+      inactive.push(user);
     }
+    // every offending id, ascending; active members are not named
+    expect(await failsWithIds(submit(captain, event, team, [captain, ...inactive]), 422, 'member_not_active')).toEqual([...inactive].sort()); // 5 = team_max_size
     expect(await counters(event)).toMatchObject({ teams_taken: 0 });
   });
 
@@ -447,9 +458,9 @@ describe('team registration · submit', () => {
     const capA = await createUser(); const capB = await createUser(); const solo = await createUser(); const shared = await createUser();
     const teamA = await createTeam(capA, [solo, shared]); const teamB = await createTeam(capB, [shared]);
     await register(solo, event);
-    await expectFail(submit(capA, event, teamA, [capA, solo]), 409, 'member_already_registered');
+    expect(await failsWithIds(submit(capA, event, teamA, [capA, solo]), 409, 'member_already_registered')).toEqual([solo]);
     const regB = await submit(capB, event, teamB, [capB, shared]);
-    await expectFail(submit(capA, event, teamA, [capA, shared]), 409, 'member_already_registered');
+    expect(await failsWithIds(submit(capA, event, teamA, [capA, shared, solo]), 409, 'member_already_registered')).toEqual([shared, solo].sort());
     // a waitlisted team's roster is live too
     await admin(`update public.team_event_registrations set status = 'waitlisted', hold_expires_at = null where id = $1`, [regB.id]);
     await expectFail(submit(capA, event, teamA, [capA, shared]), 409, 'member_already_registered');
@@ -473,7 +484,7 @@ describe('team registration · submit', () => {
     await expectFail(submit(captain, notOpen, team, [captain]), 409, 'registration_not_open');
   });
 
-  it('member outside min_age/max_age → 403 member_age_not_eligible (no name or age in the error payload)', async () => {
+  it('member outside min_age/max_age → 403 member_age_not_eligible (member ids only: no name, age or birth date in the error payload)', async () => {
     const org = await createOrg(); const event = await createTeamEvent(org, { min_age: 16, max_age: 20 });
     const captain = await createUser({ age: 19 }); const young = await createUser({ age: 14, name: 'Gizli Küçük Üye' });
     const old = await createUser({ age: 23, name: 'Gizli Büyük Üye' }); const noBirth = await createUser({ age: null });
@@ -481,12 +492,17 @@ describe('team registration · submit', () => {
     for (const [user, age] of [[young, '14'], [old, '23']] as const) {
       const err = await failure(submit(captain, event, team, [captain, user]));
       expect([err.code, err.message]).toEqual(['PT403', 'member_age_not_eligible']);
+      expect(JSON.parse(err.detail!)).toEqual([user]); // the manager sent this id: it may come back
+      const birth = (await admin(`select birth_date::text as d from public.profile_private where user_id = $1`, [user])).rows[0].d as string;
       const payload = JSON.stringify({ message: err.message, detail: err.detail, hint: err.hint, where: err.where });
-      expect(payload).not.toMatch(/Gizli|Küçük|Büyük/);
-      expect(payload).not.toContain(age);
-      expect(payload).not.toContain(user); // not even which member
+      const withoutIds = payload.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, '<id>');
+      expect(withoutIds).not.toMatch(/Gizli|Küçük|Büyük/);
+      expect(withoutIds).not.toContain(age);
+      expect(payload).not.toContain(birth);
+      expect(payload).not.toMatch(/birth|age_years|\d{4}-\d{2}-\d{2}/);
     }
-    await expectFail(submit(captain, event, team, [captain, noBirth]), 403, 'member_age_not_eligible');
+    expect(await failsWithIds(submit(captain, event, team, [captain, noBirth, young, old]), 403, 'member_age_not_eligible'))
+      .toEqual([noBirth, young, old].sort());
     expect((await submit(captain, event, team, [captain])).status).toBe('pending_members');
   });
 
@@ -559,6 +575,41 @@ describe('team registration · submit', () => {
     expect(results.filter((r) => r.ok)).toHaveLength(1);
     expect(results.flatMap((r) => (r.ok ? [] : [(r.error as { message: string }).message]))).toEqual(['member_already_registered']);
     expect(count(await admin(`select 1 from public.team_event_registration_members where user_id = $1 and state in ('invited', 'accepted')`, [shared]))).toBe(1);
+  });
+
+  it('an invited member cannot also register individually (409 already_on_team_roster); after declining they can; individual first still blocks the team', async () => {
+    const org = await createOrg(); const event = await createTeamEvent(org, { registration_mode: 'both', capacity: 10 });
+    const captain = await createUser(); const invited = await createUser(); const solo = await createUser();
+    const team = await createTeam(captain, [invited, solo]);
+    const reg = await submit(captain, event, team, [captain, invited]);
+    await expectFail(register(invited, event), 409, 'already_on_team_roster');
+    // a waitlisted team's roster counts too
+    await admin(`update public.team_event_registrations set status = 'waitlisted', hold_expires_at = null where id = $1`, [reg.id]);
+    await expectFail(register(invited, event), 409, 'already_on_team_roster');
+    await admin(`update public.team_event_registrations set status = 'pending_members', hold_expires_at = now() + interval '1 day' where id = $1`, [reg.id]);
+    // decline (Task 3 RPC) simulated: the roster row is no longer live → individual registration is allowed
+    await admin(`update public.team_event_registration_members set state = 'declined', responded_at = now() where team_registration_id = $1 and user_id = $2`, [reg.id, invited]);
+    expect((await register(invited, event)).status).toBe('confirmed');
+    // individual first, then a team submit naming them → refused, as before
+    await register(solo, event);
+    const other = await createUser(); const team2 = await createTeam(other, [solo]);
+    expect(await failsWithIds(submit(other, event, team2, [other, solo]), 409, 'member_already_registered')).toEqual([solo]);
+    expect(await counters(event)).toEqual({ seats_taken: 2, waitlist_count: 0, teams_taken: 1, team_waitlist_count: 0 });
+  });
+
+  it('a lapsed guardian request does not keep a member’s individual pending_guardian registration in the way', async () => {
+    const org = await createOrg();
+    const event = await createTeamEvent(org, { registration_mode: 'both', capacity: 10, guardian_required_under: 18 });
+    const captain = await createUser(); const minor = await createUser({ age: 16 });
+    const team = await createTeam(captain, [minor]);
+    const solo = await register(minor, event);
+    expect(solo.status).toBe('pending_guardian');
+    await admin(`insert into public.guardian_requests (user_id, consent_purpose, subject_type, subject_id, guardian_email, policy_version, expires_at)
+                 values ($1, 'event_participation', 'event_registration', $2, 'veli@example.test', 'v1', now() - interval '1 minute')`, [minor, solo.id]);
+    const reg = await submit(captain, event, team, [captain, minor]);
+    expect(reg.status).toBe('pending_members');
+    expect((await admin(`select status from public.event_registrations where id = $1`, [solo.id])).rows[0].status).toBe('expired');
+    expect((await admin(`select status from public.guardian_requests where subject_id = $1`, [solo.id])).rows[0].status).toBe('expired');
   });
 
   it('event_eligibility lists only teams where the caller is an active captain or mentor, with active_member_count', async () => {
