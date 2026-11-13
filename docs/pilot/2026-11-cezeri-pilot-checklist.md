@@ -59,6 +59,7 @@ Gerekenler: (1) Apple Developer Program üyeliği (kurumsal) ve Team ID; (2) `co
 
 **Önceden (21 Kasım dondurmadan sonra; ilk cihaz turu 22–23 Kasım'da yapılmalı ki 24 Kasım kararı kanıta dayansın, son tur 26 Kasım):**
 1. Staging'de pilot etkinliği tek kayıt olarak yayınlanır (hangi etkinlik/ad: kullanıcı onayı bekler; admin web'den, bireysel mod, kontenjan). Yalnız bu etkinlik vitrinde olmalı.
+   **Kontenjan kuralı (13 Kasım bulgusu):** kontenjan, beklenen katılımcı sayısının açıkça üstünde tutulur; bekleme listesine düşülmemeli. Neden: bekleme listesinden yükseltilen 18 yaş altı katılımcı `pending_guardian`'a geçer ama veli isteği otomatik oluşmaz ve süre dolmaz (`app.promote_waitlist`, `supabase/migrations/20260919000200_events.sql:318-340`); katılımcı uygulamayı açıp veli e-postasını girmezse koltuk süresiz tutulur ve arkadaki sıra ilerlemez. Düzeltme ürün dalında planlandı, pilot dalında değişiklik yok.
 2. Görevli hesapları: her görevli kendi e-postasıyla OTP ile girer; admin web'de etkinlik için **görevli (organizatör) rolü** atanır. Görevli sayısı ≥ 2 artı bir yedek; her görevlinin e-posta kutusuna erişimi test edilir (OTP gerçek e-postayla gelir).
 3. Cihaz başına prova (her görevli cihazı, §6 betiğinin 5–9. adımları): kamera izni, QR tarama, kısa kod, yanlış kod, tekrar okutma.
 4. Test katılımcı kayıtları önceden yapılır; her biri kartını bir kez açar (kart önbelleğe alınır, çevrimdışı görüntüleme için).
