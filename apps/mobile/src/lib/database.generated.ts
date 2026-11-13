@@ -1,3 +1,6 @@
+// NOTE: team registration (migrations 20261113000500..000800: events.team_*, enums team_registration_status / team_registration_member_state,
+// submit_team_registration, update_team_roster, cancel_team_registration, team_registration_detail, respond_team_registration,
+// my_team_registration_invites) hand-patched — regenerate with db:types after db push.
 // NOTE: covers fields (cover_path, cover_blurhash, set_cover) hand-patched — regenerate with db:types after db push.
 // NOTE: team_recruitment_applications (migration 20261113000300) hand-patched too.
 // NOTE: team profile (migration 20261113000200: teams.category_key, team_projects, upsert_team_project, delete_team_project,
@@ -823,6 +826,11 @@ export type Database = {
           summary: string
           support_contact: string | null
           timezone: string
+          team_capacity: number | null
+          team_max_size: number | null
+          team_min_size: number
+          team_waitlist_count: number
+          teams_taken: number
           title: string
           tone: string
           topic_interest_id: number | null
@@ -911,6 +919,11 @@ export type Database = {
           summary?: string
           support_contact?: string | null
           timezone?: string
+          team_capacity?: number | null
+          team_max_size?: number | null
+          team_min_size?: number
+          team_waitlist_count?: number
+          teams_taken?: number
           title?: string
           tone?: string
           topic_interest_id?: number | null
@@ -1782,6 +1795,90 @@ export type Database = {
           status?: string
           target_id?: string
           target_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      team_event_registration_members: {
+        Row: {
+          created_at: string
+          id: string
+          registration_id: string | null
+          responded_at: string | null
+          role_at_submit: Database["public"]["Enums"]["team_role"]
+          roster_version: number
+          state: Database["public"]["Enums"]["team_registration_member_state"]
+          team_registration_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          registration_id?: string | null
+          responded_at?: string | null
+          role_at_submit?: Database["public"]["Enums"]["team_role"]
+          roster_version?: number
+          state?: Database["public"]["Enums"]["team_registration_member_state"]
+          team_registration_id?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          registration_id?: string | null
+          responded_at?: string | null
+          role_at_submit?: Database["public"]["Enums"]["team_role"]
+          roster_version?: number
+          state?: Database["public"]["Enums"]["team_registration_member_state"]
+          team_registration_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      team_event_registrations: {
+        Row: {
+          cancelled_at: string | null
+          confirmed_at: string | null
+          created_at: string
+          event_id: string
+          hold_expires_at: string | null
+          id: string
+          idempotency_key: string
+          roster_version: number
+          status: Database["public"]["Enums"]["team_registration_status"]
+          status_reason: string | null
+          submitted_by: string | null
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          event_id?: string
+          hold_expires_at?: string | null
+          id?: string
+          idempotency_key?: string
+          roster_version?: number
+          status?: Database["public"]["Enums"]["team_registration_status"]
+          status_reason?: string | null
+          submitted_by?: string | null
+          team_id?: string
+          updated_at?: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          event_id?: string
+          hold_expires_at?: string | null
+          id?: string
+          idempotency_key?: string
+          roster_version?: number
+          status?: Database["public"]["Enums"]["team_registration_status"]
+          status_reason?: string | null
+          submitted_by?: string | null
+          team_id?: string
           updated_at?: string
         }
         Relationships: []
@@ -2793,6 +2890,63 @@ export type Database = {
           status: string
         }[]
       }
+      submit_team_registration: {
+        Args: { p_event_id: string; p_idempotency_key: string; p_member_ids: string[]; p_team_id: string }
+        Returns: {
+          cancelled_at: string | null
+          confirmed_at: string | null
+          created_at: string
+          event_id: string
+          hold_expires_at: string | null
+          id: string
+          idempotency_key: string
+          roster_version: number
+          status: Database["public"]["Enums"]["team_registration_status"]
+          status_reason: string | null
+          submitted_by: string | null
+          team_id: string
+          updated_at: string
+        }
+      }
+      update_team_roster: {
+        Args: { p_expected_roster_version: number; p_member_ids: string[]; p_team_registration_id: string }
+        Returns: {
+          cancelled_at: string | null
+          confirmed_at: string | null
+          created_at: string
+          event_id: string
+          hold_expires_at: string | null
+          id: string
+          idempotency_key: string
+          roster_version: number
+          status: Database["public"]["Enums"]["team_registration_status"]
+          status_reason: string | null
+          submitted_by: string | null
+          team_id: string
+          updated_at: string
+        }
+      }
+      cancel_team_registration: {
+        Args: { p_team_registration_id: string }
+        Returns: {
+          cancelled_at: string | null
+          confirmed_at: string | null
+          created_at: string
+          event_id: string
+          hold_expires_at: string | null
+          id: string
+          idempotency_key: string
+          roster_version: number
+          status: Database["public"]["Enums"]["team_registration_status"]
+          status_reason: string | null
+          submitted_by: string | null
+          team_id: string
+          updated_at: string
+        }
+      }
+      team_registration_detail: { Args: { p_team_registration_id: string }; Returns: Json }
+      respond_team_registration: { Args: { p_accept: boolean; p_idempotency_key: string; p_member_id: string }; Returns: Json }
+      my_team_registration_invites: { Args: Record<PropertyKey, never>; Returns: Json[] }
       team_roster: {
         Args: { p_team_id: string }
         Returns: {
@@ -2981,6 +3135,15 @@ export type Database = {
         | "rejected"
         | "withdrawn"
       registration_mode: "individual" | "team" | "both"
+      team_registration_member_state: "invited" | "accepted" | "declined" | "removed"
+      team_registration_status:
+        | "pending_members"
+        | "pending_review"
+        | "confirmed"
+        | "waitlisted"
+        | "cancelled"
+        | "rejected"
+        | "expired"
       registration_status:
         | "pending_guardian"
         | "pending_review"
@@ -3216,6 +3379,16 @@ export const Constants = {
         "withdrawn",
       ],
       registration_mode: ["individual", "team", "both"],
+      team_registration_member_state: ["invited", "accepted", "declined", "removed"],
+      team_registration_status: [
+        "pending_members",
+        "pending_review",
+        "confirmed",
+        "waitlisted",
+        "cancelled",
+        "rejected",
+        "expired",
+      ],
       registration_status: [
         "pending_guardian",
         "pending_review",

@@ -3,7 +3,7 @@ import type { MainTabParamList } from '../../navigation/types';
 export interface NotificationRouteInput { target_type: string | null; target_id: string | null; kind: string }
 export interface NotificationRoute { tab: keyof MainTabParamList; screen: string; params: object }
 
-type TargetType = 'event' | 'event_registration' | 'application' | 'team';
+type TargetType = 'event' | 'event_registration' | 'application' | 'team' | 'team_event_registration';
 
 /**
  * Kinds the server writes (20261113000400, `app.notification_kinds()`), the target type each one carries, and where it opens.
@@ -24,11 +24,18 @@ const KINDS: Record<string, { target: TargetType | null; probe: TargetType | nul
   'team_join.requested': { target: 'team', probe: 'team', open: (id) => ({ tab: 'CommunityTab', screen: 'TeamWorkspace', params: { teamId: id, tab: 'İstekler' } }) },
   'team_join.accepted': { target: 'team', probe: 'team', open: (id) => ({ tab: 'CommunityTab', screen: 'TeamDetail', params: { teamId: id } }) },
   'team_join.rejected': { target: 'team', probe: 'team', open: (id) => ({ tab: 'CommunityTab', screen: 'TeamDetail', params: { teamId: id } }) },
+  // Team registration (20261113000700). The team's captains / mentors and its accepted members get these; all of them can read the
+  // status screen (team_registration_detail). `.invited` and `.guardian_expired` are for the INVITED member, whose screen (TeamInvite,
+  // where they answer or are told the guardian lapsed) is Faz 3a Task 6: until it exists they have no route (row read, "gone" message).
+  'team_registration.confirmed': { target: 'team_event_registration', probe: 'team_event_registration', open: (id) => teamRegistrationStatus(id) },
+  'team_registration.member_declined': { target: 'team_event_registration', probe: 'team_event_registration', open: (id) => teamRegistrationStatus(id) },
+  'team_registration.expired': { target: 'team_event_registration', probe: 'team_event_registration', open: (id) => teamRegistrationStatus(id) },
   'event.reminder_24h': { target: 'event', probe: 'event', open: (id) => ({ tab: 'EventsTab', screen: 'EventDetail', params: { eventId: id } }) },
   // A cancelled event is no longer public (events_public_read: published only), so its page would always be "gone".
   // The registration it closed is listed in Katılımlarım with the reason.
   'event.cancelled': { target: 'event', probe: null, open: () => ({ tab: 'EventsTab', screen: 'MyRegistrations', params: {} }) },
 };
+const teamRegistrationStatus = (id: string | null): NotificationRoute => ({ tab: 'EventsTab', screen: 'TeamRegistrationStatus', params: { teamRegistrationId: id } });
 const registrationStatus = (id: string | null): NotificationRoute => ({ tab: 'EventsTab', screen: 'RegistrationStatus', params: { registrationId: id } });
 
 export function notificationRoute(n: NotificationRouteInput): NotificationRoute | null {
@@ -48,7 +55,7 @@ export function notificationProbe(n: NotificationRouteInput): TargetType | null 
 }
 
 /** The table that proves the target is still readable by this person (RLS decides). */
-export const TARGET_TABLE: Record<TargetType, 'events' | 'event_registrations' | 'applications' | 'teams'> = {
-  event: 'events', event_registration: 'event_registrations', application: 'applications', team: 'teams',
+export const TARGET_TABLE: Record<TargetType, 'events' | 'event_registrations' | 'applications' | 'teams' | 'team_event_registrations'> = {
+  event: 'events', event_registration: 'event_registrations', application: 'applications', team: 'teams', team_event_registration: 'team_event_registrations',
 };
 export const isTargetType = (t: string | null): t is TargetType => !!t && t in TARGET_TABLE;

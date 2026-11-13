@@ -38,3 +38,15 @@ describe('toAppError', () => {
   it('maps expired OTP', () => expect(toAppError({ code: 'otp_expired', message: 'Token has expired or is invalid' }).code).toBe('otp_expired'));
   it('maps an invalid OTP without a code', () => expect(toAppError({ message: 'Token has expired or is invalid' }).code).toBe('otp_invalid'));
 });
+
+describe('error detail (per-member ids)', () => {
+  it('keeps the PostgREST details string of a PTxxx error on the AppError, never in the message', () => {
+    const e = toAppError({ code: 'PT409', message: 'member_already_registered', details: '["11111111-1111-4111-8111-111111111111"]' });
+    expect(e.code).toBe('member_already_registered');
+    expect(e.detail).toBe('["11111111-1111-4111-8111-111111111111"]');
+    expect(e.message).not.toContain('1111');
+  });
+  it('an error without details has no detail key', () => {
+    expect('detail' in toAppError({ code: 'PT409', message: 'roster_changed', details: null })).toBe(false);
+  });
+});

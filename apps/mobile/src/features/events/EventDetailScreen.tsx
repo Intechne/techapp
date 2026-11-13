@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppHeader, BookmarkButton, Button, DemoTag, Divider, ErrorState, IconButton, LoadingSkeleton, MetadataRow, Notice, OrganizerRow, Poster, ReadMoreText, RegistrationStatus, RowCard, Screen, Tag, TechIcon, Text, keepNumbersTogether, semantic, space } from '../../design-system';
 import { track } from '../../lib/analytics';
+import { features } from '../../lib/features';
 import { formatDate, formatDateRange, formatTime, formatTimeRange } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
 import type { SharedEventParamList, SharedLearningParamList } from '../../navigation/types';
@@ -17,6 +18,8 @@ import { courseMeta } from '../learning/labels';
 import { eventKeys, fetchEligibility, fetchEvent } from './api';
 import { primaryBlocker } from './detailBlocker';
 import { VolunteerSection } from '../volunteers/VolunteerSection';
+import { eventCta, type TeamCta } from '../teamRegistration/logic';
+import { teamSizeLabel } from '../teamRegistration/labels';
 import { EVENT_TYPE_ICON, EVENT_TYPE_LABEL, audienceLabel, availability, blockerCopy, feeLabel, placeLabel, registrationTermsLabel } from './labels';
 
 const sem = semantic.light;
@@ -53,12 +56,33 @@ export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<
   const avail = availability(e);
   const existing = el?.registration_id && el.registration_status ? { id: el.registration_id, status: el.registration_status } : null;
   const full = !!el?.is_full;
+  // Team events (behind the flag): the team CTA decides the footer; the caller's own age and the "team registration only" reason
+  // are not blockers there (age is checked per member by the server).
+  const mode = e.registration_mode;
+  const teamEvent = mode === 'team';
+  const cta = eventCta({ mode, eligibility: el, signedIn: !!userId, flag: features.teamRegistration });
   // profile_incomplete is not a blocker here: the registration screen asks for the missing profile fields.
-  const reasons = el ? [...el.reasons.filter((r) => r !== 'profile_incomplete'), ...(full && !el.waitlist_enabled ? ['event_full'] : [])] : [];
+  const skipped = teamEvent ? ['profile_incomplete', 'team_registration_only', 'below_min_age', 'above_max_age'] : ['profile_incomplete'];
+  const reasons = el ? [...el.reasons.filter((r) => !skipped.includes(r)), ...(!teamEvent && full && !el.waitlist_enabled ? ['event_full'] : [])] : [];
   // One deciding reason, never a lone disabled primary button (approved S11 / Review Focus 5).
   const blocker = primaryBlocker([...new Set(reasons)], !!existing);
   const tabs = navigation.getParent();
   const similar = () => tabs?.navigate('EventsTab', { screen: 'EventsList', params: { type: e.type }, pop: true });
+
+  const openTeam = (t: TeamCta) => {
+    if (t.teamRegistrationId) navigation.navigate('TeamRegistrationStatus', { teamRegistrationId: t.teamRegistrationId });
+    else navigation.navigate('TeamRegistration', { eventId });
+  };
+  const signIn = () => { intent.set({ type: 'register_event', eventId }); navigation.getParent()?.getParent()?.navigate('AuthEmail'); };
+  const reasonLine = (text: string) => (
+    <View testID="blocker-footer" style={styles.reasonLine} accessible accessibilityLabel={text}>
+      <TechIcon name="info" size={18} color={sem.text.secondary} />
+      <Text variant="bodySmall" color="textSecondary" style={{ flex: 1 }}>{text}</Text>
+    </View>
+  );
+  const teamButton = cta.secondary
+    ? <Button kind="secondary" icon="team" label={cta.secondary.label} onPress={() => openTeam(cta.secondary!)} />
+    : null;
 
   const footer = existing ? (
     <Button label={existing.status === 'confirmed' ? 'Katılım kartımı göster' : 'Kayıt durumumu gör'} icon="ticket"
@@ -75,8 +99,22 @@ export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<
           ? <Button kind="secondary" icon="bookmark" label={saves.ids.has(eventId) ? 'Kaydedildi' : 'Kaydet'} onPress={() => saves.toggle(eventId)} />
           : <Button kind="secondary" icon="event" label="Benzer etkinlikler" onPress={similar} />}
     </>
+  ) : teamEvent && cta.kind === 'sign_in' ? (
+    <Button label={cta.label} iconRight="arrow" onPress={signIn} />
+  ) : teamEvent && cta.kind === 'team' ? (
+    <Button label={cta.label} icon="team" onPress={() => openTeam(cta as TeamCta)} />
+  ) : teamEvent && cta.kind === 'team_info' ? (
+    <>
+      {reasonLine(cta.label)}
+      <Button kind="secondary" icon="team" label="Takımını bul" onPress={() => tabs?.navigate('CommunityTab')} />
+    </>
+  ) : teamEvent ? (
+    <Button label="Takım kaydı" icon="team" loading />
   ) : (
-    <Button label={full ? 'Bekleme listesine katıl' : 'Etkinliğe katıl'} iconRight="arrow" onPress={join} loading={eligibility.isPending} />
+    <>
+      <Button label={full ? 'Bekleme listesine katıl' : 'Etkinliğe katıl'} iconRight="arrow" onPress={join} loading={eligibility.isPending} />
+      {teamButton}
+    </>
   );
   const share = () => { void Share.share({ message: `${e.title} · ${formatDateRange(e.starts_at, e.ends_at)}` }); };
 
@@ -100,7 +138,9 @@ export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<
         <MetadataRow icon="community" strong>{audienceLabel(e)} · {feeLabel(e.fee_minor_units)}</MetadataRow>
         <MetadataRow icon="team" strong>{registrationTermsLabel(e)}</MetadataRow>
         <MetadataRow icon="clock" strong>Son kayıt: {formatDate(e.registration_closes_at)}</MetadataRow>
-        {e.capacity !== null && <MetadataRow icon="ticket" strong>{Math.max(e.capacity - e.seats_taken, 0)} / {e.capacity} yer açık</MetadataRow>}
+        {e.capacity !== null && mode !== 'team' && <MetadataRow icon="ticket" strong>{Math.max(e.capacity - e.seats_taken, 0)} / {e.capacity} yer açık</MetadataRow>}
+        {features.teamRegistration && mode !== 'individual' && <MetadataRow icon="team" strong>Takım: {teamSizeLabel(e.team_min_size, e.team_max_size)}</MetadataRow>}
+        {features.teamRegistration && mode !== 'individual' && e.team_capacity !== null && <MetadataRow icon="ticket" strong>{Math.max(e.team_capacity - e.teams_taken, 0)} / {e.team_capacity} takım yeri açık</MetadataRow>}
       </View>
 
       {blocker && (

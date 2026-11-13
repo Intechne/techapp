@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tag } from './Chips';
 import type { TechIconName } from '../TechIcon';
-import type { RegistrationStatus as RegStatus, GuardianStatus } from '../../lib/database.types';
+import type { RegistrationStatus as RegStatus, GuardianStatus, TeamRegistrationStatus, TeamMemberStep } from '../../lib/database.types';
 import { formatTime } from '../../lib/dates';
 
 type Tone = 'iris' | 'moss' | 'neutral' | 'danger' | 'apricot';
@@ -17,6 +17,25 @@ export const registrationStatusView: Record<RegStatus, StatusView> = {
   cancelled: { label: 'İPTAL EDİLDİ', tone: 'neutral' },
   rejected: { label: 'UYGUN BULUNMADI', tone: 'danger' },
   expired: { label: 'SÜRESİ DOLDU', tone: 'neutral' },
+};
+
+/** A team's registration for a team-mode event (captain / mentor view). Same family as registrationStatusView, wording only here. */
+export const teamRegistrationStatusView: Record<TeamRegistrationStatus, StatusView> = {
+  pending_members: { label: 'ÜYELER BEKLENİYOR', tone: 'iris', icon: 'clock' },
+  pending_review: { label: 'DEĞERLENDİRMEDE', tone: 'iris', icon: 'clock' },
+  confirmed: { label: 'TAKIMIN ONAYLANDI', tone: 'moss', icon: 'check' },
+  waitlisted: { label: 'BEKLEME LİSTESİNDE', tone: 'apricot', icon: 'clock' },
+  cancelled: { label: 'İPTAL EDİLDİ', tone: 'neutral' },
+  rejected: { label: 'UYGUN BULUNMADI', tone: 'danger' },
+  expired: { label: 'SÜRESİ DOLDU', tone: 'neutral' },
+};
+
+/** One roster member of a team registration. `guardian` only says a guardian's answer is awaited: nothing more about it. */
+export const teamMemberStepView: Record<TeamMemberStep, StatusView> = {
+  invited: { label: 'DAVET BEKLİYOR', tone: 'iris', icon: 'clock' },
+  guardian: { label: 'VELİ ONAYI BEKLENİYOR', tone: 'iris', icon: 'shield' },
+  ready: { label: 'HAZIR', tone: 'moss', icon: 'check' },
+  declined: { label: 'KATILMIYOR', tone: 'neutral' },
 };
 
 /** A confirmed registration whose holder has already been checked in: the card is no longer what matters. */
@@ -104,7 +123,9 @@ export const VolunteerStatus = ({ status }: { status: keyof typeof volunteerStat
 export type RegistrationStepKey = 'registered' | 'guardian' | 'confirmed' | 'card';
 /** blocked = waiting on something outside the user's control (waitlist); failed/skipped = final, will not happen. */
 export type StepState = 'done' | 'current' | 'todo' | 'blocked' | 'failed' | 'skipped';
-export interface RegistrationStep { key: RegistrationStepKey; label: string; state: StepState }
+/** Steps of a team registration: Gönderildi → Üyeler hazır → [İnceleme] → Onaylandı. */
+export type TeamStepKey = 'registered' | 'members' | 'review' | 'confirmed';
+export interface RegistrationStep { key: RegistrationStepKey | TeamStepKey; label: string; state: StepState }
 
 export const registrationStepLabels: Record<RegistrationStepKey, string> = {
   registered: 'Başvurun alındı',
@@ -143,4 +164,31 @@ export function registrationSteps(status: RegStatus, needsGuardian: boolean): Re
   }
   const keys: RegistrationStepKey[] = guardian ? ['registered', 'guardian', 'confirmed', 'card'] : ['registered', 'confirmed', 'card'];
   return keys.map((key) => ({ key, label: registrationStepLabels[key], state: s[key] }));
+}
+
+export const teamStepLabels: Record<TeamStepKey, string> = {
+  registered: 'Gönderildi',
+  members: 'Üyeler hazır',
+  review: 'İnceleme',
+  confirmed: 'Onaylandı',
+};
+
+/**
+ * Display timeline of a team registration. The server status is the authority; `requiresReview` only says whether the review step
+ * belongs in the line before the organiser has acted (pending_review and rejected always show it). Cancelled has no timeline.
+ */
+export function teamRegistrationSteps(status: TeamRegistrationStatus, requiresReview: boolean): RegistrationStep[] {
+  if (status === 'cancelled') return [];
+  const review = requiresReview || status === 'pending_review' || status === 'rejected';
+  const s: Record<TeamStepKey, StepState> = { registered: 'done', members: 'todo', review: 'todo', confirmed: 'todo' };
+  switch (status) {
+    case 'pending_members': s.members = 'current'; break;
+    case 'pending_review': s.members = 'done'; s.review = 'current'; break;
+    case 'confirmed': s.members = 'done'; s.review = 'done'; s.confirmed = 'done'; break;
+    case 'waitlisted': s.members = 'blocked'; break;
+    case 'rejected': s.members = 'done'; s.review = 'failed'; s.confirmed = 'skipped'; break;
+    case 'expired': s.members = 'failed'; s.review = 'skipped'; s.confirmed = 'skipped'; break;
+  }
+  const keys: TeamStepKey[] = review ? ['registered', 'members', 'review', 'confirmed'] : ['registered', 'members', 'confirmed'];
+  return keys.map((key) => ({ key, label: teamStepLabels[key], state: s[key] }));
 }

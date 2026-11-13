@@ -8,6 +8,9 @@ export type SharedEventParamList = {
   EventRegistration: { eventId: string };
   RegistrationStatus: { registrationId: string; fresh?: boolean };
   GuardianRequest: { registrationId: string };
+  /** Takım kaydı (kaptan veya mentor), behind features.teamRegistration. `teamRegistrationId`: edit that registration's roster. */
+  TeamRegistration: { eventId: string; teamRegistrationId?: string };
+  TeamRegistrationStatus: { teamRegistrationId: string };
   ParticipationCard: { registrationId: string };
   MyRegistrations: undefined;
   VolunteerHub: { eventId: string };

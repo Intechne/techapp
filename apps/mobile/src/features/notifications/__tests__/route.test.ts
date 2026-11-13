@@ -1,4 +1,4 @@
-import { notificationProbe, notificationRoute } from '../route';
+import { TARGET_TABLE, notificationProbe, notificationRoute } from '../route';
 
 const ID = '11111111-1111-4111-8111-111111111111';
 const n = (kind: string, target_type: string | null, target_id: string | null = ID) => ({ kind, target_type, target_id });
@@ -53,4 +53,22 @@ describe('notificationProbe — only detail destinations are probed', () => {
     expect(notificationProbe(n('application.status_changed', 'application'))).toBeNull();
   });
   it('no route, no probe', () => expect(notificationProbe(n('x.y', 'event'))).toBeNull());
+});
+
+describe('notificationRoute — team registration kinds (target team_event_registration)', () => {
+  const status = { tab: 'EventsTab', screen: 'TeamRegistrationStatus', params: { teamRegistrationId: ID } };
+  it.each(['team_registration.confirmed', 'team_registration.member_declined', 'team_registration.expired'])('%s → the team registration status', (kind) => {
+    expect(notificationRoute(n(kind, 'team_event_registration'))).toEqual(status);
+  });
+  it.each(['team_registration.invited', 'team_registration.guardian_expired'])('%s → no route yet (the member screen is Task 6)', (kind) => {
+    expect(notificationRoute(n(kind, 'team_event_registration'))).toBeNull();
+    expect(notificationProbe(n(kind, 'team_event_registration'))).toBeNull();
+  });
+  it('a team registration kind with another target type has no route', () => {
+    expect(notificationRoute(n('team_registration.confirmed', 'event_registration'))).toBeNull();
+  });
+  it('the destination is probed against team_event_registrations', () => {
+    expect(notificationProbe(n('team_registration.confirmed', 'team_event_registration'))).toBe('team_event_registration');
+    expect(TARGET_TABLE.team_event_registration).toBe('team_event_registrations');
+  });
 });

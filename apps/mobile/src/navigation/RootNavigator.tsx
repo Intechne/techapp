@@ -16,6 +16,8 @@ import { EventFiltersScreen } from '../features/events/EventFiltersScreen';
 import { MyRegistrationsScreen } from '../features/events/MyRegistrationsScreen';
 import { ParticipationCardScreen } from '../features/events/ParticipationCardScreen';
 import { RegistrationStatusScreen } from '../features/events/RegistrationStatusScreen';
+import { TeamRegistrationScreen } from '../features/teamRegistration/TeamRegistrationScreen';
+import { TeamRegistrationStatusScreen } from '../features/teamRegistration/TeamRegistrationStatusScreen';
 import { GuardianRequestScreen } from '../features/guardian/GuardianRequestScreen';
 import { OnboardingScreen } from '../features/onboarding/OnboardingScreen';
 import { usePrefs } from '../features/onboarding/PrefsProvider';
@@ -88,6 +90,8 @@ function eventJourney<T extends typeof Discover | typeof Events | typeof Profile
       <S.Screen name="EventDetail" component={EventDetailScreen} />
       <S.Screen name="EventRegistration" component={EventRegistrationScreen} />
       <S.Screen name="RegistrationStatus" component={RegistrationStatusScreen} />
+      <S.Screen name="TeamRegistration" component={TeamRegistrationScreen} />
+      <S.Screen name="TeamRegistrationStatus" component={TeamRegistrationStatusScreen} />
       <S.Screen name="GuardianRequest" component={GuardianRequestScreen} />
       <S.Screen name="ParticipationCard" component={ParticipationCardScreen} />
       <S.Screen name="MyRegistrations" component={MyRegistrationsScreen} />

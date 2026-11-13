@@ -10,7 +10,7 @@ import type { EventWithOrg } from './labels';
  */
 export const EVENT_PUBLIC_FIELDS = [
   'id', 'organization_id', 'title', 'summary', 'description', 'type', 'format', 'city', 'venue', 'starts_at', 'ends_at',
-  'registration_opens_at', 'registration_closes_at', 'registration_mode', 'capacity', 'seats_taken', 'waitlist_enabled',
+  'registration_opens_at', 'registration_closes_at', 'registration_mode', 'team_min_size', 'team_max_size', 'team_capacity', 'teams_taken', 'capacity', 'seats_taken', 'waitlist_enabled',
   'fee_minor_units', 'min_age', 'max_age', 'guardian_required_under', 'audience_note', 'requires_review', 'accepts_volunteers',
   'cancellation_policy', 'support_contact', 'poster_line', 'tone', 'status', 'is_demo', 'cover_path', 'cover_blurhash',
 ] as const satisfies readonly (keyof EventRow)[];

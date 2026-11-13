@@ -49,10 +49,22 @@ export const accountStateSchema = z.object({
 });
 export type AccountState = z.infer<typeof accountStateSchema>;
 
+const teamRegistrationStatus = z.enum(['pending_members', 'pending_review', 'confirmed', 'waitlisted', 'cancelled', 'rejected', 'expired']);
+/** A team the caller can register for an event: active captain or mentor. Ids, name and counts only: no member names. */
+export const manageableTeamSchema = z.object({
+  team_id: z.string(), name: z.string(), role: z.enum(['captain', 'mentor']), active_member_count: z.number(),
+  registration_id: z.string().nullable(), registration_status: teamRegistrationStatus.nullable(),
+});
+export type ManageableTeam = z.infer<typeof manageableTeamSchema>;
+
 export const eventEligibilitySchema = z.object({
   event_id: z.string(), authenticated: z.boolean(), eligible: z.boolean(), reasons: z.array(z.string()), guardian_required: z.boolean(),
   is_full: z.boolean(), waitlist_enabled: z.boolean(), seats_left: z.number().nullable(),
   registration_id: z.string().nullable(), registration_status: registrationStatus.nullable(),
+  // Added by 20261113000600; defaults keep an older server readable.
+  registration_mode: z.enum(['individual', 'team', 'both']).default('individual'),
+  team_seats_left: z.number().nullable().default(null),
+  manageable_teams: z.array(manageableTeamSchema).default([]),
 });
 export type EventEligibility = z.infer<typeof eventEligibilitySchema>;
 
@@ -77,3 +89,18 @@ export const teamPublicProfileSchema = z.object({
   events: z.array(z.object({ id: z.string(), title: z.string(), starts_at: z.string().nullable().optional() })),
 });
 export type TeamPublicProfile = z.infer<typeof teamPublicProfileSchema>;
+
+export type TeamRegistrationStatus = z.infer<typeof teamRegistrationStatus>;
+export type TeamMemberStep = 'invited' | 'guardian' | 'ready' | 'declined';
+
+/** team_registration_detail (20261113000700): the registration as the team's circle sees it. No e-mail, birth date or guardian data. */
+export const teamRegistrationDetailSchema = z.object({
+  id: z.string(), status: teamRegistrationStatus, hold_expires_at: z.string().nullable(), roster_version: z.number(), can_edit: z.boolean(),
+  event: z.object({ id: z.string(), title: z.string(), starts_at: z.string() }),
+  team: z.object({ id: z.string(), name: z.string() }),
+  members: z.array(z.object({
+    member_id: z.string(), display_name: z.string().nullable(), role_at_submit: z.enum(['captain', 'mentor', 'member']),
+    state: z.enum(['invited', 'accepted', 'declined', 'removed']), step: z.enum(['invited', 'guardian', 'ready', 'declined']),
+  })),
+});
+export type TeamRegistrationDetail = z.infer<typeof teamRegistrationDetailSchema>;

@@ -6,6 +6,8 @@ export interface AppError {
   fieldErrors?: Record<string, string>;
   retryable: boolean;
   requestId?: string;
+  /** Raw PostgREST `details` of one of our RPC errors. Machine data (e.g. a JSON array of offending member ids), never shown to people. */
+  detail?: string;
 }
 
 const COPY: Record<string, string> = {
@@ -174,7 +176,7 @@ export function makeError(code: string, status = 0, extra: Partial<AppError> = {
   };
 }
 
-interface ErrorLike { code?: unknown; message?: unknown; status?: unknown; name?: unknown }
+interface ErrorLike { code?: unknown; message?: unknown; status?: unknown; name?: unknown; details?: unknown }
 
 /** Normalise anything thrown by supabase-js (PostgREST, Auth, Functions) or fetch into an AppError. */
 export function toAppError(input: unknown): AppError {
@@ -188,7 +190,7 @@ export function toAppError(input: unknown): AppError {
   }
   // Our RPCs raise SQLSTATE PTxxx with a machine code as the message.
   const pt = /^PT(\d{3})$/.exec(code);
-  if (pt) return makeError(message, Number(pt[1]));
+  if (pt) return makeError(message, Number(pt[1]), typeof e.details === 'string' && e.details ? { detail: e.details } : {});
   if (code === '42501') return makeError('forbidden', 403);
   if (code === 'PGRST116') return makeError('not_found', 404);
   if (code === '23505') return makeError('conflict', 409);

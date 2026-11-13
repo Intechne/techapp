@@ -3,9 +3,9 @@ import { StyleSheet, View } from 'react-native';
 import { colors, radius, space, timeline } from '../tokens';
 import { Text } from '../Text';
 import { TechIcon, type TechIconName } from '../TechIcon';
-import { stepStateText, type RegistrationStep, type RegistrationStepKey, type StepState } from './Status';
+import { stepStateText, type RegistrationStep, type RegistrationStepKey, type StepState, type TeamStepKey } from './Status';
 
-const stepIcon: Record<RegistrationStepKey, TechIconName> = { registered: 'task', guardian: 'shield', confirmed: 'verified', card: 'ticket' };
+const stepIcon: Record<RegistrationStepKey | TeamStepKey, TechIconName> = { registered: 'task', guardian: 'shield', confirmed: 'verified', card: 'ticket', members: 'team', review: 'clock' };
 
 /** Each state differs by shape/glyph as well as colour: check = done, filled = current, ring = todo, clock = waiting, cross = failed/skipped. */
 const look: Record<StepState, { bg: string; border: string; fg: string }> = {
