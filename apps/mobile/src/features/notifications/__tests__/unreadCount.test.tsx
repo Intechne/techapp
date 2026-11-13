@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Text } from 'react-native';
 import { useUnreadCount } from '../api';
 
-let mockUser: string | null = 'u1'; let mockCount = 2; let fetches = 0;
+let mockUser: string | null = 'u1'; let mockCount = 2; let fetches = 0; let mockFail = false;
 const mockFilters: [string, unknown[]][] = [];
 jest.mock('../../auth/SessionProvider', () => ({ useSession: () => ({ userId: mockUser }) }));
 jest.mock('../../../lib/supabase', () => ({
@@ -13,7 +13,7 @@ jest.mock('../../../lib/supabase', () => ({
       const b: Record<string, unknown> = {};
       mockFilters.push([`from:${t}`, []]);
       for (const m of ['select', 'eq', 'is']) b[m] = (...a: unknown[]) => { mockFilters.push([m, a]); return b; };
-      b.then = (r: (v: unknown) => unknown) => { fetches += 1; return Promise.resolve({ count: mockCount, error: null }).then(r); };
+      b.then = (r: (v: unknown) => unknown) => { fetches += 1; return Promise.resolve(mockFail ? { count: null, error: { message: 'Failed to fetch', code: '' } } : { count: mockCount, error: null }).then(r); };
       return b;
     },
   }),
@@ -31,7 +31,7 @@ const mount = async () => {
   const utils = await render(<QueryClientProvider client={client}><Probe /></QueryClientProvider>);
   return { client, ...utils };
 };
-beforeEach(() => { mockUser = 'u1'; mockCount = 2; fetches = 0; mockFilters.length = 0; focusCallbacks.length = 0; });
+beforeEach(() => { mockUser = 'u1'; mockCount = 2; fetches = 0; mockFail = false; mockFilters.length = 0; focusCallbacks.length = 0; });
 
 describe('useUnreadCount', () => {
   it('reads the caller\'s own unread rows as a head count (no row data leaves the server)', async () => {
@@ -54,5 +54,20 @@ describe('useUnreadCount', () => {
     await act(async () => { focusCallbacks.at(-1)!(); });
     await waitFor(() => expect(screen.getByTestId('n').children[0]).toBe('7'));
     expect(fetches).toBe(2);
+  });
+
+  it('a failing count shows nothing (0, no badge, no crash)', async () => {
+    mockFail = true;
+    await mount();
+    await waitFor(() => expect(fetches).toBeGreaterThan(0));
+    expect(screen.getByTestId('n').children[0]).toBe('0');
+  });
+
+  it('a refresh that fails after a good count shows nothing rather than the old number as if fresh', async () => {
+    await mount();
+    await waitFor(() => expect(screen.getByTestId('n').children[0]).toBe('2'));
+    mockFail = true;
+    await act(async () => { focusCallbacks.at(-1)!(); });
+    await waitFor(() => expect(screen.getByTestId('n').children[0]).toBe('0'));
   });
 });

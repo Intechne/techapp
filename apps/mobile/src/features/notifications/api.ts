@@ -68,5 +68,6 @@ export function useUnreadCount(): number {
     if (firstFocus.current) { firstFocus.current = false; return; } // the mount fetch already covers the first focus
     if (userId) void qc.invalidateQueries({ queryKey: notificationKeys.unread(userId) });
   }, [qc, userId]));
-  return q.data ?? 0;
+  // A failed refresh shows no badge: the last good number would read as current when it is not.
+  return q.isError ? 0 : q.data ?? 0;
 }

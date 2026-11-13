@@ -1,4 +1,4 @@
-import { notificationRoute } from '../route';
+import { notificationProbe, notificationRoute } from '../route';
 
 const ID = '11111111-1111-4111-8111-111111111111';
 const n = (kind: string, target_type: string | null, target_id: string | null = ID) => ({ kind, target_type, target_id });
@@ -42,4 +42,15 @@ describe('notificationRoute — no route', () => {
     expect(notificationRoute(n('registration.confirmed', 'team'))).toBeNull();
     expect(notificationRoute(n('team_join.accepted', 'event'))).toBeNull();
   });
+});
+
+describe('notificationProbe — only detail destinations are probed', () => {
+  it.each([['registration.confirmed', 'event_registration'], ['guardian.revoked', 'event_registration'], ['team_join.accepted', 'team'], ['team_join.requested', 'team'], ['event.reminder_24h', 'event']])('%s probes %s', (kind, probe) => {
+    expect(notificationProbe(n(kind, probe))).toBe(probe);
+  });
+  it('list destinations are never probed: Katılımlarım (event.cancelled) and Başvurularım (application.status_changed)', () => {
+    expect(notificationProbe(n('event.cancelled', 'event'))).toBeNull();
+    expect(notificationProbe(n('application.status_changed', 'application'))).toBeNull();
+  });
+  it('no route, no probe', () => expect(notificationProbe(n('x.y', 'event'))).toBeNull());
 });

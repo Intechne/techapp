@@ -9,7 +9,7 @@ import type { DiscoverStackParamList, ProfileStackParamList } from '../../naviga
 import { useSession } from '../auth/SessionProvider';
 import { fetchNotifications, markRead, notificationKeys, targetAvailable, useUnreadCount, type NotificationRow } from './api';
 import { groupNotifications } from './groups';
-import { notificationRoute } from './route';
+import { notificationProbe, notificationRoute } from './route';
 
 const GONE_TOAST = 'Bu içerik artık yok';
 
@@ -47,7 +47,8 @@ export function NotificationsScreen({ navigation }: Props) {
   const open = async (n: NotificationRow) => {
     if (!n.read_at) { try { await markRead([n.id]); } catch { /* opening does not depend on the bookkeeping */ } void refresh(); }
     const route = notificationRoute(n);
-    if (!route || !(await targetAvailable(n.target_type, n.target_id))) { toast.show(GONE_TOAST); return; }
+    const probe = notificationProbe(n);
+    if (!route || (probe && !(await targetAvailable(probe, n.target_id)))) { toast.show(GONE_TOAST); return; }
     tabs?.navigate(route.tab, { screen: route.screen, params: route.params, initial: false });
   };
 
