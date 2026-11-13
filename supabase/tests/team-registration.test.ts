@@ -1539,6 +1539,50 @@ describe('team registration · organizer', () => {
     expect([await sees(solo), await sees(t.captain)]).toEqual([1, 1]);
   });
 
+  it('a team member who already checked in stays on the organiser list and stays a confirmed participant when the team drops out of confirmed; a teammate who did not check in does not', async () => {
+    const owner = await createUser(); const org = await createOrg({ [owner]: 'owner' });
+    const event = await createTeamEvent(org, { team_min_size: 3 });
+    const t = await teamInReview(event, 2);                                              // captain + a + b, requires_review off
+    const [a, b] = t.members as [string, string];
+    expect((await teamRow(t.reg.id)).status).toBe('confirmed');
+    // registration closed, event about to start: the check-in window is open
+    await admin(`update public.events set registration_closes_at = now() - interval '1 hour', starts_at = now() + interval '1 hour',
+                 ends_at = now() + interval '6 hours' where id = $1`, [event]);
+    const token = (await asUser(a, (q) => q(`select public.get_participation_card($1) c`, [t.regs[a]]))).rows[0].c.qr_payload;
+    expect((await asUser(owner, (q) => q(`select public.check_in_participant($1, null, $2) j`, [token, event]))).rows[0].j.result).toBe('checked_in');
+    await admin(`insert into public.event_announcements (event_id, audience, title, body) values ($1, 'participants', 'Katılımcılara', 'Salon B')`, [event]);
+
+    await asUser(b, (q) => q(`select public.leave_team($1)`, [t.team]));                 // 2 ready < 3 after close
+    expect(await teamRow(t.reg.id)).toMatchObject({ status: 'pending_review', status_reason: 'roster_below_min_after_close' });
+
+    const list = (await asUser(owner, (q) => q(`select registration_id, status, checked_in_at from public.admin_event_registrations($1)`, [event]))).rows;
+    expect(list.map((r) => r.registration_id)).toEqual([t.regs[a]]);                    // the captain did not check in → not listed
+    expect(list[0]).toMatchObject({ status: 'confirmed' });
+    expect(list[0].checked_in_at).not.toBeNull();
+    const sees = async (u: string) => count(await asUser(u, (q) => q(`select 1 from public.event_announcements where event_id = $1`, [event])));
+    expect([await sees(a), await sees(t.captain)]).toEqual([1, 0]);
+  });
+
+  it('a caller without the organiser role is refused before the event row lock (never waits on it)', async () => {
+    const owner = await createUser(); const staff = await createUser();
+    const org = await createOrg({ [owner]: 'owner', [staff]: 'checkin_staff' });
+    const event = await createTeamEvent(org, { requires_review: true });
+    const t = await teamInReview(event);
+    const gate = await pool.connect();
+    try {
+      await gate.query('begin');
+      await gate.query(`select 1 from public.events where id = $1 for update`, [event]);
+      const outcome = await Promise.race([
+        review(staff, t.reg.id, true).then(() => 'succeeded', (e: { code?: string; message?: string }) => `${e.code} ${e.message}`),
+        sleep(2000).then(() => 'blocked'),
+      ]);
+      expect(outcome).toBe('PT403 review_forbidden');
+    } finally {
+      await gate.query('commit');
+      gate.release();
+    }
+  });
+
   it('grants: the organiser RPCs are authenticated-only', async () => {
     const rows = (await admin(`select p.proname, has_function_privilege('anon', p.oid, 'execute') anon,
                                       has_function_privilege('authenticated', p.oid, 'execute') auth

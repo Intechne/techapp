@@ -28,8 +28,9 @@
 --            (recount trigger) and app.promote_team_waitlist runs — it promotes nobody once registration has closed or the
 --            event is not published (same rule as every other path). Each member gets the existing registration.rejected
 --            notice; managers who are not on the roster get none (open decision, with .cancelled / .removed — see Task 3).
---   Lock order (same as Task 2/3): events row FOR UPDATE → team row FOR UPDATE → member registrations. The expiry job runs
---   lazily under the event lock first, so a team whose time ran out cannot be decided any more.
+--   Order: 404 unknown id → 403 role check (no lock taken yet) → lock order (same as Task 2/3): events row FOR UPDATE → team
+--   row FOR UPDATE → member registrations. The expiry job runs lazily under the event lock first, so a team whose time ran
+--   out cannot be decided any more.
 --
 -- Expiry (ledger CARRY T4): app.expire_team_registrations now closes EVERY pending_review team still undecided at the event's
 -- ends_at ('review_not_decided') — the requires_review 'members_ready' case was unbounded in 20261113000700; the after-close
@@ -39,13 +40,16 @@
 -- app.queue_event_reminders, volunteer_event_brief, get_participation_card and check_in_participant:
 --   public.admin_event_registrations   same signature and columns (pilot privacy test pins them); a member registration of a
 --                                      team that is not confirmed is left out (the team list above shows those people with
---                                      their step). Individual registrations: unchanged.
---   app.is_confirmed_participant       (participant-only announcements) same filter. Individual registrations: unchanged.
+--                                      their step) — UNLESS that person has already checked in: whoever attended never
+--                                      disappears from the organiser's list (e.g. the team drops to pending_review after
+--                                      close while members are on site). Individual registrations: unchanged.
+--   app.is_confirmed_participant       (participant-only announcements) same filter, same check-in exception. Individual
+--                                      registrations: unchanged.
 -- No other organiser export / view of participants exists (admin_event_volunteers lists volunteers; the volunteer brief and the
 -- reminder job were fixed in 20261113000700).
 --
 -- Deploy order (staging push HELD until after the Cezeri pilot, user approval): right after 20261113000700. Remote regression
--- 29–29i after the push.
+-- 29–29j after the push.
 
 -- ---------------------------------------------------------------- expiry: every undecided review is bounded by ends_at
 create or replace function app.expire_team_registrations(p_event uuid default null) returns int
@@ -143,11 +147,13 @@ begin
   select * into t from public.team_event_registrations where id = p_team_registration_id;
   if not found then perform app.fail(404, 'team_registration_not_found'); end if;
 
-  select * into e from public.events where id = t.event_id for update;               -- lock order 1
-  if not (app.has_org_role(e.organization_id, array['owner', 'admin', 'reviewer']::public.org_member_role[])
+  -- authorisation before any lock: someone without the role cannot hold (or wait on) the event row
+  if not (exists (select 1 from public.events x where x.id = t.event_id
+                    and app.has_org_role(x.organization_id, array['owner', 'admin', 'reviewer']::public.org_member_role[]))
           or app.is_platform_admin()) then
     perform app.fail(403, 'review_forbidden');
   end if;
+  select * into e from public.events where id = t.event_id for update;               -- lock order 1
   perform app.expire_team_registrations(e.id);                                       -- time ran out → nothing to decide
   select * into t from public.team_event_registrations where id = t.id for update;   -- lock order 2
   if t.status <> 'pending_review' then perform app.fail(409, 'team_registration_not_pending_review'); end if;
@@ -182,7 +188,7 @@ end $$;
 
 -- ---------------------------------------------------------------- confirmed participants: team members need a confirmed team
 -- Same as 20260919000600 (signature, columns, roles), plus: a team member's registration is listed only while the TEAM is
--- confirmed. Individual registrations are listed exactly as before.
+-- confirmed or once the member has checked in. Individual registrations are listed exactly as before.
 create or replace function public.admin_event_registrations(p_event_id uuid)
 returns table (
   registration_id uuid, display_name text, status public.registration_status, status_reason text,
@@ -204,18 +210,21 @@ begin
     from public.event_registrations r join public.profiles p on p.id = r.user_id
     where r.event_id = p_event_id
       and (r.team_registration_id is null
-           or exists (select 1 from public.team_event_registrations t where t.id = r.team_registration_id and t.status = 'confirmed'))
+           or exists (select 1 from public.team_event_registrations t where t.id = r.team_registration_id and t.status = 'confirmed')
+           -- someone who already checked in has attended: never drops off the list when the team later stops being confirmed
+           or exists (select 1 from public.event_check_ins c where c.registration_id = r.id))
     order by r.created_at;
 end $$;
 
--- Same as 20260920000100, plus the team filter (participant-only announcements).
+-- Same as 20260920000100, plus the team filter with the check-in exception (participant-only announcements).
 create or replace function app.is_confirmed_participant(p_event uuid) returns boolean
 language sql stable security definer set search_path = '' as $$
   select exists (select 1 from public.event_registrations r
                  where r.event_id = p_event and r.user_id = (select auth.uid()) and r.status = 'confirmed'
                    and (r.team_registration_id is null
                         or exists (select 1 from public.team_event_registrations t
-                                    where t.id = r.team_registration_id and t.status = 'confirmed')));
+                                    where t.id = r.team_registration_id and t.status = 'confirmed')
+                        or exists (select 1 from public.event_check_ins c where c.registration_id = r.id)));
 $$;
 
 -- ---------------------------------------------------------------- grants
