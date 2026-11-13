@@ -5,22 +5,17 @@ import { Text } from '../Text';
 import { TextButton } from './Button';
 import { TechIcon, type TechIconName } from '../TechIcon';
 import { Card } from './Surface';
-import { CircuitArt, circuitArtHeight } from './cards/PosterCard';
+import { CoverImage } from './CoverImage';
 
 /**
- * Detail-screen poster: the same Open Circuit fallback art as PosterCard (type badge + one circuit trace) on the tone
+ * Detail-screen poster: the cover photo (full size) when there is one; otherwise the same Open Circuit fallback art as PosterCard (type badge + one circuit trace) on the tone
  * ground, with the type label (a category, set in capitals) and the poster line at the bottom. The organiser is not on
  * the poster (approved Q2): a name never becomes an eyebrow; the detail screen's organiser row carries it.
  */
-export function Poster({ tone, icon, typeLabel, line, large }: { tone: Tone; icon: TechIconName; typeLabel: string; line: string; large?: boolean }) {
-  const t = tones[tone];
-  const inset = large ? space[5] : space[4];
+export function Poster({ tone, icon, typeLabel, line, large, cover }: { tone: Tone; icon: TechIconName; typeLabel: string; line: string; large?: boolean; cover?: { path: string | null; blurhash: string | null } }) {
   return (
-    <View style={[styles.poster, { backgroundColor: t.bg, minHeight: large ? 196 : 148, padding: inset, paddingTop: inset + circuitArtHeight + space[3] }, large && { borderRadius: radius.card }]}>
-      <CircuitArt tone={tone} icon={icon} seed={line} inset={inset} />
-      <Text variant="eyebrow" style={{ color: t.fg }} numberOfLines={1}>{typeLabel}</Text>
-      <Text variant={large ? 'title' : 'section'} style={{ color: t.fg, maxWidth: '86%', marginTop: space[2] }} numberOfLines={3}>{line}</Text>
-    </View>
+    <CoverImage detail large={large} path={cover?.path ?? null} blurhash={cover?.blurhash ?? null} size="full" aspect={16 / 10}
+      fallback={{ tone, icon, eyebrow: typeLabel, line }} />
   );
 }
 
@@ -116,7 +111,6 @@ const styles = StyleSheet.create({
   measure: { position: 'absolute', top: 0, left: 0, right: 0, opacity: 0, pointerEvents: 'none' },
   // Sits on the first line of a wrapped name (label line box 20, glyph 16).
   badge: { flexShrink: 0, marginTop: 2 },
-  poster: { justifyContent: 'flex-end', overflow: 'hidden' },
   meta: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
   organizer: { flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: 56 },
   orgLogo: { width: 46, height: 46, borderRadius: radius.control, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },

@@ -6,6 +6,7 @@ import { TechIcon, type TechIconName } from '../../TechIcon';
 import { Tag } from '../Chips';
 import type { StatusView } from '../Status';
 import { CardBase, CardSkeletonFrame, SkeletonLine } from './CardBase';
+import { CoverFill } from '../CoverImage';
 import { BookmarkButton } from './BookmarkButton';
 import { DEMO_SPOKEN, DemoTag } from './DemoTag';
 import { useLayout } from '../../useLayout';
@@ -16,8 +17,8 @@ const sem = semantic.light;
 
 export type RowCardLeading =
   | { kind: 'icon'; icon: TechIconName }
-  /** Logo / cover thumb. Rendered once expo-image lands (Faz 3b Task 4); until then the fallback icon tile shows. */
-  | { kind: 'image'; path: string | null; fallbackIcon: TechIconName };
+  /** Cover thumb (640 px copy) over the icon tile; no cover or a failed load leaves the icon. */
+  | { kind: 'image'; path: string | null; blurhash?: string | null; fallbackIcon: TechIconName };
 
 /** One trailing slot, one meaning: navigate, show a status, or save. */
 export type RowCardTrailing =
@@ -39,7 +40,12 @@ export interface RowCardProps {
 
 function LeadingTile({ leading }: { leading: RowCardLeading }) {
   const icon = leading.kind === 'icon' ? leading.icon : leading.fallbackIcon;
-  return <View style={styles.tile}><TechIcon name={icon} color={sem.action.primary} /></View>;
+  return (
+    <View style={styles.tile}>
+      <TechIcon name={icon} color={sem.action.primary} />
+      {leading.kind === 'image' && <CoverFill path={leading.path} blurhash={leading.blurhash ?? null} size="thumb" />}
+    </View>
+  );
 }
 
 /**
@@ -137,7 +143,7 @@ const styles = StyleSheet.create({
   bodyWithSave: { paddingRight: layout.touchTarget + cardLayout.pad - BOOKMARK_GLYPH_INSET + space[1] },
   tile: {
     width: cardLayout.leadingTile, height: cardLayout.leadingTile, borderRadius: radius.control,
-    backgroundColor: sem.action.primarySoft, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: sem.action.primarySoft, alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
   text: { flex: 1, minWidth: 0 },
   secondary: { marginTop: cardLayout.secondaryGap },

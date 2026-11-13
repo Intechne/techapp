@@ -11,13 +11,13 @@ import type { OpportunityRow, OpportunityType, Tables } from '../../lib/database
  */
 export const OPPORTUNITY_PUBLIC_FIELDS = [
   'id', 'title', 'summary', 'description', 'type', 'tone', 'city', 'is_remote', 'audience_note', 'reward_note', 'skills',
-  'min_age', 'max_age', 'guardian_required_under', 'opens_at', 'closes_at', 'shared_fields', 'apply_url', 'team_based', 'is_demo',
+  'min_age', 'max_age', 'guardian_required_under', 'opens_at', 'closes_at', 'shared_fields', 'apply_url', 'team_based', 'is_demo', 'cover_path', 'cover_blurhash',
 ] as const satisfies readonly (keyof OpportunityRow)[];
 export type OpportunityPublicRow = Pick<OpportunityRow, (typeof OPPORTUNITY_PUBLIC_FIELDS)[number]>;
 export const OPPORTUNITY_PUBLIC_COLUMNS = OPPORTUNITY_PUBLIC_FIELDS.join(', ');
 
 /** What a row card needs (type, place, deadline, reward): Keşfet's three-row feed. A subset of the public list, so one source. */
-export const OPPORTUNITY_CARD_FIELDS = ['id', 'title', 'type', 'closes_at', 'is_remote', 'city', 'audience_note', 'reward_note', 'is_demo'] as const satisfies readonly (typeof OPPORTUNITY_PUBLIC_FIELDS)[number][];
+export const OPPORTUNITY_CARD_FIELDS = ['id', 'title', 'type', 'closes_at', 'is_remote', 'city', 'audience_note', 'reward_note', 'is_demo', 'cover_path', 'cover_blurhash'] as const satisfies readonly (typeof OPPORTUNITY_PUBLIC_FIELDS)[number][];
 export type OpportunityCardRow = Pick<OpportunityRow, (typeof OPPORTUNITY_CARD_FIELDS)[number]>;
 export const OPPORTUNITY_CARD_COLUMNS = OPPORTUNITY_CARD_FIELDS.join(', ');
 

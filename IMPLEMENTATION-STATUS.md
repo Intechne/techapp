@@ -8,6 +8,7 @@ Plan: `docs/superpowers/plans/2026-11-12-techapp-v5-faz3b-core-modules.md`. Gör
 | T1 | Pilot borçları (Katılım etiketi, yenileme, veli sorgusu, kart anahtarı) | `eedcb43`, `584c72a` | — (yalnız istemci) |
 | T2 | `teams.created_by` / `recruitment_posts.created_by` sütun gizliliği (`20261112000300`) | `d4254af` + belge düzeltmesi | ⏸ bekletildi (önce istemci) |
 | T3 | Kapak görselleri — sunucu (`20261113000100_covers`) | `79dd2b1` + fix round 1 (`5e33daf`) + fix round 2 (`b0fbba4`) | ⏸ bekletildi — staging'de 22g ve 22k geçmeden kabul edilmez |
+| T4 | Kapak görselleri — admin yükleme (iki boyut + blurhash, WebP) + mobilde expo-image ve yedek poster | commit'ler aşağıda | ⏸ istemci, `20261113000100` uygulanana kadar yayınlanmaz |
 | T5 | Takım kapağı mobilde kaptan için | — **ATLANDI** (kullanıcı kararı 13 Kas 2026) | — |
 
 **T3 — ne geldi (yalnız yerelde kanıtlı: `npm run db:test`, remote regresyonun yerel kuru koşusu; staging'de koşulmadı):**
@@ -18,6 +19,10 @@ Plan: `docs/superpowers/plans/2026-11-12-techapp-v5-faz3b-core-modules.md`. Gör
 - İstemci şartları (T4 admin; T5 mobil yeniden açılırsa): her görsel WebP'ye yeniden kodlanır (EXIF/GPS silinir); `upsert: false`, her görsel yeni uuid; önce iki dosya, sonra `set_cover`; başarılı değiştirme/kaldırmadan sonra eski dosya çifti Storage API ile silinir.
 - Kaldırma talebi (moderasyon, veli, kurum): iki adım zorunlu — `set_cover(…, null)` sonra iki dosyanın Storage API ile silinmesi. CDN ve istemci disk önbelleği görseli silindikten sonra bir süre daha gösterebilir.
 - Yetim dosyalar: kullanımda olmayan ve 24 saatten eski `covers` nesnelerini Storage API ile (SQL DELETE değil) silen zamanlanmış temizlik **henüz yok** → Faz 6 ops.
+
+**T4 — ne geldi (yerelde kanıtlı; dev yığınında Storage yok):** admin `CoverField` (etkinlik/fırsat formu, yalnız kayıtlı içerikte): dosya (JPEG/PNG/WebP, ≤2 MB) tarayıcıda WebP'ye yeniden kodlanır (1600 + 640 px, EXIF/GPS yüklenmez) + 4×3 blurhash; sıra: iki dosya (`upsert:false`, yeni uuid) → `set_cover` → eski çift silinir; `set_cover` hatasında yeni çift silinir, eski bağ kalır; eski çiftin silinememesi bağı bozmaz, ekranda dürüstçe yazar. Yayındaki içerikte onaydan önce "yeniden onaya gider" uyarısı. Mobil: `coverUrl()` + `CoverImage`/`CoverFill` (expo-image, `memory-disk`, blurhash, 160 ms geçiş — azaltılmış harekette yok, hata → Open Circuit yedek posteri); listelerde 640 px, detayda ve vitrinde tam boy; Keşfet vitrini ve takım kapağında metin için mürekkep perdesi.
+**T4 yayın sırası (zorunlu):** istemci OTA (`000300` için) → `db push 20261112000300` → `db push 20261113000100` (+ remote 22g/22k geçmeli) → **kapaklı istemci**. Kapak sütunlarını okuyan kod `20261113000100`'den önce yayınlanırsa tüm liste sorguları "unknown column" ile kırılır. Bu dal pilotun `preview` kanalına asla OTA ile yayınlanmaz (`docs/RELEASE.md`).
+**T4 açık:** gerçek Storage ile uçtan uca yükleme yerelde denenmedi (yığında Storage yok; staging'de 22g/22k ile denenecek); `expo-doctor` 20/21 (Expo'nun yeni yama sürümleri: expo, expo-constants, expo-linking, expo-updates — bu görevle ilgisiz).
 
 **Bekletilen (Step 5, kullanıcı onayı gerekir):** staging `db push` + remote regresyon 22–22j — Cezeri pilotu (27–29 Kasım) bitene kadar yok. Yayın sırası: (1) sütun listeli istemci OTA/build → (2) `20261112000300` → (3) `20261113000100` → (4) remote regresyon + kalıntı kontrolü + public URL'nin curl ile kontrolü. `20261112000300`, `20261113000100`'den **önce** uygulanmalı: içindeki toplu `revoke select on public.teams` sütun düzeyi SELECT'leri de kaldırır, sonra uygulanırsa kapak sütunlarının grant'i düşer.
 

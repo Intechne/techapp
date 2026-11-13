@@ -66,7 +66,7 @@ export function deadlineTag(closesAtIso: string, now: Date = new Date()): Status
 /** Typical opportunity row on a phone: two-line title, two-line meta, deadline tag footnote (skeleton shape). */
 export const OPPORTUNITY_ROW_LINES: RowLines = { title: 2, secondary: 2, footnote: 'tag' };
 
-type OpportunityRowSource = Pick<OpportunityRow, 'type' | 'title' | 'closes_at' | 'is_remote' | 'city' | 'audience_note' | 'reward_note' | 'is_demo'>;
+type OpportunityRowSource = Pick<OpportunityRow, 'type' | 'title' | 'closes_at' | 'is_remote' | 'city' | 'audience_note' | 'reward_note' | 'is_demo'> & Partial<Pick<OpportunityRow, 'cover_path' | 'cover_blurhash'>>;
 
 /**
  * One opportunity row everywhere (Fırsatlar list, Keşfet "Sıradaki adımın"): type · place · audience · reward as the
@@ -76,7 +76,7 @@ type OpportunityRowSource = Pick<OpportunityRow, 'type' | 'title' | 'closes_at' 
 export function toOpportunityRow(o: OpportunityRowSource, now: Date = new Date()): Omit<RowCardProps, 'trailing' | 'onPress'> {
   const type = OPPORTUNITY_TYPE[o.type];
   return {
-    leading: { kind: 'icon', icon: type.icon },
+    leading: o.cover_path ? { kind: 'image', path: o.cover_path, blurhash: o.cover_blurhash ?? null, fallbackIcon: type.icon } : { kind: 'icon', icon: type.icon },
     title: o.title,
     secondary: metaJoin([type.label, placeOf(o), o.audience_note, o.reward_note]),
     footnoteTag: deadlineTag(o.closes_at, now),

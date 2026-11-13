@@ -16,7 +16,7 @@ export type MyTeam = Membership & { team: Team };
  * not granted, so `select('*')`, `teams(*)` or `returning *` on these tables fails with "permission denied".
  * A column added to either table must be granted in a new migration AND added here.
  */
-export const TEAM_PUBLIC_COLUMNS = 'id, organization_id, slug, name, kind, category, tagline, about, city, topic_interest_id, tone, accepts_join_requests, moderation_status, member_count, is_demo, created_at, updated_at' as const;
+export const TEAM_PUBLIC_COLUMNS = 'id, organization_id, slug, name, kind, category, tagline, about, city, topic_interest_id, tone, accepts_join_requests, moderation_status, member_count, is_demo, cover_path, cover_blurhash, created_at, updated_at' as const;
 export const RECRUITMENT_POST_COLUMNS = 'id, team_id, title, role_label, description, skills, is_open, closes_at, created_at, updated_at' as const;
 const MY_TEAMS_SELECT = `*, team:teams(${TEAM_PUBLIC_COLUMNS})` as const;
 

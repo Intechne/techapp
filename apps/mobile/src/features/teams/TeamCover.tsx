@@ -1,12 +1,13 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Tag, TechIcon, Text, radius, space, tones, type TechIconName } from '../../design-system';
+import { COVER_SCRIM, CoverFill, Tag, TechIcon, Text, radius, space, tones, type TechIconName } from '../../design-system';
 
 /** Dark moss block with a lime headline: the team/community identity surface from the Open Circuit prototype. */
-export function TeamCover({ label, name, tagline, icon }: { label: string; name: string; tagline?: string | null; icon: TechIconName }) {
+export function TeamCover({ label, name, tagline, icon, cover }: { label: string; name: string; tagline?: string | null; icon: TechIconName; cover?: { path: string | null; blurhash: string | null } }) {
   return (
     <View style={styles.cover}>
       <View style={styles.art}><TechIcon name={icon} size={120} color={tones.ink.fg} /></View>
+      {cover && <CoverFill path={cover.path} blurhash={cover.blurhash} size="full" scrim={COVER_SCRIM} />}
       <Tag label={label} tone="onDark" />
       <Text variant="title" breakStrategy="words" style={{ color: tones.ink.fg, marginTop: space[4] }}>{name}</Text>
       {!!tagline && <Text variant="bodySmall" style={{ color: tones.ink.fg, opacity: 0.85, marginTop: space[2], maxWidth: '85%' }}>{tagline}</Text>}

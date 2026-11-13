@@ -22,7 +22,7 @@ const READ_BY_SCREENS = [
   'id', 'title', 'summary', 'description', 'type', 'format', 'city', 'venue', 'starts_at', 'ends_at',
   'registration_opens_at', 'registration_closes_at', 'registration_mode', 'capacity', 'seats_taken', 'waitlist_enabled',
   'fee_minor_units', 'min_age', 'max_age', 'guardian_required_under', 'audience_note', 'requires_review', 'accepts_volunteers',
-  'cancellation_policy', 'support_contact', 'poster_line', 'tone', 'is_demo',
+  'cancellation_policy', 'support_contact', 'poster_line', 'tone', 'is_demo', 'cover_path', 'cover_blurhash',
 ];
 
 describe('events are read by an explicit public column list', () => {

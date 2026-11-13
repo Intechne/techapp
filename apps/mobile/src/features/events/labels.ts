@@ -71,7 +71,7 @@ export function toEventPoster(e: EventWithOrg): EventPosterModel {
     title: e.title, typeLabel: EVENT_TYPE_LABEL[e.type], availability: availability(e),
     dateLabel: formatDateRange(e.starts_at, e.ends_at), placeLabel: placeLabel(e),
     audienceLabel: audienceLabel(e), feeLabel: feeLabel(e.fee_minor_units),
-    cover: { path: null, blurhash: null },
+    cover: { path: e.cover_path, blurhash: e.cover_blurhash },
     fallback: { tone: e.tone, icon: EVENT_TYPE_ICON[e.type], line: e.poster_line ?? e.title },
     isDemo: e.is_demo,
   };

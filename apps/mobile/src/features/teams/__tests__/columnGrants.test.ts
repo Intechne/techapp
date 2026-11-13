@@ -6,7 +6,10 @@ import { RECRUITMENT_POST_COLUMNS, TEAM_PUBLIC_COLUMNS } from '../api';
 // see supabase/migrations/20261112000300_hide_creator_columns.sql. Any `*` read of these tables therefore fails at runtime with
 // "permission denied" — on the very screens that list teams. These checks catch it before a device does.
 const SRC = join(__dirname, '..', '..', '..');
-const MIGRATION = join(SRC, '..', '..', '..', 'supabase', 'migrations', '20261112000300_hide_creator_columns.sql');
+const MIGRATIONS = join(SRC, '..', '..', '..', 'supabase', 'migrations');
+const MIGRATION = join(MIGRATIONS, '20261112000300_hide_creator_columns.sql');
+// Later migrations add columns with their own explicit grant on teams (20261113000100: cover_path, cover_blurhash).
+const LATER_GRANTS = [join(MIGRATIONS, '20261113000100_covers.sql')];
 
 function sourceFiles(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -29,7 +32,8 @@ function grantedColumns(table: string): string[] {
   const sql = readFileSync(MIGRATION, 'utf8');
   const m = sql.match(new RegExp(`grant select \\(([^)]*)\\)\\s*on public\\.${table} to anon, authenticated`));
   if (!m) throw new Error(`no column grant for ${table} in ${MIGRATION}`);
-  return columns(m[1]!);
+  const later = LATER_GRANTS.flatMap((f) => [...readFileSync(f, 'utf8').matchAll(new RegExp(`grant select \\(([^)]*)\\)\\s*on public\\.${table} to anon, authenticated`, 'g'))].flatMap((x) => columns(x[1]!)));
+  return [...columns(m[1]!), ...later].sort();
 }
 
 describe('teams / recruitment_posts are read by explicit column list (created_by is not granted)', () => {

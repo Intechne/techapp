@@ -791,6 +791,8 @@ export type Database = {
           cancellation_policy: string | null
           capacity: number | null
           city: string | null
+          cover_blurhash: string | null
+          cover_path: string | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -833,6 +835,8 @@ export type Database = {
           cancellation_policy?: string | null
           capacity?: number | null
           city?: string | null
+          cover_blurhash?: string | null
+          cover_path?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -875,6 +879,8 @@ export type Database = {
           cancellation_policy?: string | null
           capacity?: number | null
           city?: string | null
+          cover_blurhash?: string | null
+          cover_path?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -1291,6 +1297,8 @@ export type Database = {
           audience_note: string | null
           city: string | null
           closes_at: string
+          cover_blurhash: string | null
+          cover_path: string | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -1322,6 +1330,8 @@ export type Database = {
           audience_note?: string | null
           city?: string | null
           closes_at: string
+          cover_blurhash?: string | null
+          cover_path?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -1353,6 +1363,8 @@ export type Database = {
           audience_note?: string | null
           city?: string | null
           closes_at?: string
+          cover_blurhash?: string | null
+          cover_path?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -1861,6 +1873,8 @@ export type Database = {
           accepts_join_requests: boolean
           category: string | null
           city: string | null
+          cover_blurhash: string | null
+          cover_path: string | null
           created_at: string
           created_by: string | null
           id: string
@@ -1881,6 +1895,8 @@ export type Database = {
           accepts_join_requests?: boolean
           category?: string | null
           city?: string | null
+          cover_blurhash?: string | null
+          cover_path?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -1901,6 +1917,8 @@ export type Database = {
           accepts_join_requests?: boolean
           category?: string | null
           city?: string | null
+          cover_blurhash?: string | null
+          cover_path?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -2200,6 +2218,8 @@ export type Database = {
           accepts_join_requests: boolean
           category: string | null
           city: string | null
+          cover_blurhash: string | null
+          cover_path: string | null
           created_at: string
           created_by: string | null
           id: string
@@ -2575,6 +2595,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      set_cover: {
+        Args: {
+          p_blurhash?: string
+          p_entity: string
+          p_entity_id: string
+          p_path: string
+        }
+        Returns: undefined
       }
       set_cv_sharing: { Args: { p_enabled: boolean }; Returns: string }
       set_team_member_role: {

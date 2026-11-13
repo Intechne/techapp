@@ -118,7 +118,7 @@ export function DiscoverScreen({ navigation }: NativeStackScreenProps<DiscoverSt
           )) : (
             <>
               {featured && (() => { const m = toEventPoster(featured); const line = m.fallback.line; return (
-                <HeroCard category={m.typeLabel} title={line} accent={line.split(' ').slice(-1)[0]} meta={metaJoin([m.dateLabel, m.placeLabel, m.feeLabel])} cta="Detayları gör" onPress={() => openEvent(featured.id)} />
+                <HeroCard category={m.typeLabel} title={line} accent={line.split(' ').slice(-1)[0]} meta={metaJoin([m.dateLabel, m.placeLabel, m.feeLabel])} cta="Detayları gör" cover={m.cover} onPress={() => openEvent(featured.id)} />
               ); })()}
               {/* No vitrin: the list moves up; nothing reserves the hero's space. */}
               <SectionHeader title={submitted ? 'Sonuçlar' : 'Yaklaşan etkinlikler'} {...(submitted ? {} : { actionLabel: 'Tümünü gör', onAction: () => navigation.getParent()?.navigate('EventsTab') })} />

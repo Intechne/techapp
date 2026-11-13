@@ -41,7 +41,7 @@ export function TeamDetailScreen({ navigation, route }: NativeStackScreenProps<C
   return (
     <Screen header={<AppHeader onBack={navigation.goBack} />} footer={footer}
       refreshing={team.isRefetching} onRefresh={() => { void team.refetch(); void posts.refetch(); if (userId) void membership.refetch(); }}>
-      <TeamCover label={[KIND_LABEL[t.kind], t.category?.toLocaleUpperCase('tr')].filter(Boolean).join(' · ')} name={t.name} tagline={t.tagline} icon={teamIcon(t)} />
+      <TeamCover label={[KIND_LABEL[t.kind], t.category?.toLocaleUpperCase('tr')].filter(Boolean).join(' · ')} name={t.name} tagline={t.tagline} icon={teamIcon(t)} cover={{ path: t.cover_path, blurhash: t.cover_blurhash }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginTop: space[4] }}>
         {m?.status === 'pending' && <StatusBadge view={membershipStatusView.pending} />}
         {perms.isMember && <StatusBadge view={membershipStatusView.active} />}

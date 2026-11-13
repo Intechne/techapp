@@ -75,7 +75,7 @@ export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<
     // No "Etkinlik" title: the content names itself. Back + share (save joins with Kaydedilenler, Faz 3b).
     <Screen header={<AppHeader onBack={navigation.goBack} right={<IconButton icon="share" accessibilityLabel="Paylaş" onPress={share} />} />} footer={footer}
       refreshing={event.isRefetching} onRefresh={() => { void event.refetch(); void eligibility.refetch(); }}>
-      <Poster large tone={e.tone} icon={EVENT_TYPE_ICON[e.type]} typeLabel={EVENT_TYPE_LABEL[e.type]} line={e.poster_line ?? e.title} />
+      <Poster large tone={e.tone} icon={EVENT_TYPE_ICON[e.type]} typeLabel={EVENT_TYPE_LABEL[e.type]} line={e.poster_line ?? e.title} cover={{ path: e.cover_path, blurhash: e.cover_blurhash }} />
       <View style={styles.tags}>
         <Tag label={EVENT_TYPE_LABEL[e.type]} />
         {avail && <Tag label={keepNumbersTogether(avail.label)} tone={avail.tone} />}
