@@ -12,6 +12,9 @@ describe('toAppError', () => {
     }
     expect(toAppError({ code: 'PT429', message: 'rate_limited' })).toMatchObject({ code: 'rate_limited', retryable: true });
   });
+  it('short_code_rate_limited (a cool-down, not a cap) stays retryable', () => {
+    expect(toAppError({ code: 'PT429', message: 'short_code_rate_limited' })).toMatchObject({ code: 'short_code_rate_limited', status: 429, retryable: true });
+  });
   it('distinguishes the account age rule (422) from an event age rule (403)', () => {
     expect(toAppError({ code: 'PT422', message: 'below_min_age' }).message).toMatch(/13 yaş/);
     expect(toAppError({ code: 'PT403', message: 'below_min_age' }).message).toMatch(/yaş grubuna/);

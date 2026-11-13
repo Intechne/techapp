@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Avatar, Button, Card, Chip, EmptyState, ErrorState, IconButton, Input, LoadingSkeleton, Modal, Notice, ResponsiveGrid, Screen, SegmentedControl, Select, StatusBadge, Tag, Text, TextButton, colors, radius, recruitmentPostStatusView, space, useToast } from '../../design-system';
+import { AppHeader, Avatar, Button, Card, Chip, EmptyState, ErrorState, IconButton, Input, LoadingSkeleton, Modal, Notice, ResponsiveGrid, Screen, SegmentedControl, Select, StatusBadge, Tag, Text, TextButton, colors, minorAgeView, radius, recruitmentPostStatusView, space, useToast } from '../../design-system';
 import { toAppError } from '../../lib/errors';
 import type { CommunityStackParamList } from '../../navigation/types';
 import { useSession } from '../auth/SessionProvider';
@@ -188,7 +188,14 @@ export function TeamWorkspaceScreen({ navigation, route }: NativeStackScreenProp
                           <Text variant="label">{waiting.length} başvuru karar bekliyor</Text>
                           {waiting.map((a) => (
                             <View key={a.id} style={styles.application}>
-                              <Text variant="caption" color="textSecondary">Başvuru · {formatDate(a.created_at)}</Text>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
+                                <Avatar name={a.display_name} size={36} tone="apricot" />
+                                <View style={{ flex: 1, gap: 2 }}>
+                                  <Text variant="label" breakStrategy="words">{a.display_name ?? 'İsimsiz kullanıcı'}</Text>
+                                  <Text variant="caption" color="textSecondary">Başvuru · {formatDate(a.created_at)}</Text>
+                                </View>
+                                {a.is_minor && <StatusBadge view={minorAgeView} />}
+                              </View>
                               {a.message ? <Text variant="bodySmall" color="textSecondary">“{a.message}”</Text> : <Text variant="caption" color="textSecondary">Not eklenmemiş.</Text>}
                               <View style={{ flexDirection: 'row', gap: space[2] }}>
                                 <Button label="Kabul et" accessibilityLabel={`${p.title}: başvuruyu kabul et`} style={{ flex: 1 }} loading={decideApplication.isPending && decideApplication.variables?.id === a.id && decideApplication.variables.accept} onPress={() => decideApplication.mutate({ id: a.id, accept: true })} />
@@ -196,7 +203,6 @@ export function TeamWorkspaceScreen({ navigation, route }: NativeStackScreenProp
                               </View>
                             </View>
                           ))}
-                          <Text variant="caption" color="textSecondary">Başvuranın adı, kabul ettiğinde Üyeler sekmesinde görünür.</Text>
                         </View>
                       )}
                     </Card>

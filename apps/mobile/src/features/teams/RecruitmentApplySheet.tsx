@@ -25,7 +25,7 @@ export function RecruitmentApplySheet({ post, userId, onClose }: { post: Recruit
           {/* Free text written by the team: shown as typed. */}
           {!!post.role_label && <Tag label={post.role_label} />}
           <Text variant="cardTitle" breakStrategy="words">{post.title}</Text>
-          <Text variant="bodySmall" color="textSecondary">Başvurun takımın kaptanına ve mentorlarına gider. Yazdığın not görünür; iletişim bilgilerin paylaşılmaz.</Text>
+          <Text variant="bodySmall" color="textSecondary">Başvurun takımın kaptanına ve mentorlarına gider. Başvurduğunda takım yöneticileri adını ve notunu görür; iletişim bilgilerin paylaşılmaz.</Text>
           <TextArea label="Kısa bir not (isteğe bağlı)" value={message} onChangeText={setMessage} maxLength={1000} placeholder="Neye katkı verebilirsin?" />
           {error && <Notice tone="danger" title="Başvurun gönderilmedi">{error.code === 'profile_incomplete' ? 'Önce Profil sekmesinden profilini tamamlaman gerekiyor.' : error.message}</Notice>}
           <Button label="Başvuruyu gönder" loading={apply.isPending} onPress={() => apply.mutate({ postId: post.id, message })} />

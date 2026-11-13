@@ -54,6 +54,9 @@ export const recruitmentPostStatusView = {
   closed: { label: 'KAPALI', tone: 'neutral' },
 } as const satisfies Record<string, StatusView>;
 
+/** Neutral age flag on a person a manager is about to decide on (server-computed `is_minor`; a missing birth date counts as under 18). */
+export const minorAgeView = { label: '18 YAŞ ALTI', tone: 'neutral' } as const satisfies StatusView;
+
 export const volunteerStatusView = {
   pending: { label: 'GÖNÜLLÜ BAŞVURUN DEĞERLENDİRİLİYOR', tone: 'iris', icon: 'clock' },
   approved: { label: 'GÖNÜLLÜ EKİPTESİN', tone: 'moss', icon: 'check' },

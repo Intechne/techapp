@@ -46,6 +46,8 @@ describe('Takımlarım only fetches the signed-in user’s own memberships', () 
     expect(mockCalls).toContainEqual({ table: 'team_memberships', method: 'eq', args: ['user_id', MOCK_CAPTAIN] });
     expect(mine.map((m) => m.id)).toEqual(['m1', 'm2']);
     expect(mine.every((m) => m.user_id === MOCK_CAPTAIN)).toBe(true);
+    // the embedded team carries category_key (icon source for Profil > Takımlar)
+    expect(mockCalls.find((c) => c.table === 'team_memberships' && c.method === 'select')?.args[0]).toMatch(/category_key/);
   });
 
   it('a captain gets one "Takımım" shortcut, never a card per teammate or applicant', async () => {

@@ -1,4 +1,4 @@
-import { CATEGORY_LABEL, TEAM_CATEGORY_KEYS, categoryIcon } from '../categoryIcon';
+import { CATEGORY_LABEL, TEAM_CATEGORY_KEYS, categoryIcon, myTeamIcon } from '../categoryIcon';
 
 describe('categoryIcon', () => {
   it('maps every category key to the icon of the meaning table', () => {
@@ -27,5 +27,12 @@ describe('categoryIcon', () => {
   });
   it('has a Turkish label for every key', () => {
     for (const key of TEAM_CATEGORY_KEYS) expect(CATEGORY_LABEL[key]).toBeTruthy();
+  });
+  it('CV team rows get their icon from the viewer’s own memberships (the CV document has no category_key)', () => {
+    const mine = [{ team_id: 't1', team: { category_key: 'robotics' } }, { team_id: 't2', team: { category_key: 'media' } }];
+    expect(myTeamIcon(mine, { team_id: 't1', kind: 'team' })).toBe('robot');
+    expect(myTeamIcon(mine, { team_id: 't2', kind: 'team' })).toBe('play');
+    expect(myTeamIcon(mine, { team_id: 'unknown', kind: 'community' })).toBe('community');
+    expect(myTeamIcon(undefined, { team_id: 't1', kind: 'team' })).toBe('team');
   });
 });

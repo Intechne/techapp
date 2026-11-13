@@ -8,7 +8,7 @@ import { TeamProjectEditorScreen } from '../TeamProjectEditorScreen';
 import { TeamWorkspaceScreen } from '../TeamWorkspaceScreen';
 
 const post = (id: string, over: Record<string, unknown> = {}) => ({ id, team_id: 't1', title: 'Mekanik ekibine katıl', role_label: 'Mekanik lideri', description: null, skills: ['CAD'], is_open: true, closes_at: null, created_at: '2026-11-01T10:00:00Z', updated_at: '2026-11-01T10:00:00Z', ...over });
-const application = (id: string, postId: string, over: Record<string, unknown> = {}) => ({ id, post_id: postId, user_id: `applicant-${id}`, message: 'Atölyede çalışmak istiyorum', status: 'submitted', created_at: '2026-11-03T10:00:00Z', ...over });
+const application = (id: string, postId: string, over: Record<string, unknown> = {}) => ({ id, post_id: postId, display_name: 'Elif Arslan', is_minor: false, message: 'Atölyede çalışmak istiyorum', status: 'submitted', created_at: '2026-11-03T10:00:00Z', ...over });
 const rosterRow = (role: string) => [{ membership_id: 'm1', user_id: 'u1', display_name: 'Ayşe K.', role, status: 'active', title: null, message: null }];
 
 let mockRole = 'captain'; let mockPosts: unknown[] = []; let mockApps: unknown[] = []; let mockProjects: unknown[] = [];
@@ -84,12 +84,21 @@ describe('Takım alanı — İlanlar', () => {
     expect(screen.queryByText('AÇIK')).toBeNull();
   });
 
-  it('a captain decides an application with decide_recruitment_application; the applicant is not named', async () => {
+  it('names the applicant; an under-18 applicant carries the neutral "18 YAŞ ALTI" tag, an adult does not', async () => {
+    mockPosts = [post('p1')]; mockApps = [application('a1', 'p1'), application('a2', 'p1', { display_name: 'Genç Başvuran', is_minor: true }), application('a3', 'p1', { display_name: null })];
+    await workspace();
+    expect(await screen.findByText('Elif Arslan')).toBeTruthy();
+    expect(screen.getByText('Genç Başvuran')).toBeTruthy();
+    expect(screen.getByText('İsimsiz kullanıcı')).toBeTruthy();
+    expect(screen.getAllByText('18 YAŞ ALTI')).toHaveLength(1);
+    expect(screen.queryByText(/Başvuranın adı, kabul/)).toBeNull();
+  });
+
+  it('a captain decides an application with decide_recruitment_application', async () => {
     mockPosts = [post('p1')]; mockApps = [application('a1', 'p1'), application('a2', 'p1', { message: null })];
     await workspace();
     expect(await screen.findByText('2 başvuru karar bekliyor')).toBeTruthy();
     expect(screen.getByText(/Atölyede çalışmak istiyorum/)).toBeTruthy();
-    expect(screen.queryByText(/applicant-/)).toBeNull();
     const accept = screen.getAllByRole('button', { name: 'Mekanik ekibine katıl: başvuruyu kabul et' });
     await fireEvent.press(accept[0]!);
     await waitFor(() => expect(mockDecide).toHaveBeenCalledWith('a1', true));

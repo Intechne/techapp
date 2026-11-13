@@ -82,6 +82,13 @@ export function TeamDetailScreen({ navigation, route }: NativeStackScreenProps<C
 
       {!!t.about && (<><Divider /><Text variant="section">Hakkında</Text><Text variant="body" color="textSecondary" style={{ marginTop: space[2] }}>{t.about}</Text></>)}
 
+      {profile.isError && (
+        <View style={{ marginTop: space[5], gap: space[2] }}>
+          <Notice tone="warning" title="Takım bilgileri yüklenemedi">{toAppError(profile.error).message}</Notice>
+          <TextButton label="Tekrar dene" onPress={() => void profile.refetch()} />
+        </View>
+      )}
+
       {hasRoles && counts && (
         <>
           <Divider />

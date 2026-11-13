@@ -25,7 +25,7 @@ import { CvShareCard } from './CvShareCard';
 import { ProvenanceBadge } from './ProvenanceBadge';
 import { CHECKIN_ROLES } from '../checkin/api';
 import { fetchMyTeams, teamKeys } from '../teams/api';
-import { categoryIcon } from '../teams/categoryIcon';
+import { categoryIcon, myTeamIcon } from '../teams/categoryIcon';
 
 const SEGMENTS = ['Deneyimler', 'Katılımlar', 'Takımlar'] as const;
 /** A Yaklaşan row: two-line title, date, status under the text on phones (approved Q6). */
@@ -212,7 +212,7 @@ export function ProfileScreen({ navigation, route }: NativeStackScreenProps<Prof
                   ? pendingTeams.length === 0 && <EmptyState icon="community" title="Henüz bir takımda değilsin" body="Topluluk sekmesinden bir takıma katılma isteği gönderebilir ya da kendi takımını kurabilirsin." actionLabel="Takımlara göz at" onAction={() => navigation.getParent()?.navigate('CommunityTab')} />
                   : <ResponsiveGrid>{teams.map((t) => (
                     <Card key={t.team_id} style={styles.teamRow}>
-                      <View style={styles.teamIcon}><TechIcon name={t.kind === 'team' ? 'team' : 'community'} color={colors.primary} /></View>
+                      <View style={styles.teamIcon}><TechIcon name={myTeamIcon(mine.data, t)} color={colors.primary} /></View>
                       <View style={{ flex: 1 }}><Text variant="cardTitle" breakStrategy="words">{t.name}</Text><Text variant="caption" color="textSecondary">{[t.title, TEAM_ROLE_LABEL[t.role], t.since ? `${formatDate(t.since)} tarihinden beri` : null].filter(Boolean).join(' · ')}</Text></View>
                     </Card>))}</ResponsiveGrid>}
               </>

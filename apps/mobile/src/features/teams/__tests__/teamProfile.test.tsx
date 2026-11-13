@@ -103,11 +103,16 @@ describe('Takım profili — bölümler', () => {
     expect(screen.getAllByRole('link')).toHaveLength(1);
   });
 
-  it('if the public profile cannot be read the rest of the page still renders (no invented counts)', async () => {
+  it('if the public profile cannot be read the page still renders, the gap is announced inline and can be retried (no invented counts)', async () => {
     mockProfile = 'unreadable';
     await detail();
     expect(await screen.findByText('Hakkında')).toBeTruthy();
+    expect(await screen.findByText('Takım bilgileri yüklenemedi')).toBeTruthy();
     expect(screen.queryByText('Rol dağılımı')).toBeNull();
+    mockProfile = profile();
+    await fireEvent.press(screen.getByRole('button', { name: 'Tekrar dene' }));
+    expect(await screen.findByText('Rol dağılımı')).toBeTruthy();
+    expect(screen.queryByText('Takım bilgileri yüklenemedi')).toBeNull();
   });
 });
 
@@ -144,6 +149,7 @@ describe('Takım profili — yönetim ve başvuru', () => {
     await detail();
     expect(await screen.findByText('Role başvur')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Başvuruyu gönder' })).toBeTruthy();
+    expect(screen.getByText(/Başvurduğunda takım yöneticileri adını ve notunu görür/)).toBeTruthy();
   });
 
   it('a signed-in person applies with a note; success shows the status label from Status.tsx instead of the button', async () => {

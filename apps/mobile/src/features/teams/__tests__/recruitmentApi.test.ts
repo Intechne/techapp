@@ -1,4 +1,4 @@
-import { saveRecruitmentPost, setRecruitmentPostOpen } from '../api';
+import { fetchPostApplications, saveRecruitmentPost, setRecruitmentPostOpen } from '../api';
 
 // The write path of a recruitment post: RLS decides who may write, column grants decide what may be read back.
 const calls: { method: string; args: unknown[] }[] = [];
@@ -10,7 +10,8 @@ function mockBuilder() {
   b.then = (resolve: (v: unknown) => unknown) => Promise.resolve(result).then(resolve);
   return b;
 }
-jest.mock('../../../lib/supabase', () => ({ getSupabase: () => ({ from: () => mockBuilder() }) }));
+let mockRpcRows: unknown[] = [];
+jest.mock('../../../lib/supabase', () => ({ getSupabase: () => ({ from: () => mockBuilder(), rpc: (fn: string, args: unknown) => { calls.push({ method: `rpc:${fn}`, args: [args] }); return Promise.resolve({ data: mockRpcRows, error: null }); } }) }));
 beforeEach(() => { calls.length = 0; result = { data: { id: 'p1' }, error: null }; });
 
 const input = { title: ' Yazılım ekibi ', roleLabel: '', description: '', skills: ['Python'], closesAt: null };
@@ -33,5 +34,18 @@ describe('recruitment post writes', () => {
   it('closing a post that RLS filtered out (not a manager) is a forbidden error, not a silent success', async () => {
     result = { data: [], error: null };
     await expect(setRecruitmentPostOpen('p1', false)).rejects.toMatchObject({ code: 'forbidden' });
+  });
+});
+
+describe('manager view of applications', () => {
+  it('reads through team_recruitment_applications; only undecided rows, no user id anywhere', async () => {
+    mockRpcRows = [
+      { application_id: 'a1', display_name: 'Elif Arslan', is_minor: false, message: 'Merhaba', status: 'submitted', created_at: '2026-11-03T10:00:00Z' },
+      { application_id: 'a2', display_name: 'Eski', is_minor: true, message: null, status: 'accepted', created_at: '2026-11-02T10:00:00Z' },
+    ];
+    const rows = await fetchPostApplications(['p1']);
+    expect(calls).toContainEqual({ method: 'rpc:team_recruitment_applications', args: [{ p_post_id: 'p1' }] });
+    expect(rows).toEqual([{ id: 'a1', post_id: 'p1', display_name: 'Elif Arslan', is_minor: false, message: 'Merhaba', status: 'submitted', created_at: '2026-11-03T10:00:00Z' }]);
+    expect(JSON.stringify(rows)).not.toMatch(/user_id/);
   });
 });

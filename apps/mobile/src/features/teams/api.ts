@@ -11,6 +11,8 @@ export type RecruitmentPost = RecruitmentPostRow;
 export type RosterEntry = Public['Functions']['team_roster']['Returns'][number];
 export type TeamProject = Omit<Public['Tables']['team_projects']['Row'], 'cover_path'>;
 export type RecruitmentApplication = Pick<Public['Tables']['recruitment_applications']['Row'], 'id' | 'post_id' | 'user_id' | 'message' | 'status' | 'created_at'>;
+/** What a manager sees of an application (team_recruitment_applications): a name and an age flag, never an id. */
+export interface ApplicantRow { id: string; post_id: string; display_name: string | null; is_minor: boolean; message: string | null; status: string; created_at: string }
 export type { TeamPublicProfile };
 export type MyTeam = Membership & { team: Team };
 
@@ -23,7 +25,7 @@ export const TEAM_PUBLIC_COLUMNS = 'id, organization_id, slug, name, kind, categ
 export const RECRUITMENT_POST_COLUMNS = 'id, team_id, title, role_label, description, skills, is_open, closes_at, created_at, updated_at' as const;
 /** `cover_path` stays closed for projects (migration 20261113000200), so it is not read. */
 export const TEAM_PROJECT_COLUMNS = 'id, team_id, title, summary, year, url, created_at, updated_at' as const;
-export const RECRUITMENT_APPLICATION_COLUMNS = 'id, post_id, user_id, message, status, created_at' as const;
+export const RECRUITMENT_APPLICATION_COLUMNS = 'id, post_id, user_id, message, status, created_at' as const; // the person's OWN applications only
 const MY_TEAMS_SELECT = `*, team:teams(${TEAM_PUBLIC_COLUMNS})` as const;
 
 export const teamKeys = {
@@ -93,12 +95,17 @@ export async function fetchAllPosts(teamId: string): Promise<RecruitmentPost[]> 
   return data;
 }
 
-/** Managers read the applications of their team's posts (policy recruitment_applications_select_managers); a person's own are filtered by user id. */
-export async function fetchPostApplications(postIds: string[]): Promise<RecruitmentApplication[]> {
-  if (postIds.length === 0) return [];
-  const { data, error } = await getSupabase().from('recruitment_applications').select(RECRUITMENT_APPLICATION_COLUMNS).in('post_id', postIds).eq('status', 'submitted').order('created_at', { ascending: true }).limit(200);
-  if (error) throw toAppError(error);
-  return data;
+/**
+ * Managers read who applied through the RPC (name, is_minor, note); there is no user id on the client. Same visibility rule as the
+ * join requests in team_roster: the person consented by applying. Only still-undecided applications are returned.
+ */
+export async function fetchPostApplications(postIds: string[]): Promise<ApplicantRow[]> {
+  const perPost = await Promise.all(postIds.map(async (postId) => {
+    const { data, error } = await getSupabase().rpc('team_recruitment_applications', { p_post_id: postId });
+    if (error) throw toAppError(error);
+    return data.filter((a) => a.status === 'submitted').map((a): ApplicantRow => ({ id: a.application_id, post_id: postId, display_name: a.display_name, is_minor: a.is_minor, message: a.message, status: a.status, created_at: a.created_at }));
+  }));
+  return perPost.flat();
 }
 
 export async function fetchMyRecruitmentApplications(userId: string): Promise<RecruitmentApplication[]> {

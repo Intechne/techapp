@@ -1,4 +1,5 @@
 // NOTE: covers fields (cover_path, cover_blurhash, set_cover) hand-patched — regenerate with db:types after db push.
+// NOTE: team_recruitment_applications (migration 20261113000300) hand-patched too.
 // NOTE: team profile (migration 20261113000200: teams.category_key, team_projects, upsert_team_project, delete_team_project,
 // team_public_profile, create_team.p_category_key) hand-patched — regenerate with db:types after db push.
 export type Json =
@@ -2761,6 +2762,17 @@ export type Database = {
         }
       }
       team_public_profile: { Args: { p_team_id: string }; Returns: Json }
+      team_recruitment_applications: {
+        Args: { p_post_id: string }
+        Returns: {
+          application_id: string
+          created_at: string
+          display_name: string | null
+          is_minor: boolean
+          message: string | null
+          status: string
+        }[]
+      }
       team_roster: {
         Args: { p_team_id: string }
         Returns: {
