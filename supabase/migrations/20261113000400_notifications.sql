@@ -10,9 +10,11 @@
 -- Kinds → source transition → recipient (targets: event_registration | event | application | team):
 --   registration.confirmed   event_registrations pending_guardian|pending_review → confirmed    participant   (event_registration)
 --   registration.promoted    event_registrations waitlisted → confirmed                         participant   (event_registration)
+--   registration.promoted_pending  waitlisted → pending_guardian | pending_review (one step left)  participant (event_registration)
 --   registration.rejected    event_registrations → rejected (organiser review)                  participant   (event_registration)
 --   registration.expired     event_registrations → expired (guardian request expired)           participant   (event_registration)
 --   guardian.denied          event_registrations → cancelled, status_reason 'guardian_denied'   participant   (event_registration)
+--   guardian.revoked         event_registrations → cancelled, status_reason 'guardian_revoked'  participant   (event_registration)
 --   event.cancelled          event_registrations → cancelled, status_reason 'event_cancelled'   each live registrant (event)
 --   application.status_changed applications → in_review|info_requested|accepted|declined|closed applicant   (application)
 --   team_join.requested      team_memberships INSERT status 'pending'      active captains + mentors (team; no requester name)
@@ -21,7 +23,11 @@
 --   event.reminder_24h       app.queue_event_reminders(): confirmed + published, starts in [23 h, 25 h)  participant (event)
 -- Guardian approval produces NO separate notification: the registration moves to confirmed → registration.confirmed only
 -- (or to pending_review → nothing until the organiser decides). Self-service actions (register, cancel, withdraw) notify nobody.
--- Not notified on purpose (not in the kind list): guardian revoke after approval, waitlisted → pending_guardian/pending_review.
+-- Silent on purpose (pinned by tests): same-status updates; registration INSERT; cancelled_by_user; pending_guardian →
+-- pending_review; applicant draft → submitted / withdrawn; membership INSERT active (team creation, direct adds — incl. the
+-- recruitment-acceptance insert path, recorded as a known gap), pending → left, active → left / removed.
+-- Known, NOT changed here: app.promote_waitlist (20260919000200_events.sql:318-340) moves a minor to pending_guardian without
+-- creating a guardian request; registration.promoted_pending tells the minor, but the seat has no expiry until they ask.
 -- Faz 3a team registration does not exist on this branch (no team_event_registrations table) → no team-registration kinds.
 --
 -- Reminder: exactly one event.reminder_24h per (user, event) ever — unique partial index notifications_one_reminder on
@@ -39,7 +45,7 @@
 --
 -- Deploy order (staging push HELD until after the pilot, user approval): 20261112000300 → 20261113000100 → 20261113000200 →
 -- 20261113000300 → this file. It touches no teams column grant, so it is order-independent of 000300's bulk revoke, but it
--- ships in file order with the rest. Remote regression 25–25j must pass after the push.
+-- ships in file order with the rest. Remote regression 25–25k must pass after the push.
 
 -- ---------------------------------------------------------------- constants
 -- kullanıcı kararı 13 Kas 2026: 90 gün (okunmuş bildirimler 90 gün sonra silinir; okunmamışlar hiç silinmez).
@@ -49,8 +55,8 @@ language sql immutable set search_path = '' as $$ select 90 $$;
 
 create or replace function app.notification_kinds() returns text[]
 language sql immutable set search_path = '' as $$
-  select array['registration.confirmed', 'registration.promoted', 'registration.rejected', 'registration.expired',
-               'guardian.denied', 'application.status_changed', 'team_join.accepted', 'team_join.rejected',
+  select array['registration.confirmed', 'registration.promoted', 'registration.promoted_pending', 'registration.rejected',
+               'registration.expired', 'guardian.denied', 'guardian.revoked', 'application.status_changed', 'team_join.accepted', 'team_join.rejected',
                'team_join.requested', 'event.reminder_24h', 'event.cancelled']::text[];
 $$;
 
@@ -67,7 +73,10 @@ begin
     when 'registration.rejected' then title := 'Kaydın onaylanmadı.';              body := t || ' için kaydın bu kez onaylanmadı.';
     when 'registration.expired' then title := 'Veli onayı zamanında gelmedi.';
                                      body := t || ' için kaydın kapandı. Yer varsa yeniden kaydolabilirsin.';
+    when 'registration.promoted_pending' then title := 'Bekleme listesinden yer açıldı.';
+                                              body := t || ' için yerin ayrıldı. Kaydını tamamlamak için bir adım kaldı.';
     when 'guardian.denied' then title := 'Velin kaydı onaylamadı.';                body := t || ' için kaydın iptal edildi.';
+    when 'guardian.revoked' then title := 'Velin onayını geri çekti.';             body := t || ' için kaydın iptal edildi.';
     when 'application.status_changed' then title := 'Başvurunda yeni bir durum var.';
                                            body := t || ' için başvurunun durumu güncellendi.';
     when 'team_join.accepted' then title := 'Takıma katıldın.';                    body := t || ' katılma isteğini kabul etti.';
@@ -85,9 +94,11 @@ end $$;
 -- '^[a-z_.]{3,60}$' (0004) has no digits → 'event.reminder_24h' would be refused.
 alter table public.notifications drop constraint notifications_kind_check;
 alter table public.notifications add constraint notifications_kind_check check (kind ~ '^[a-z0-9_.]{3,60}$');
--- NOT VALID: nothing wrote this table before, but a stray staging row must not block the migration.
+-- Added NOT VALID, then validated at once: no writer of this table ever existed (0004: "insert: service role / server
+-- functions only", none written), so no existing row can fail. If VALIDATE ever fails on a project, inspect those rows first.
 alter table public.notifications add constraint notifications_target_type_check
   check (target_type is null or target_type in ('event', 'event_registration', 'application', 'team')) not valid;
+alter table public.notifications validate constraint notifications_target_type_check;
 
 create unique index notifications_one_reminder on public.notifications (user_id, kind, target_id)
   where kind = 'event.reminder_24h';
@@ -163,13 +174,16 @@ declare v_kind text; v_type text := 'event_registration'; v_target uuid := new.i
 begin
   if new.status = 'confirmed' then
     v_kind := case when old.status = 'waitlisted' then 'registration.promoted' else 'registration.confirmed' end;
+  elsif old.status = 'waitlisted' and new.status in ('pending_guardian', 'pending_review') then
+    v_kind := 'registration.promoted_pending';
   elsif new.status = 'rejected' then v_kind := 'registration.rejected';
   elsif new.status = 'expired' then v_kind := 'registration.expired';
   elsif new.status = 'cancelled' and new.status_reason = 'guardian_denied' then v_kind := 'guardian.denied';
+  elsif new.status = 'cancelled' and new.status_reason = 'guardian_revoked' then v_kind := 'guardian.revoked';
   elsif new.status = 'cancelled' and new.status_reason = 'event_cancelled' then
     v_kind := 'event.cancelled'; v_type := 'event'; v_target := new.event_id;
   else
-    return null; -- cancelled by the user / guardian revoke / waitlist → pending_*: no notification
+    return null; -- cancelled by the user, pending_guardian → pending_review: no notification
   end if;
   select e.title into v_title from public.events e where e.id = new.event_id;
   perform app.notify(new.user_id, v_kind, v_type, v_target, v_title);

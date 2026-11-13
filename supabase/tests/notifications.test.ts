@@ -9,7 +9,8 @@ import { describe, expect, it } from 'vitest';
 import { admin, asAnon, asService, asUser, createEvent, createOrg, createUser, expectFail, register } from './helpers';
 
 const KINDS = [
-  'registration.confirmed', 'registration.promoted', 'registration.rejected', 'registration.expired', 'guardian.denied',
+  'registration.confirmed', 'registration.promoted', 'registration.promoted_pending', 'registration.rejected',
+  'registration.expired', 'guardian.denied', 'guardian.revoked',
   'application.status_changed', 'team_join.accepted', 'team_join.rejected', 'team_join.requested',
   'event.reminder_24h', 'event.cancelled',
 ];
@@ -28,8 +29,8 @@ async function guardianToken(minor: string, regId: string) {
   const preview = (await asAnon((q) => q(`select public.guardian_request_preview($1) j`, [issued.token]))).rows[0].j;
   return { reqId: reqId as string, token: issued.token as string, policy: preview.policy_version as string };
 }
-const guardianDecide = (t: { token: string; policy: string }, approve: boolean) =>
-  asAnon((q) => q(`select public.guardian_decide($1, $2, 'Ayşe Demir', $3)`, [t.token, approve, t.policy]));
+const guardianDecide = async (t: { token: string; policy: string }, approve: boolean) =>
+  (await asAnon((q) => q(`select public.guardian_decide($1, $2, 'Ayşe Demir', $3) j`, [t.token, approve, t.policy]))).rows[0].j as { revoke_token?: string };
 
 async function createOpportunity(orgId: string) {
   const id = randomUUID();
@@ -137,6 +138,97 @@ describe('registration triggers', () => {
   });
 });
 
+describe('follow-up kinds: promoted into a pending step, guardian revoke', () => {
+  it('a minor promoted from the waitlist lands in pending_guardian and gets exactly one registration.promoted_pending', async () => {
+    const org = await createOrg(); const event = await createEvent(org, { capacity: 1, waitlist_enabled: true });
+    const holder = await createUser(); const minor = await createUser({ age: 16, name: 'Bekleyen Ece' });
+    const r1 = await register(holder, event); const r2 = await register(minor, event);
+    expect([r1.status, r2.status]).toEqual(['confirmed', 'waitlisted']);
+    await asUser(holder, (q) => q(`select public.cancel_event_registration($1)`, [r1.id]));
+    expect((await admin(`select status from public.event_registrations where id = $1`, [r2.id])).rows[0].status).toBe('pending_guardian');
+    const rows = await notes(minor);
+    expect(rows.map((n) => [n.kind, n.target_type, n.target_id])).toEqual([['registration.promoted_pending', 'event_registration', r2.id]]);
+    expect(rows[0]).toMatchObject({ title: 'Bekleme listesinden yer açıldı.', body: 'Test Etkinliği için yerin ayrıldı. Kaydını tamamlamak için bir adım kaldı.' });
+    expect(`${rows[0].title} ${rows[0].body}`).not.toMatch(/Ece|Bekleyen|@|\d/);
+    expect(await kinds(holder)).toEqual([]);
+  });
+
+  it('waitlisted → pending_review (review event) is also registration.promoted_pending; the later approval is registration.confirmed', async () => {
+    const reviewer = await createUser(); const org = await createOrg({ [reviewer]: 'reviewer' });
+    const event = await createEvent(org, { capacity: 1, waitlist_enabled: true, requires_review: true });
+    const holder = await createUser(); const waiting = await createUser();
+    const r1 = await register(holder, event); const r2 = await register(waiting, event);
+    expect([r1.status, r2.status]).toEqual(['pending_review', 'waitlisted']);
+    await asUser(holder, (q) => q(`select public.cancel_event_registration($1)`, [r1.id]));
+    expect(await kinds(waiting)).toEqual(['registration.promoted_pending']);
+    await asUser(reviewer, (q) => q(`select public.review_event_registration($1, true)`, [r2.id]));
+    expect(await kinds(waiting)).toEqual(['registration.promoted_pending', 'registration.confirmed']);
+  });
+
+  it('guardian revokes after approving → exactly one guardian.revoked for the participant, no guardian.denied', async () => {
+    const org = await createOrg(); const event = await createEvent(org);
+    const minor = await createUser({ age: 16 }); const reg = await register(minor, event);
+    const decided = await guardianDecide(await guardianToken(minor, reg.id), true);
+    await asAnon((q) => q(`select public.guardian_revoke($1)`, [decided.revoke_token]));
+    expect((await admin(`select status, status_reason from public.event_registrations where id = $1`, [reg.id])).rows[0])
+      .toEqual({ status: 'cancelled', status_reason: 'guardian_revoked' });
+    const rows = await notes(minor);
+    expect(rows.map((n) => [n.kind, n.target_type, n.target_id])).toEqual([
+      ['registration.confirmed', 'event_registration', reg.id], ['guardian.revoked', 'event_registration', reg.id]]);
+    expect(rows[1]).toMatchObject({ title: 'Velin onayını geri çekti.', body: 'Test Etkinliği için kaydın iptal edildi.' });
+    expect((await admin(`select count(*)::int n from public.notifications where target_id = $1 and (kind = 'guardian.denied' or user_id <> $2)`, [reg.id, minor])).rows[0].n).toBe(0);
+  });
+});
+
+describe('silent on purpose', () => {
+  it('an UPDATE that sets the same status notifies nobody (registrations, applications, memberships)', async () => {
+    const reviewer = await createUser(); const org = await createOrg({ [reviewer]: 'reviewer' });
+    const event = await createEvent(org); const user = await createUser();
+    const reg = await register(user, event);
+    await admin(`update public.event_registrations set status = status, status_reason = 'guardian_denied' where id = $1`, [reg.id]);
+    await admin(`update public.event_registrations set status = 'confirmed' where id = $1`, [reg.id]);
+    const opp = await createOpportunity(org);
+    const app = (await asUser(user, (q) => q(`select * from public.submit_application($1, $2, null)`, [opp, randomUUID()]))).rows[0];
+    await asUser(reviewer, (q) => q(`select public.set_application_status($1, 'in_review')`, [app.id]));
+    await admin(`update public.applications set status = 'in_review' where id = $1`, [app.id]);
+    const captain = await createUser(); const team = await createTeam(captain, `Aynı Durum ${tag()}`);
+    const m = await requestJoin(user, team);
+    await admin(`update public.team_memberships set status = 'pending' where id = $1`, [m]);
+    expect(await kinds(user)).toEqual(['application.status_changed']); // only the real in_review move
+    expect(await kinds(captain)).toEqual(['team_join.requested']);
+  });
+
+  it('self-service and internal moves stay silent: register, user cancel, pending_guardian → pending_review, applicant submit/withdraw', async () => {
+    const reviewer = await createUser(); const org = await createOrg({ [reviewer]: 'reviewer' });
+    const user = await createUser();
+    const plain = await createEvent(org); const r = await register(user, plain);           // INSERT confirmed
+    await asUser(user, (q) => q(`select public.cancel_event_registration($1)`, [r.id]));   // cancelled_by_user
+    const full = await createEvent(org, { capacity: 1, waitlist_enabled: true });
+    await register(await createUser(), full); expect((await register(user, full)).status).toBe('waitlisted'); // INSERT waitlisted
+    const minor = await createUser({ age: 16 });
+    const review = await createEvent(org, { requires_review: true }); const mr = await register(minor, review);
+    await guardianDecide(await guardianToken(minor, mr.id), true);                         // pending_guardian → pending_review
+    expect((await admin(`select status from public.event_registrations where id = $1`, [mr.id])).rows[0].status).toBe('pending_review');
+    const opp = await createOpportunity(org);
+    const app = (await asUser(user, (q) => q(`select * from public.submit_application($1, $2, null)`, [opp, randomUUID()]))).rows[0];
+    await asUser(user, (q) => q(`select public.withdraw_application($1)`, [app.id]));     // submitted → withdrawn
+    for (const u of [user, minor, reviewer]) expect(await kinds(u)).toEqual([]);
+  });
+
+  it('membership moves other than a decided join request stay silent: active INSERT, withdraw, leave, removal', async () => {
+    const captain = await createUser(); const team = await createTeam(captain, `Sessiz Takım ${tag()}`); // captain INSERT active
+    const added = await createUser(); await addMember(team, added, 'member');              // direct active INSERT (incl. recruitment path)
+    const quitter = await createUser(); const m = await requestJoin(quitter, team);
+    await asUser(captain, (q) => q(`select public.mark_notifications_read()`));
+    await asUser(quitter, (q) => q(`select public.withdraw_team_join($1)`, [m]));          // pending → left
+    await admin(`update public.team_memberships set status = 'left' where team_id = $1 and user_id = $2`, [team, added]);   // active → left
+    const removed = await createUser(); await addMember(team, removed, 'member');
+    await admin(`update public.team_memberships set status = 'removed' where team_id = $1 and user_id = $2`, [team, removed]); // active → removed
+    for (const u of [added, quitter, removed]) expect(await kinds(u)).toEqual([]);
+    expect(await kinds(captain)).toEqual(['team_join.requested']); // the one real request, nothing for the rest
+  });
+});
+
 describe('application and team triggers', () => {
   it('organisation moves an application → application.status_changed (target: the application); applicant withdraw → nothing', async () => {
     const reviewer = await createUser(); const org = await createOrg({ [reviewer]: 'reviewer' });
@@ -202,7 +294,7 @@ describe('application and team triggers', () => {
 });
 
 describe('notification copy', () => {
-  it('app.notification_kinds() is exactly the eleven kinds', async () => {
+  it('app.notification_kinds() is exactly the thirteen kinds', async () => {
     expect((await admin(`select app.notification_kinds() k`)).rows[0].k).toEqual(KINDS);
   });
 

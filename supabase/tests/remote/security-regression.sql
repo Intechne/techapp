@@ -499,8 +499,16 @@ begin
   select count(*) into v_n from unnest(app.notification_kinds()) k, app.notification_copy(k, 'Remote İçerik') c
    where c.title || ' ' || c.body ~ '[@!]';
   select count(*) into i from unnest(app.notification_kinds()) k, app.notification_copy(k, 'Remote İçerik') c;
-  perform pg_temp.t_rec('25h notification_copy: every kind has copy, none contains @ or !', v_n = 0 and i = 11,
+  perform pg_temp.t_rec('25h notification_copy: every kind has copy, none contains @ or !', v_n = 0 and i = 13,
                         'kinds_with_copy=' || i || ' bad=' || v_n);
+  begin
+    select string_agg(k || '=' || c.title || ' ' || c.body, ' | ' order by k) into v_text
+      from unnest(array['registration.promoted_pending', 'guardian.revoked']) k, app.notification_copy(k, 'Remote İçerik') c;
+    perform pg_temp.t_rec('25k new kinds registration.promoted_pending + guardian.revoked have copy without @',
+      v_text ~ 'registration\.promoted_pending=' and v_text ~ 'guardian\.revoked=' and v_text !~ '@', coalesce(v_text, 'missing'));
+  exception when others then
+    perform pg_temp.t_rec('25k new kinds registration.promoted_pending + guardian.revoked have copy without @', false, sqlstate || ' ' || sqlerrm);
+  end;
   begin
     v_text := pg_temp.t_val('authenticated', v_nt_cap, 'select (public.set_notification_preferences(false)).event_reminders::text');
     v_n := pg_temp.t_val('authenticated', v_other, format('select count(*)::text from public.notification_preferences where user_id = %L', v_nt_cap))::int;
