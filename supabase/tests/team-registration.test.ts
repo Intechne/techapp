@@ -1276,3 +1276,275 @@ describe('team registration · lifecycle', () => {
       ['team_registration_detail', false, true], ['update_team_roster', false, true]]);
   });
 });
+
+// ---------------------------------------------------------------- Task 4: organiser side
+// The event organisation's owner|admin|reviewer (and platform admins) list team registrations and decide pending_review ones.
+// checkin_staff, editors and other organisations get 403. The list carries team name, states, counts and each roster member's
+// display name + state + step only — never an e-mail, a birth date or a guardian detail (members include minors).
+// Lock order for a decision: event → team row → member registrations. Every organiser list of "confirmed participants" counts
+// a team member only when the TEAM is confirmed (same filter as reminders / volunteer brief / card / check-in).
+
+type OrgTeamRow = {
+  id: string; team_id: string; team_name: string; status: TeamRegStatus; status_reason: string | null; roster_version: number;
+  roster_size: number; ready_count: number; hold_expires_at: string | null; confirmed_at: string | null; created_at: string;
+  members: { display_name: string; role_at_submit: string; state: string; step: string }[];
+};
+
+const orgList = (userId: string, eventId: string) =>
+  asUser(userId, async (q) => (await q(`select j from public.admin_event_team_registrations($1) j`, [eventId])).rows.map((r) => r.j as OrgTeamRow));
+
+const review = (userId: string, teamRegId: string, approve: boolean) =>
+  asUser(userId, async (q) => (await q(`select * from public.review_team_registration($1, $2)`, [teamRegId, approve])).rows[0] as Submitted & { status_reason: string | null });
+
+/** Every key of a JSON value, recursively. */
+const keysOf = (v: unknown): string[] =>
+  Array.isArray(v) ? v.flatMap(keysOf) : v && typeof v === 'object' ? Object.entries(v).flatMap(([k, x]) => [k, ...keysOf(x)]) : [];
+
+/** A complete team (captain + the given members, all accepted adults) on a requires_review event → pending_review. */
+async function teamInReview(eventId: string, extra = 1) {
+  const captain = await createUser(); const ms: string[] = [];
+  for (let i = 0; i < extra; i += 1) ms.push(await createUser());
+  const team = await createTeam(captain, ms);
+  const { reg, rows } = await submitted(captain, eventId, team, [captain, ...ms]);
+  const regs: Record<string, string> = {};
+  for (const u of [captain, ...ms]) regs[u] = (await respond(u, rows[u]!, true)).registration_id!;
+  return { captain, members: ms, team, reg, regs };
+}
+
+describe('team registration · organizer', () => {
+  it('admin_event_team_registrations: owner|admin|reviewer and platform admins list; checkin_staff, editor and another organisation → 403; anon has no grant', async () => {
+    const [owner, orgAdmin, reviewer, staff, editor, otherOwner, pa, outsider] = await Promise.all(
+      [createUser(), createUser(), createUser(), createUser(), createUser(), createUser(), createUser(), createUser()]);
+    const org = await createOrg({ [owner]: 'owner', [orgAdmin]: 'admin', [reviewer]: 'reviewer', [staff]: 'checkin_staff', [editor]: 'editor' });
+    await createOrg({ [otherOwner]: 'owner' });
+    await admin(`insert into public.platform_admins (user_id) values ($1)`, [pa]);
+    const event = await createTeamEvent(org);
+    const captain = await createUser(); const team = await createTeam(captain);
+    const reg = await submit(captain, event, team, [captain]);
+    for (const user of [owner, orgAdmin, reviewer, pa]) expect((await orgList(user, event)).map((r) => r.id)).toEqual([reg.id]);
+    for (const user of [staff, editor, otherOwner, outsider, captain]) await expectFail(orgList(user, event), 403, 'forbidden');
+    await expect(asAnon((q) => q(`select * from public.admin_event_team_registrations($1)`, [event]))).rejects.toThrow(PERMISSION_DENIED);
+    await expectFail(orgList(owner, randomUUID()), 404, 'event_not_found');
+  });
+
+  it('the list: team name, status, roster_size, ready_count, hold, members with display_name / role / state / step — no birth_date, email or guardian key anywhere', async () => {
+    const owner = await createUser(); const org = await createOrg({ [owner]: 'owner' });
+    const event = await createTeamEvent(org, { guardian_required_under: 18 });
+    const captain = await createUser({ name: 'Kaptan Kişi' }); const minor = await createUser({ age: 16, name: 'Genç Üye' });
+    const waiting = await createUser({ name: 'Bekleyen Üye' }); const decliner = await createUser({ name: 'Vazgeçen Üye' });
+    const team = await createTeam(captain, [minor, waiting, decliner]);
+    const { reg, rows } = await submitted(captain, event, team, [captain, minor, waiting, decliner]);
+    await respond(captain, rows[captain]!, true);
+    const rm = await respond(minor, rows[minor]!, true);
+    await asUser(minor, (q) => q(`select public.create_guardian_request($1, $2, 'Veli Gizli')`, [rm.registration_id, `veli-${randomUUID()}@example.test`]));
+    await respond(decliner, rows[decliner]!, false);
+
+    const [row] = await orgList(owner, event);
+    expect(row).toMatchObject({ id: reg.id, team_id: team, team_name: 'Test Takımı', status: 'pending_members', status_reason: null,
+                                roster_version: 2, roster_size: 3, ready_count: 1, confirmed_at: null });
+    expect(row!.hold_expires_at).not.toBeNull();
+    // organisers see the whole current version, holes included (same as the staff RLS on the roster rows)
+    expect(row!.members.map((m) => [m.display_name, m.state, m.step]).sort()).toEqual([
+      ['Bekleyen Üye', 'invited', 'invited'], ['Genç Üye', 'accepted', 'guardian'], ['Kaptan Kişi', 'accepted', 'ready'],
+      ['Vazgeçen Üye', 'declined', 'declined']]);
+    expect(Object.keys(row!).sort()).toEqual(['confirmed_at', 'created_at', 'hold_expires_at', 'id', 'members', 'ready_count', 'roster_size',
+      'roster_version', 'status', 'status_reason', 'team_id', 'team_name']);
+    expect([...new Set(keysOf(row!.members))].sort()).toEqual(['display_name', 'role_at_submit', 'state', 'step']);
+    expect(keysOf(row).filter((k) => /birth|email|guardian|phone|user_id|member_id/i.test(k))).toEqual([]);
+    const text = JSON.stringify(row);
+    expect(text).not.toMatch(/@|Veli Gizli|"\d{4}-\d{2}-\d{2}"/);
+  });
+
+  it('review_team_registration: only owner|admin|reviewer of the event organisation and platform admins; not pending_review → 409; unknown → 404', async () => {
+    const [owner, reviewer, staff, editor, otherOwner, pa] = await Promise.all(
+      [createUser(), createUser(), createUser(), createUser(), createUser(), createUser()]);
+    const org = await createOrg({ [owner]: 'owner', [reviewer]: 'reviewer', [staff]: 'checkin_staff', [editor]: 'editor' });
+    await createOrg({ [otherOwner]: 'owner' });
+    await admin(`insert into public.platform_admins (user_id) values ($1)`, [pa]);
+    const event = await createTeamEvent(org, { requires_review: true });
+    const a = await teamInReview(event); const b = await teamInReview(event);
+    expect((await teamRow(a.reg.id)).status).toBe('pending_review');
+
+    for (const user of [staff, editor, otherOwner, a.captain]) await expectFail(review(user, a.reg.id, true), 403, 'review_forbidden');
+    await expect(asAnon((q) => q(`select public.review_team_registration($1, true)`, [a.reg.id]))).rejects.toThrow(PERMISSION_DENIED);
+    await expectFail(review(owner, randomUUID(), true), 404, 'team_registration_not_found');
+    expect((await review(reviewer, a.reg.id, true)).status).toBe('confirmed');
+    await expectFail(review(owner, a.reg.id, false), 409, 'team_registration_not_pending_review');   // already decided
+    expect((await review(pa, b.reg.id, true)).status).toBe('confirmed');
+    // a pending_members team is not the organiser's to decide
+    const c = await createUser(); const cm = await createUser(); const ct = await createTeam(c, [cm]);
+    const pending = await submit(c, event, ct, [c, cm]);
+    await expectFail(review(owner, pending.id, true), 409, 'team_registration_not_pending_review');
+  });
+
+  it('approve a requires_review team → confirmed (approved_by_organizer): cards open, team_registration.confirmed sent; member registrations unchanged', async () => {
+    const owner = await createUser(); const org = await createOrg({ [owner]: 'owner' });
+    const event = await createTeamEvent(org, { requires_review: true });
+    const t = await teamInReview(event);
+    await expectFail(asUser(t.captain, (q) => q(`select public.get_participation_card($1)`, [t.regs[t.captain]])), 409, 'team_registration_not_confirmed');
+    const decided = await review(owner, t.reg.id, true);
+    expect(decided).toMatchObject({ id: t.reg.id, status: 'confirmed', status_reason: 'approved_by_organizer' });
+    expect((await teamRow(t.reg.id)).confirmed_at).not.toBeNull();
+    for (const u of [t.captain, ...t.members]) expect(await regRow(t.regs[u]!)).toMatchObject({ status: 'confirmed' });
+    const card = (await asUser(t.captain, (q) => q(`select public.get_participation_card($1) c`, [t.regs[t.captain]]))).rows[0].c;
+    expect(card.registration_id).toBe(t.regs[t.captain]);
+    expect(await kindsOf(t.members[0]!)).toEqual(['team_registration.invited', 'team_registration.confirmed']);
+    expect(await counters(event)).toMatchObject({ teams_taken: 1, seats_taken: 0 });
+    const audit = (await admin(`select actor_id, metadata from public.audit_events where target_id = $1 and action = 'team_registration.reviewed'`, [t.reg.id])).rows;
+    expect(audit).toHaveLength(1);
+    expect(audit[0]).toMatchObject({ actor_id: owner, metadata: { approved: true, from_reason: 'members_ready', status: 'confirmed' } });
+    expect(JSON.stringify(audit[0].metadata)).not.toMatch(/Test Kullanıcı|@/);         // ids and states only
+  });
+
+  it('reject → team rejected, member registrations rejected (consents withdrawn, guardian requests revoked), teams_taken drops, the oldest waitlisted team promoted', async () => {
+    const owner = await createUser(); const org = await createOrg({ [owner]: 'owner' });
+    const event = await createTeamEvent(org, { requires_review: true, team_capacity: 1, waitlist_enabled: true, guardian_required_under: 18 });
+    const t = await teamInReview(event);
+    const c2 = await createUser(); const m2 = await createUser(); const t2 = await createTeam(c2, [m2]);
+    const waiting = await submit(c2, event, t2, [c2, m2]);
+    expect(waiting.status).toBe('waitlisted');
+    expect(await counters(event)).toMatchObject({ teams_taken: 1, team_waitlist_count: 1 });
+
+    const decided = await review(owner, t.reg.id, false);
+    expect(decided).toMatchObject({ id: t.reg.id, status: 'rejected', status_reason: 'rejected_by_organizer' });
+    for (const u of [t.captain, ...t.members]) {
+      expect(await regRow(t.regs[u]!)).toMatchObject({ status: 'rejected', status_reason: 'team_registration_rejected' });
+      expect((await memberRow(t.reg.id, u)).state).toBe('accepted');                     // history: the team is already dead
+    }
+    expect(count(await admin(`select 1 from public.consents where subject_id = any($1::uuid[]) and withdrawn_at is null`, [Object.values(t.regs)]))).toBe(0);
+    expect(await teamRow(waiting.id)).toMatchObject({ status: 'pending_members', status_reason: 'promoted_from_waitlist' });
+    expect(await counters(event)).toMatchObject({ teams_taken: 1, team_waitlist_count: 0, seats_taken: 0 });
+    expect(await kindsOf(t.members[0]!)).toEqual(['team_registration.invited', 'registration.rejected']);
+    expect(await kindsOf(m2)).toEqual(['team_registration.invited']);
+    await expectFail(asUser(t.captain, (q) => q(`select public.get_participation_card($1)`, [t.regs[t.captain]])), 409, 'registration_not_confirmed');
+  });
+
+  it('a pending guardian request of a rejected team is revoked', async () => {
+    const owner = await createUser(); const org = await createOrg({ [owner]: 'owner' });
+    const event = await createTeamEvent(org, { requires_review: true, guardian_required_under: 18 });
+    const captain = await createUser(); const minor = await createUser({ age: 16 }); const team = await createTeam(captain, [minor]);
+    const { reg, rows } = await submitted(captain, event, team, [captain, minor]);
+    await respond(captain, rows[captain]!, true); const rm = await respond(minor, rows[minor]!, true);
+    // fixture: the organiser decides while the minor's guardian request is still out (only reachable after close: min-size rule)
+    const reqId = (await asUser(minor, (q) => q(`select public.create_guardian_request($1, $2) id`, [rm.registration_id, `veli-${randomUUID()}@example.test`]))).rows[0].id;
+    await admin(`update public.team_event_registrations set status = 'pending_review', status_reason = 'roster_below_min_after_close' where id = $1`, [reg.id]);
+    await review(owner, reg.id, false);
+    expect((await admin(`select status from public.guardian_requests where id = $1`, [reqId])).rows[0].status).toBe('revoked');
+    expect(await regRow(rm.registration_id!)).toMatchObject({ status: 'rejected', status_reason: 'team_registration_rejected' });
+  });
+
+  it('after close: approve as-is a roster_below_min_after_close team → confirmed approved_below_min_after_close; recompute leaves it alone; the expiry job does not touch it at ends_at', async () => {
+    const owner = await createUser(); const org = await createOrg({ [owner]: 'owner' });
+    const event = await createTeamEvent(org, { team_min_size: 3 });
+    const t = await teamInReview(event, 3);                                              // requires_review off → confirmed
+    expect((await teamRow(t.reg.id)).status).toBe('confirmed');
+    await admin(`update public.events set registration_closes_at = now() - interval '1 minute' where id = $1`, [event]);
+    await asUser(t.members[0]!, (q) => q(`select public.leave_team($1)`, [t.team]));     // 3 ready = min
+    await asUser(t.members[1]!, (q) => q(`select public.leave_team($1)`, [t.team]));     // 2 ready < 3
+    expect(await teamRow(t.reg.id)).toMatchObject({ status: 'pending_review', status_reason: 'roster_below_min_after_close' });
+    expect((await orgList(owner, event))[0]).toMatchObject({ status: 'pending_review', status_reason: 'roster_below_min_after_close', ready_count: 2, roster_size: 2 });
+
+    const decided = await review(owner, t.reg.id, true);
+    expect(decided).toMatchObject({ status: 'confirmed', status_reason: 'approved_below_min_after_close' });
+    const card = (await asUser(t.captain, (q) => q(`select public.get_participation_card($1) c`, [t.regs[t.captain]]))).rows[0].c;
+    expect(card.registration_id).toBe(t.regs[t.captain]);
+    await asUser(t.members[2]!, (q) => q(`select public.leave_team($1)`, [t.team]));     // 1 ready: the organiser already accepted it
+    expect(await teamRow(t.reg.id)).toMatchObject({ status: 'confirmed', status_reason: 'approved_below_min_after_close' });
+    await admin(`update public.events set starts_at = now() - interval '3 hours', ends_at = now() - interval '1 minute',
+                 registration_closes_at = now() - interval '4 hours' where id = $1`, [event]);
+    await admin(`select app.expire_team_registrations($1)`, [event]);
+    expect((await teamRow(t.reg.id)).status).toBe('confirmed');
+  });
+
+  it('after close: reject a roster_below_min_after_close team → rejected, member registrations rejected, seat freed, nobody promoted (registration closed)', async () => {
+    const owner = await createUser(); const org = await createOrg({ [owner]: 'owner' });
+    const event = await createTeamEvent(org, { team_min_size: 2, team_capacity: 1, waitlist_enabled: true });
+    const t = await teamInReview(event, 1);
+    const c2 = await createUser(); const m2 = await createUser(); const t2 = await createTeam(c2, [m2]);
+    const waiting = await submit(c2, event, t2, [c2, m2]);
+    expect(waiting.status).toBe('waitlisted');
+    await admin(`update public.events set registration_closes_at = now() - interval '1 minute' where id = $1`, [event]);
+    await asUser(t.members[0]!, (q) => q(`select public.leave_team($1)`, [t.team]));
+    expect(await teamRow(t.reg.id)).toMatchObject({ status: 'pending_review', status_reason: 'roster_below_min_after_close' });
+
+    expect((await review(owner, t.reg.id, false)).status).toBe('rejected');
+    expect(await regRow(t.regs[t.captain]!)).toMatchObject({ status: 'rejected', status_reason: 'team_registration_rejected' });
+    // the waitlisted team was closed by the lazy expiry (registration closed) — nobody is promoted after close
+    expect((await teamRow(waiting.id)).status).toBe('expired');
+    expect(await counters(event)).toMatchObject({ teams_taken: 0, team_waitlist_count: 0 });
+  });
+
+  it('a requires_review team still undecided (members_ready) at ends_at is closed by the expiry job (review_not_decided); a late decision → 409', async () => {
+    const owner = await createUser(); const org = await createOrg({ [owner]: 'owner' });
+    const event = await createTeamEvent(org, { requires_review: true });
+    const t = await teamInReview(event);
+    expect(await teamRow(t.reg.id)).toMatchObject({ status: 'pending_review', status_reason: 'members_ready' });
+    await admin(`update public.events set registration_closes_at = now() - interval '2 hours' where id = $1`, [event]);
+    await admin(`select app.expire_team_registrations($1)`, [event]);
+    expect((await teamRow(t.reg.id)).status).toBe('pending_review');                     // closed for registration ≠ over
+    await admin(`update public.events set starts_at = now() - interval '1 hour', ends_at = now() - interval '1 minute' where id = $1`, [event]);
+    // a late decision: the lazy expiry under the event lock closes it first → 409 (the failed call rolls its own expiry back) …
+    await expectFail(review(owner, t.reg.id, true), 409, 'team_registration_not_pending_review');
+    expect((await teamRow(t.reg.id)).status).toBe('pending_review');
+    // … and the cron job closes it for good
+    expect((await admin(`select app.expire_team_registrations($1) n`, [event])).rows[0].n).toBe(1);
+    expect(await teamRow(t.reg.id)).toMatchObject({ status: 'expired', status_reason: 'review_not_decided' });
+    expect(await regRow(t.regs[t.captain]!)).toMatchObject({ status: 'expired', status_reason: 'team_registration_expired' });
+    expect(await counters(event)).toMatchObject({ teams_taken: 0 });
+  });
+
+  it('a decision takes the event row lock first (lock order event → team row → member registrations)', async () => {
+    const owner = await createUser(); const org = await createOrg({ [owner]: 'owner' });
+    const event = await createTeamEvent(org, { requires_review: true });
+    const t = await teamInReview(event);
+    const gate = await pool.connect();
+    try {
+      await gate.query('begin');
+      await gate.query(`select 1 from public.events where id = $1 for update`, [event]);
+      const run = review(owner, t.reg.id, false).then((v) => v, (e) => e);
+      let blocked = 0;
+      for (let i = 0; i < 500 && blocked < 1; i += 1) {
+        blocked = (await admin(`select count(*)::int as n from pg_stat_activity
+                                where wait_event_type = 'Lock' and query like '%review_team_registration%' and pid <> pg_backend_pid()`)).rows[0].n;
+        if (blocked < 1) await sleep(10);
+      }
+      // while the event row is held, the team row is not locked yet (a writer that follows the lock order is never inverted)
+      const teamLock = await gate.query(`select id from public.team_event_registrations where id = $1 for update nowait`, [t.reg.id]);
+      expect(teamLock.rowCount).toBe(1);
+      await gate.query('commit');
+      expect(blocked).toBe(1);
+      expect((await run).status).toBe('rejected');
+    } finally {
+      gate.release();
+    }
+  });
+
+  it('organiser lists of confirmed participants count a team member only when the TEAM is confirmed (admin_event_registrations, participant announcements)', async () => {
+    const owner = await createUser(); const org = await createOrg({ [owner]: 'owner' });
+    const event = await createTeamEvent(org, { registration_mode: 'both', capacity: 10, requires_review: true });
+    const solo = await createUser({ name: 'Bireysel Katılımcı' });
+    const soloReg = (await register(solo, event)).id as string;                       // individual review: unchanged path
+    await asUser(owner, (q) => q(`select public.review_event_registration($1, true)`, [soloReg]));
+    const t = await teamInReview(event);
+    await admin(`insert into public.event_announcements (event_id, audience, title, body) values ($1, 'participants', 'Katılımcılara', 'Salon B')`, [event]);
+    const list = async () => (await asUser(owner, (q) => q(`select registration_id, display_name, status from public.admin_event_registrations($1)`, [event]))).rows;
+    const sees = async (u: string) => count(await asUser(u, (q) => q(`select 1 from public.event_announcements where event_id = $1`, [event])));
+
+    // the team is pending_review: its members' own (confirmed) registrations are not participants yet
+    expect((await list()).map((r) => r.registration_id)).toEqual([soloReg]);
+    expect([await sees(solo), await sees(t.captain)]).toEqual([1, 0]);
+    await review(owner, t.reg.id, true);
+    expect((await list()).map((r) => r.registration_id).sort()).toEqual([soloReg, t.regs[t.captain], t.regs[t.members[0]!]].sort());
+    expect((await list()).every((r) => r.status === 'confirmed')).toBe(true);
+    expect([await sees(solo), await sees(t.captain)]).toEqual([1, 1]);
+  });
+
+  it('grants: the organiser RPCs are authenticated-only', async () => {
+    const rows = (await admin(`select p.proname, has_function_privilege('anon', p.oid, 'execute') anon,
+                                      has_function_privilege('authenticated', p.oid, 'execute') auth
+                               from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                               where n.nspname = 'public' and p.proname in ('admin_event_team_registrations', 'review_team_registration')
+                               order by p.proname`)).rows;
+    expect(rows.map((r) => [r.proname, r.anon, r.auth])).toEqual([['admin_event_team_registrations', false, true], ['review_team_registration', false, true]]);
+  });
+});

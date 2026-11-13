@@ -41,6 +41,7 @@ const COPY: Record<string, string> = {
   ticket_wrong_event: 'Bu kart başka bir etkinliğe ait', registration_not_confirmed: 'Kayıt onaylı değil', event_not_active: 'Etkinlik yayında değil.',
   outside_checkin_window: 'Giriş kontrolü etkinlikten 3 saat önce açılır ve etkinlik bitince kapanır.',
   registration_not_pending_review: 'Bu kayıt artık değerlendirme beklemiyor.', review_forbidden: 'Kayıt değerlendirme yetkin yok.',
+  team_registration_not_found: 'Bu takım kaydı bulunamadı.', team_registration_not_pending_review: 'Bu takım kaydı artık değerlendirme beklemiyor.',
   tenant_locked: 'Kayıt başka bir kuruma taşınamaz.', field_locked: 'Bu alan yalnızca Intechne tarafından değiştirilebilir.',
   volunteer_application_not_found: 'Gönüllü başvurusu bulunamadı.', volunteer_withdrawn: 'Başvuru sahibi gönüllülükten çekilmiş; karar verilemez.',
   application_review_forbidden: 'Bu başvuruyu değerlendirme yetkin yok.', cannot_review_own_application: 'Kendi başvurunu değerlendiremezsin.',

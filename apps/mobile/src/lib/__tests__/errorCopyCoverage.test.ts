@@ -42,6 +42,7 @@ const ALLOWED: Record<string, string> = {
   cannot_review_own_application: ADMIN, attestation_forbidden: ADMIN, attestation_decision_invalid: ADMIN,
   attestation_not_pending: ADMIN, attestation_not_verified: ADMIN, attestation_scope_required: ADMIN,
   self_attestation_forbidden: ADMIN, revoke_reason_required: ADMIN, volunteer_withdrawn: ADMIN,
+  team_registration_not_pending_review: ADMIN,
 };
 const ELSEWHERE: Record<string, string> = { [WEB]: 'apps/web/app/veli/GuardianConsent.tsx', [ADMIN]: 'apps/admin/src/lib.ts' };
 

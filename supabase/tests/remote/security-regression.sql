@@ -105,6 +105,7 @@ declare
   v_tr_org uuid; v_tr_owner uuid; v_tr_editor uuid; v_tr_event uuid; v_tr_team uuid; v_tr_cap uuid; v_tr_minor uuid; v_tr_reg uuid; v_tr_mrow uuid;
   v_t2_cap uuid; v_t2_mentor uuid; v_t2_member uuid; v_t2_event uuid; v_t2_team uuid;
   v_t3_reg uuid; v_t3_caprow uuid; v_t3_memrow uuid; v_t3_capreg uuid;
+  v_t4_reviewer uuid; v_t4_staff uuid; v_t4_member_status text;
   v_out jsonb;
 begin
   -- ================================================================ CV
@@ -706,6 +707,75 @@ begin
       v_text = 'cancel_team_registration=false/true expire_team_registrations=false/false my_team_registration_invites=false/true '
                'recompute_team_registration=false/false respond_team_registration=false/true team_registration_detail=false/true '
                'update_team_roster=false/true', coalesce(v_text, 'missing'));
+  end;
+
+  -- 20261113000800: organiser side on block 27/28's registration (team pending_members; the captain accepted, the 16-year-old
+  -- is still invited). Only the event organisation's owner|admin|reviewer (and platform admins) list / decide; checkin_staff,
+  -- another organisation, a non-member and anon do not; the list has no e-mail / birth date / guardian key; tables keep no
+  -- client write path; counters stay server-owned; a team member is a "confirmed participant" only once the TEAM is confirmed.
+  v_t4_reviewer := pg_temp.t_user(36, 'Remote Değerlendirici'); v_t4_staff := pg_temp.t_user(31);
+  insert into public.organization_members (organization_id, user_id, role)
+  values (v_tr_org, v_t4_reviewer, 'reviewer'), (v_tr_org, v_t4_staff, 'checkin_staff');
+  begin
+    v_text := pg_temp.t_val('authenticated', v_tr_owner,
+      format('select coalesce(jsonb_agg(j), ''[]'')::text from public.admin_event_team_registrations(%L) j', v_t2_event));
+    j := v_text::jsonb;
+    perform pg_temp.t_rec('29 organiser owner lists the team: 1 row, roster_size 2, ready_count 1, 2 members (control, MUST PASS)',
+      jsonb_array_length(j) = 1 and (j -> 0 ->> 'id')::uuid = v_t3_reg and (j -> 0 ->> 'roster_size')::int = 2
+        and (j -> 0 ->> 'ready_count')::int = 1 and jsonb_array_length(j -> 0 -> 'members') = 2, left(v_text, 300));
+    perform pg_temp.t_rec('29d organiser list: no e-mail / birth / guardian / phone / user_id key and no @ anywhere',
+      v_text !~* '"\w*(birth|email|guardian|phone|user_id)\w*"\s*:' and position('@' in v_text) = 0, left(v_text, 300));
+  exception when others then
+    perform pg_temp.t_rec('29 organiser owner lists the team: 1 row, roster_size 2, ready_count 1, 2 members (control, MUST PASS)', false, sqlstate || ' ' || sqlerrm);
+  end;
+  perform pg_temp.t_fail('29a anon cannot call admin_event_team_registrations → permission denied', 'anon', null,
+    format('select * from public.admin_event_team_registrations(%L)', v_t2_event), '^42501');
+  perform pg_temp.t_fail('29a anon cannot call review_team_registration → permission denied', 'anon', null,
+    format('select public.review_team_registration(%L, true)', v_t3_reg), '^42501');
+  perform pg_temp.t_fail('29b signed-in non-member lists → 403 forbidden', 'authenticated', v_other,
+    format('select * from public.admin_event_team_registrations(%L)', v_t2_event), '^PT403 forbidden');
+  perform pg_temp.t_fail('29b another organisation''s owner lists → 403 forbidden', 'authenticated', v_owner_b,
+    format('select * from public.admin_event_team_registrations(%L)', v_t2_event), '^PT403 forbidden');
+  perform pg_temp.t_fail('29b another organisation''s owner decides → 403 review_forbidden', 'authenticated', v_owner_b,
+    format('select public.review_team_registration(%L, false)', v_t3_reg), '^PT403 review_forbidden');
+  perform pg_temp.t_fail('29c checkin_staff of the event organisation lists → 403 forbidden', 'authenticated', v_t4_staff,
+    format('select * from public.admin_event_team_registrations(%L)', v_t2_event), '^PT403 forbidden');
+  perform pg_temp.t_fail('29c checkin_staff of the event organisation decides → 403 review_forbidden', 'authenticated', v_t4_staff,
+    format('select public.review_team_registration(%L, true)', v_t3_reg), '^PT403 review_forbidden');
+  perform pg_temp.t_fail('29e reviewer decides a pending_members team → 409 team_registration_not_pending_review', 'authenticated', v_t4_reviewer,
+    format('select public.review_team_registration(%L, true)', v_t3_reg), '^PT409 team_registration_not_pending_review');
+  perform pg_temp.t_fail('29f reviewer direct update of team_event_registrations → permission denied', 'authenticated', v_t4_reviewer,
+    format($q$update public.team_event_registrations set status = 'confirmed' where id = %L$q$, v_t3_reg), '^42501');
+  perform pg_temp.t_fail('29f reviewer direct update of a roster row → permission denied', 'authenticated', v_t4_reviewer,
+    format($q$update public.team_event_registration_members set state = 'accepted' where id = %L$q$, v_t3_memrow), '^42501');
+  perform pg_temp.t_fail('29g organiser owner writes teams_taken → 403 event_counters_locked', 'authenticated', v_tr_owner,
+    format('update public.events set teams_taken = 0 where id = %L', v_t2_event), '^PT403 event_counters_locked');
+  begin
+    v_n := pg_temp.t_val('authenticated', v_tr_owner, format('select count(*)::text from public.admin_event_registrations(%L)', v_t2_event))::int;
+    perform pg_temp.t_rec('29h admin_event_registrations leaves out the captain''s confirmed registration while the team is not confirmed',
+      v_n = 0, 'rows=' || v_n);
+  exception when others then
+    perform pg_temp.t_rec('29h admin_event_registrations leaves out the captain''s confirmed registration while the team is not confirmed', false, sqlstate || ' ' || sqlerrm);
+  end;
+  begin
+    -- fixture: the team waits for the organiser (as on a requires_review event)
+    update public.team_event_registrations set status = 'pending_review', status_reason = 'members_ready' where id = v_t3_reg;
+    v_text := pg_temp.t_val('authenticated', v_t4_reviewer, format('select (public.review_team_registration(%L, false)).status::text', v_t3_reg));
+    select teams_taken into i from public.events where id = v_t2_event;
+    select r.status::text into v_t4_member_status from public.event_registrations r where r.id = v_t3_capreg;
+    perform pg_temp.t_rec('29i reviewer rejects a pending_review team → rejected, member registration rejected, teams_taken 0 (MUST PASS)',
+      v_text = 'rejected' and v_t4_member_status = 'rejected' and i = 0,
+      'status=' || coalesce(v_text, 'null') || ' member=' || coalesce(v_t4_member_status, 'null') || ' teams_taken=' || i);
+  exception when others then
+    perform pg_temp.t_rec('29i reviewer rejects a pending_review team → rejected, member registration rejected, teams_taken 0 (MUST PASS)', false, sqlstate || ' ' || sqlerrm);
+  end;
+  begin
+    select string_agg(p.proname || '=' || has_function_privilege('anon', p.oid, 'execute')::text || '/'
+                      || has_function_privilege('authenticated', p.oid, 'execute')::text, ' ' order by p.proname) into v_text
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.proname in ('admin_event_team_registrations', 'review_team_registration');
+    perform pg_temp.t_rec('29j grants: admin_event_team_registrations / review_team_registration authenticated-only',
+      v_text = 'admin_event_team_registrations=false/true review_team_registration=false/true', coalesce(v_text, 'missing'));
   end;
 
   -- ================================================================ report (always rolls back)
