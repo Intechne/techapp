@@ -144,7 +144,7 @@ describe('Bildirim ayarları', () => {
     await openNotif();
     await screen.findByRole('switch', { name: 'Etkinlik hatırlatmaları' });
     expect(screen.getByText(RETENTION_FACT)).toBeTruthy();
-    expect(RETENTION_FACT).toBe('Okunmuş bildirimler 90 gün sonra silinir.');
+    expect(RETENTION_FACT).toBe('Bildirimler oluşturulmasından 90 gün sonra, okunmuşsa silinir.');
     expect(screen.getByText(/kayıt, başvuru ve veli onayı/i)).toBeTruthy();
   });
 

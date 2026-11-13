@@ -30,10 +30,12 @@ export function consentAction(c: ConsentRow): ConsentAction {
 /**
  * What switching discoverability on does, as it is true today: team pages are readable without an account and name the
  * adult captains / mentors who are discoverable (team_public_profile); signed-in users can open a discoverable profile
- * (profiles_select_discoverable) and the experiences it shows on the profile. No legal wording.
+ * (profiles_select_discoverable — the whole profiles row: display_name, headline, bio, city, education_stage, skills,
+ * avatar_path) and the experiences it shows on the profile with their attestations. profile_private (birth date, contact)
+ * stays owner-only. No legal wording.
  */
 export const DISCOVERABLE_HELP =
-  'Açık olduğunda adın, kaptanı ya da mentoru olduğun takımların sayfasında herkese görünür. Giriş yapmış kullanıcılar da adını, başlığını ve “profilimde göster” dediğin deneyimleri görebilir. İletişim bilgilerin ve doğum tarihin hiçbir zaman görünmez.';
+  'Açık olduğunda adın, kaptanı ya da mentoru olduğun takımların sayfasında herkese görünür. Giriş yapmış kullanıcılar profilini açıp adını, başlığını, hakkında yazını, şehrini, eğitim düzeyini, becerilerini ve profil fotoğrafını; “profilimde göster” dediğin deneyimleri (kurum, rol, katkı, tarih ve varsa doğrulama bilgisiyle) görebilir. İletişim bilgilerin ve doğum tarihin hiçbir zaman görünmez.';
 export const MINOR_DISCOVERABLE_TEXT = '18 yaşını doldurduğunda açabilirsin.';
 export const MINOR_DISCOVERABLE_EXPLAIN = '18 yaşından küçük kullanıcıların profilleri başkaları tarafından bulunamaz ve takım sayfalarında adı geçmez.';
-export const RETENTION_FACT = 'Okunmuş bildirimler 90 gün sonra silinir.';
+export const RETENTION_FACT = 'Bildirimler oluşturulmasından 90 gün sonra, okunmuşsa silinir.';
