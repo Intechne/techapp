@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import React from 'react';
-import { AccessibilityInfo, StyleSheet, Text as RNText } from 'react-native';
+import { AccessibilityInfo, StyleSheet, Text as RNText, View as RNView } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Reanimated from 'react-native-reanimated';
@@ -112,6 +112,19 @@ describe('Toast never covers a pinned Screen footer', () => {
     expect(bottomOf()).toBeGreaterThan(200);
     await rerender(ui(false));
     expect(bottomOf()).toBeLessThan(200);
+  });
+  it('a footer above a tab bar: the toast clears the footer top as measured in the window, not just its height', async () => {
+    reduce(false);
+    const proto = (RNView as unknown as { prototype: { measureInWindow?: (cb: (x: number, y: number, w: number, h: number) => void) => void } }).prototype;
+    const prev = proto.measureInWindow;
+    proto.measureInWindow = (cb) => cb(0, 844 - 76 - 120, 390, 120); // footer 120 tall, sitting 76 above the window bottom
+    try {
+      await render(<SafeAreaProvider initialMetrics={metrics}><ToastProvider><Trigger /><Screen scroll={false} footer={<RNText>Devam</RNText>}><RNText>içerik</RNText></Screen></ToastProvider></SafeAreaProvider>);
+      await act(async () => {});
+      await fireEvent(screen.getByText('Devam'), 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 120 } } });
+      await fireEvent.press(screen.getByText('aç'));
+      expect(bottomOf()).toBeGreaterThan(196);
+    } finally { proto.measureInWindow = prev; }
   });
   it('useToastFooterInset is a no-op outside a provider', () => {
     expect(typeof useToastFooterInset).toBe('function');
