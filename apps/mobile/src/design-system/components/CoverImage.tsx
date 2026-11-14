@@ -22,7 +22,7 @@ function useCover(path: string | null, size: CoverSize) {
 
 function Picture({ url, blurhash, transition, onError }: { url: string; blurhash: string | null; transition: number; onError: () => void }) {
   return (
-    <Image testID="cover-image" source={{ uri: url }} placeholder={blurhash ? { blurhash } : undefined} cachePolicy="memory-disk" contentFit="cover"
+    <Image testID="cover-image" alt="" source={{ uri: url }} placeholder={blurhash ? { blurhash } : undefined} cachePolicy="memory-disk" contentFit="cover"
       transition={transition} accessible={false} recyclingKey={url} onError={onError} style={StyleSheet.absoluteFill} />
   );
 }
