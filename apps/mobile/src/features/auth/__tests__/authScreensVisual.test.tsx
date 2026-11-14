@@ -3,7 +3,7 @@ import { AccessibilityInfo, StyleSheet, TextInput } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthOtpScreen, FOCUS_AFTER_PUSH_MS } from '../AuthOtpScreen';
+import { AuthOtpScreen, FOCUS_FALLBACK_MS } from '../AuthOtpScreen';
 import { StartupUnavailableScreen } from '../StartupUnavailableScreen';
 import { otpFlow } from '../otpFlow';
 import { noticeTones, radius } from '../../../design-system';
@@ -26,9 +26,15 @@ const wrap = (ui: React.ReactElement) => (
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false, gcTime: Infinity } } })}>{ui}</QueryClientProvider>
   </SafeAreaProvider>
 );
-const nav = () => ({ navigate: jest.fn(), replace: jest.fn(), popTo: jest.fn(), goBack: jest.fn() });
+type TransitionEnd = (e: { data: { closing: boolean } }) => void;
+const transitionHandlers: TransitionEnd[] = [];
+const unsubscribeMock = jest.fn();
+const nav = () => ({
+  navigate: jest.fn(), replace: jest.fn(), popTo: jest.fn(), goBack: jest.fn(),
+  addListener: jest.fn((_event: string, h: TransitionEnd) => { transitionHandlers.push(h); return unsubscribeMock; }),
+});
 const props = (): { navigation: never; route: never } => ({ navigation: nav(), route: { key: 'k', name: 'x' } }) as never;
-beforeEach(() => { jest.clearAllMocks(); otpFlow.clear(); mockAccount.mockReturnValue({ data: undefined }); });
+beforeEach(() => { jest.clearAllMocks(); transitionHandlers.length = 0; otpFlow.clear(); mockAccount.mockReturnValue({ data: undefined }); });
 
 describe('AuthOtp field and error', () => {
   it('declares the one-time-code hints for iOS and Android autofill', async () => {
@@ -46,7 +52,7 @@ describe('AuthOtp field and error', () => {
     beforeEach(() => focus.mockClear());
     afterAll(() => { focus.mockRestore(); });
     const open = async () => { otpFlow.begin('ada@example.com'); return render(wrap(<AuthOtpScreen {...props()} />)); };
-    const settle = () => act(async () => { await new Promise((r) => setTimeout(r, FOCUS_AFTER_PUSH_MS + 30)); });
+    const settle = () => act(async () => { await new Promise((r) => setTimeout(r, FOCUS_FALLBACK_MS + 30)); });
 
     it('no autoFocus prop; reader off: focus is requested once the push has settled', async () => {
       reader(async () => false);
@@ -54,6 +60,46 @@ describe('AuthOtp field and error', () => {
       expect(screen.getByLabelText('Doğrulama kodu').props.autoFocus).toBeFalsy();
       await settle();
       expect(focus).toHaveBeenCalledTimes(1);
+    });
+    const endTransition = (closing = false) => act(async () => { transitionHandlers.forEach((h) => h({ data: { closing } })); });
+
+    it('focus follows the native-stack transitionEnd, not the timer', async () => {
+      reader(async () => false);
+      await open(); await act(async () => {});
+      expect(focus).not.toHaveBeenCalled();
+      await endTransition();
+      expect(focus).toHaveBeenCalledTimes(1);
+      await settle();
+      expect(focus).toHaveBeenCalledTimes(1); // the fallback timer was cancelled
+    });
+    it('transitionEnd before the reader answers: focused as soon as it answers off', async () => {
+      let resolve!: (v: boolean) => void;
+      reader(() => new Promise<boolean>((r) => { resolve = r; }));
+      await open();
+      await endTransition();
+      expect(focus).not.toHaveBeenCalled();
+      await act(async () => { resolve(false); });
+      expect(focus).toHaveBeenCalledTimes(1);
+    });
+    it('a closing transition does not focus', async () => {
+      reader(async () => false);
+      const view = await open(); await act(async () => {});
+      await endTransition(true);
+      expect(focus).not.toHaveBeenCalled();
+      await view.unmount();
+    });
+    it('reader on: transitionEnd does not focus either', async () => {
+      reader(async () => true);
+      await open(); await endTransition(); await settle();
+      expect(focus).not.toHaveBeenCalled();
+    });
+    it('unmount removes the transition listener and cancels the fallback', async () => {
+      reader(async () => false);
+      const view = await open(); await act(async () => {});
+      await view.unmount();
+      expect(unsubscribeMock).toHaveBeenCalled();
+      await settle();
+      expect(focus).not.toHaveBeenCalled();
     });
     it('reader on: not focused', async () => {
       reader(async () => true);

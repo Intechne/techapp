@@ -13,7 +13,8 @@ import { accountStateKey, useAccountState, useSession } from './SessionProvider'
 
 const RESEND_SECONDS = 60;
 
-export const FOCUS_AFTER_PUSH_MS = 350;
+/** Fallback only: the field is focused on the native-stack `transitionEnd`; this covers a platform that never emits it. */
+export const FOCUS_FALLBACK_MS = 700;
 
 export function AuthOtpScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'AuthOtp'>) {
   // Snapshot once per mount: clearing the module memory (success, back-out) must not re-trigger the redirect below.
@@ -32,17 +33,32 @@ export function AuthOtpScreen({ navigation }: NativeStackScreenProps<RootStackPa
 
   // Opens the keyboard on arrival, like `autoFocus`, but not for screen-reader users: moving their focus into a field before
   // they have heard the heading and the e-mail it was sent to is disorienting (the HIG Doctor "autoFocus" finding).
-  // Runs after the native-stack push has settled; a failed screen-reader query counts as "off".
+  // Waits for the native-stack push to finish (`transitionEnd`, not a guess at its length); a timer is only the fallback for
+  // platforms that never emit it. A failed screen-reader query counts as "off". InteractionManager is deprecated in RN 0.86.
   useEffect(() => {
     let live = true;
+    let done = false;
+    let ended = false;
+    let readerOff = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    const focusOnce = () => {
+      if (!live || done) return;
+      done = true;
+      clearTimeout(timer);
+      field.current?.focus();
+    };
+    const unsubscribe = navigation.addListener('transitionEnd', (e) => {
+      if (e.data.closing) return;
+      ended = true;
+      if (readerOff) focusOnce();
+    });
     AccessibilityInfo.isScreenReaderEnabled().catch(() => false).then((on) => {
       if (!live || on) return;
-      // InteractionManager is deprecated in RN 0.86; a short timer covers the native-stack push (~350 ms).
-      timer = setTimeout(() => { if (live) field.current?.focus(); }, FOCUS_AFTER_PUSH_MS);
+      readerOff = true;
+      if (ended) focusOnce(); else timer = setTimeout(focusOnce, FOCUS_FALLBACK_MS);
     });
-    return () => { live = false; clearTimeout(timer); };
-  }, []);
+    return () => { live = false; clearTimeout(timer); unsubscribe(); };
+  }, [navigation]);
 
   useEffect(() => {
     if (wait <= 0) return;

@@ -26,7 +26,7 @@ const wrap = (ui: React.ReactElement) => (
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { gcTime: Infinity }, mutations: { retry: false, gcTime: Infinity } } })}>{ui}</QueryClientProvider>
   </SafeAreaProvider>
 );
-const nav = () => ({ navigate: jest.fn(), replace: jest.fn(), popTo: jest.fn(), goBack: jest.fn() });
+const nav = () => ({ navigate: jest.fn(), replace: jest.fn(), popTo: jest.fn(), goBack: jest.fn(), addListener: jest.fn(() => jest.fn()) });
 const asProps = (n: ReturnType<typeof nav>): { navigation: never; route: never } => ({ navigation: n, route: { key: 'k', name: 'AuthOtp' } }) as never;
 
 beforeEach(() => { jest.clearAllMocks(); otpFlow.clear(); });
