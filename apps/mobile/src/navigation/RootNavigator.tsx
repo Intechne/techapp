@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator, type NativeStackNavigationOptions } from '@react-navigation/native-stack';
-import { TabLabel } from './TabLabel';
+import { TabLabel, tabAccessibilityLabel } from './TabLabel';
 import { TechIcon, colors, layout, radius, type TechIconName } from '../design-system';
 import { AuthEmailScreen } from '../features/auth/AuthEmailScreen';
 import { AuthOtpScreen } from '../features/auth/AuthOtpScreen';
@@ -137,6 +138,7 @@ function MainTabs() {
         tabBarPosition: sideNavigation ? 'left' : 'bottom',
         tabBarVariant: sideNavigation ? 'material' : 'uikit',
         tabBarLabelPosition: sideNavigation ? 'below-icon' : undefined,
+        tabBarAccessibilityLabel: tabAccessibilityLabel(TABS[route.name].label, Object.keys(TABS).indexOf(route.name), Object.keys(TABS).length, Platform.OS),
         title: TABS[route.name].label, // the label string handed to TabLabel and the tab's accessible name; always visible: icons never stand alone
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,

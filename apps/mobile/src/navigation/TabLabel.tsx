@@ -21,6 +21,15 @@ export function tabLabelFontScaleCap(windowWidth: number): number {
 
 interface TabLabelProps { children: string; color: string; focused: boolean; position?: 'below-icon' | 'beside-icon'; width?: number }
 
+/**
+ * Accessible name of a tab. A function `tabBarLabel` stops React Navigation from building "Keşfet, tab, 1 of 5" on iOS, so it is
+ * spelled out in Turkish there ("Keşfet, sekme, 1/5"). Android keeps the plain label: its tab item already has role `tab`, and TalkBack
+ * announces role and position itself, so a spelled-out name would be read twice.
+ */
+export function tabAccessibilityLabel(label: string, index: number, total: number, os: string): string {
+  return os === 'ios' ? `${label}, sekme, ${index + 1}/${total}` : label;
+}
+
 /** Bottom tab label that follows the system font scale (accessibility), clamped so five tabs still fit at 320 dp. */
 export function TabLabel({ children, color, position, width }: TabLabelProps) {
   const { width: windowWidth } = useWindowDimensions();

@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 import { Button, Input, Notice, SwitchRow, Text } from '..';
-import { TabLabel, tabLabelFontScaleCap, TAB_LABEL_WIDEST_DP } from '../../navigation/TabLabel';
+import { TabLabel, tabAccessibilityLabel, tabLabelFontScaleCap, TAB_LABEL_WIDEST_DP } from '../../navigation/TabLabel';
 
 describe('a11y round (Task 4 findings)', () => {
   it('F-01: Button keeps its label as the accessible name while loading (and after), busy is state not name', async () => {
@@ -38,14 +38,28 @@ describe('a11y round (Task 4 findings)', () => {
     expect(tabLabelFontScaleCap(1024)).toBe(1.3);
   });
 
-  it('F-03: a warning notice is one alert stop: title + body merged', async () => {
-    await render(<Notice tone="warning" title="Kayıtlar kapandı.">Başvuru süresi bitti.</Notice>);
+  it('F-03: a blocker notice (alert opt-in) is one alert stop: title + body merged', async () => {
+    await render(<Notice tone="warning" alert title="Kayıtlar kapandı.">Başvuru süresi bitti.</Notice>);
     const n = screen.getByRole('alert');
     expect(n.props.accessible).toBe(true);
     expect(n.props.accessibilityLabel).toBe('Kayıtlar kapandı. Başvuru süresi bitti.');
   });
 
-  it('F-03: info notices stay a plain (non-alert) single stop', async () => {
+  it('F-03: alert is opt-in: danger defaults on, informational warnings stay plain, the merged label is kept', async () => {
+    await render(<Notice tone="warning" title="Takımın bekleme listesinde">Yer açılınca.</Notice>);
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByLabelText('Takımın bekleme listesinde Yer açılınca.').props.accessible).toBe(true);
+    await render(<Notice tone="danger">Hata.</Notice>);
+    expect(screen.getByRole('alert')).toBeTruthy();
+  });
+
+  it('tab accessible name: iOS spells "Keşfet, sekme, 1/5"; Android stays plain (role tab already announces role and position)', () => {
+    expect(tabAccessibilityLabel('Keşfet', 0, 5, 'ios')).toBe('Keşfet, sekme, 1/5');
+    expect(tabAccessibilityLabel('Profil', 4, 5, 'ios')).toBe('Profil, sekme, 5/5');
+    expect(tabAccessibilityLabel('Keşfet', 0, 5, 'android')).toBe('Keşfet');
+  });
+
+  it('F-04: info notices stay a plain (non-alert) single stop', async () => {
     await render(<Notice tone="info" title="Başlık">Gövde</Notice>);
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.getByLabelText('Başlık Gövde').props.accessible).toBe(true);
@@ -56,6 +70,15 @@ describe('a11y round (Task 4 findings)', () => {
     expect(screen.getByLabelText('Doğrulama kodu').props.accessibilityHint).toBe('6 haneli kod');
     expect(screen.getByText('Doğrulama kodu', { includeHiddenElements: true }).props.importantForAccessibility).toBe('no');
     expect(screen.getByText('6 haneli kod', { includeHiddenElements: true }).props.importantForAccessibility).toBe('no');
+  });
+
+  it('F-04: with an error the hint is dropped and the error stays a visible polite live region', async () => {
+    await render(<Input label="Doğrulama kodu" help="6 haneli kod" error="Kod hatalı." />);
+    expect(screen.getByLabelText('Doğrulama kodu').props.accessibilityHint).toBeUndefined();
+    const err = screen.getByText('Kod hatalı.');
+    expect(err.props.accessibilityLiveRegion).toBe('polite');
+    expect(err.props.importantForAccessibility).not.toBe('no');
+    expect(err.props.accessibilityElementsHidden).not.toBe(true);
   });
 
   it('F-08: switch row speaks the title once and its description as the hint', async () => {

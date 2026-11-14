@@ -146,7 +146,7 @@ export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<
 
       {blocker && (
         <View testID="blocker-notice" style={{ marginTop: space[5] }}>
-          <Notice tone="warning" title={blockerCopy(blocker.reason).short}>
+          <Notice tone="warning" alert title={blockerCopy(blocker.reason).short}>
             {[blockerCopy(blocker.reason).detail, blocker.others.length > 0 ? `Diğer nedenler: ${blocker.others.map((r) => blockerCopy(r).short).join(' ')}` : null].filter(Boolean).join('\n')}
           </Notice>
         </View>
