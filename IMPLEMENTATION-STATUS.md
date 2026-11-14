@@ -1,5 +1,18 @@
 > **V5 — 11 Kasım 2026 (dal `feat/v5-pilot-platform`).** Güncel durum bu bölümdedir. 7 Ekim ve daha eski bölümler **tarihsel kayıttır**; çelişen yerde bu bölüm geçerlidir. ✅ yalnız bugün ölçülen ya da kanıtı yazılı olan şey içindir.
 
+## Faz 6 — Task 1 hukuk kapısı (14 Kasım 2026, dal `feat/v5-product`; staging'e uygulanmadı)
+Plan: `docs/superpowers/plans/2026-11-12-techapp-v5-faz6-release.md` > Task 1 · Kontrol listesi ve onay tablosu: `docs/legal/LEGAL-GATE.md`.
+
+| Parça | Durum |
+|---|---|
+| `20261114000100_policy_versions_signup_gate`: `app.settings` (`signup_open`, `allow_draft_policies`, varsayılan **false**, API rollerine kapalı), `public.policy_versions` (herkes okur, yazma yalnız `publish_policy_version` — platform admini), bugünkü üç `…@2026-09-draft` sürümü taslak satır, `app.current_policy_version` tablodan (yayımlanmış yoksa yalnız taslak izinliyse taslak, yoksa 409 `policy_not_published`), `public.signup_allowlist` (yalnız `sha256(lower(trim(email)))`; `add_signup_allowlist` / `remove_signup_allowlist` platform admini), `complete_profile_bootstrap` başında kapı (403 `signup_closed`, ilk tamamlamada) | ⏸ bekletildi — staging'e push **pilot sonrası, kullanıcı onayıyla** ve 🔒 aynı adımda `update app.settings … = true` (yoksa staging'de yeni kayıt ve tüm rıza yolları durur; `docs/RELEASE.md` > Faz 6 Task 1). Production'da iki bayrak `false` kalır. |
+| Ortamlar | Yerel: `seed.sql` + `supabase/dev/start.mjs` (her başlatma) iki bayrağı `true` yapar; `db:test`: `global-setup.ts`. |
+| Mobil | `errors.ts` COPY: `signup_closed` ("Kayıtlar henüz açık değil. Pilot ekibindeysen bize yaz: techapp.intechne.com.tr/destek"), `policy_not_published`; `ProfileBootstrapScreen` kapalı kapıda uyarı + "Bize yaz" (`/destek`). Ekranda (cihaz/web) görülmedi; jest ile doğrulandı. |
+| Web | `/gizlilik` (`privacy_policy`, `kvkk_notice`, `retention_policy`) ve `/kosullar` (`terms_of_use`): yer tutucu metin aynen kalır; yalnız yayımlanmış sürüm varsa "sürüm …, yayım tarihi …" satırı (`components/PolicyVersions.tsx`, `lib/policies.ts`). Bugün hiçbir sürüm yayımlanmadı → satır görünmez. |
+| Admin | Yeni yönetici hata kodlarının metni `apps/admin/src/lib.ts`'de; **panelde ekran yok** (yayın ve izin listesi platform admini oturumuyla RPC). |
+
+**Ölçümler (14 Kasım):** `npm run db:test` **373** (355 + 18 `legal-gate.test.ts`); mobil `verify` **1186** (lint 0, konsol temiz); admin typecheck temiz, test 30; web typecheck + build temiz (build, staging'e istek atmasın diye kapalı bir yerel adresle). Remote regresyonun yerel kuru koşusu **135/135**, Storage'lı **140/140** (blok 30–30k eklendi; kalıntı 0). Yerel yığın (`db:dev --reset`): yeni OTP hesabı profil tamamladı, etkinlik kaydı `event_participation@2026-09-draft` yazdı, anon `signup_allowlist` → 42501. Hukuk metni **yok**; hiçbir sürüm yayımlanmadı.
+
 ## Faz 3a — takım etkinlik kaydı (dal `feat/v5-product`; staging'e uygulanmadı)
 Plan: `docs/superpowers/plans/2026-11-12-techapp-v5-faz3a-team-registration.md`. Görev kaydı: `.superpowers/sdd/2026-11-12-techapp-v5-faz3a-team-registration/` (yerel).
 

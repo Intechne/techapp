@@ -83,6 +83,7 @@ Bu bölüm, aşağıdaki "Production'a geçiş" 1. maddesindeki dağınık notla
 8. `20261113000600_team_registration_rpc` (Faz 3a T2) — **27–27f** geçmeli; **27 MUST PASS**.
 9. `20261113000700_team_registration_lifecycle` (Faz 3a T3) — **28–28f** geçmeli; **28 ve 28e MUST PASS** (28e: `techapp-expire-team-registrations` `cron.job`'da).
 10. `20261113000800_team_registration_admin` (Faz 3a T4) — **29–29j** geçmeli; **29 ve 29i MUST PASS** (organizatör listesi; reviewer reddi → takım `rejected`, üye kaydı `rejected`, `teams_taken` 0).
+10a. `20261114000100_policy_versions_signup_gate` (Faz 6 T1, hukuk kapısı) — 🔒 **aynı onaylı adımda** staging bayrakları: `update app.settings set value = 'true'::jsonb where key in ('signup_open', 'allow_draft_policies')` (yapılmazsa staging'de yeni kayıt ve tüm rıza yolları durur). **30–30k** geçmeli; **30g ve 30h MUST PASS**. Ayrıntı: aşağıdaki "Faz 6 Task 1" bölümü.
 11. Push sonrası: remote regresyonun tamamı (`npx supabase db query --linked -f supabase/tests/remote/security-regression.sql | python3 supabase/tests/remote/report.py`; rollback, kalıntı 0), `covers` bucket public URL'inin curl ile kontrolü, `supabase gen types --linked` ile `database.generated.ts` yeniden üretimi.
 12. Sonra istemci (aşağıdaki liste).
 
@@ -91,13 +92,24 @@ Bu bölüm, aşağıdaki "Production'a geçiş" 1. maddesindeki dağınık notla
 - `npx supabase db push` dry-run planı yalnız bu dokuz dosyayı (ve daha önce uygulanmamış başkasını) göstermeli; hedef proje ref'i iki kez kontrol edilir.
 - Hedef veritabanının `datctype`'ı not alınır (arama için; `"C"` ise istemci üçlü deseni zaten kullanır).
 
-**Zorunlu remote kontroller özeti:** 21–21d · 22g · 22k · 23–23i · 24–24c · 25 + 25j · 26 · 27 · 28 + 28e · 29 + 29i (diğer 22/25–29 harfli maddeler de geçmeli; yalnız bunlar "MUST PASS" işaretlidir). Yerel prova (gömülü Postgres, tüm migration'lar + regresyon dosyası, rollback; 13 Kasım, `20261113000800` dahil): son koşu sonucu `IMPLEMENTATION-STATUS.md` > Faz 3a'da.
+**Zorunlu remote kontroller özeti:** 21–21d · 22g · 22k · 23–23i · 24–24c · 25 + 25j · 26 · 27 · 28 + 28e · 29 + 29i · 30g + 30h (Faz 6 T1; aşağıdaki bölüm) (diğer 22/25–29 harfli maddeler de geçmeli; yalnız bunlar "MUST PASS" işaretlidir). Yerel prova (gömülü Postgres, tüm migration'lar + regresyon dosyası, rollback; 13 Kasım, `20261113000800` dahil): son koşu sonucu `IMPLEMENTATION-STATUS.md` > Faz 3a'da.
 
 **İstemci, ilgili migration'lardan SONRA yayınlanır (T = Faz 3b görevi):** T4 (kapaklı admin/mobil — `000100`), T7 (zengin takım profili — `000200` + `000300`), T8 (Kaydedilenler — takım başlıkları `category_key` okur), T10 (Bildirimler — `000400`), T11 (Ayarlar/Gizlilik — `000400` + `000200`), T12 (Gelişim), T13 (Arama), T14 (Kurum profili + Bildir; `team_project` raporu `000200`'e bağlı, yoksa 23514). T12–T14 migration eklemez ama `TEAM_PUBLIC_COLUMNS` / `cover_*` okuduklarından T7 ile aynı sırada gider. Pratikte: yukarıdaki sıranın tüm migration'ları + zorunlu remote kontroller → tek `feat/v5-product` istemcisi.
 
 **Kural:** `feat/v5-product` dalı pilotun `preview` kanalına **asla** OTA ile yayınlanmaz (preview build eski JS ile çalışıyor; yeni sütunları okuyan kod onu kırar, eski sorgular da `000300`'ü kırar).
 
 **Hâlâ açık (yayın öncesi):** `/gizlilik` ve `/kosullar` hukuk metinleri, admin rapor/moderasyon konsolu, expo yama sürümleri — `docs/KNOWN-ISSUES.md` > Faz 3b kapanışı.
+
+## Faz 6 Task 1 — hukuk kapısı migration'ı (14 Kasım 2026, bekletiliyor)
+
+`20261114000100_policy_versions_signup_gate` (`app.settings`, `public.policy_versions`, `public.signup_allowlist`, `publish_policy_version`, `add_signup_allowlist`/`remove_signup_allowlist`, `app.current_policy_version` tablodan, `complete_profile_bootstrap` başında kapı) — **staging'e uygulanmadı**; yukarıdaki dokuz dosyayla aynı bekletme (pilot 27–29 Kasım bitene ve kullanıcı onaylayana kadar push yok). **Sıra:** tek sıra listesinin 10. adımından (`20261113000800`) **sonra**, dosya sırasıyla (11. adımdaki toplu remote regresyondan önce).
+
+**⚠️ Zorunlu sonuç — aynı onaylı adımda bayrak güncellemesi:** migration iki bayrağı **`false`** yazar (`signup_open`, `allow_draft_policies`). Staging'e yalnız push yapılırsa, izin listesinde olmayan her yeni hesap profil tamamlayamaz (403 `signup_closed`) ve **her** rıza yazan yol durur — etkinlik kaydı (`register_for_event`, takım kaydı yolları), veli isteği (`create_guardian_request`), başvuru (`submit_application`) → 409 `policy_not_published` (hiçbir amaç için yayımlanmış sürüm yok). Bu yüzden:
+- 🔒 **staging: `update app.settings set value = 'true'::jsonb where key in ('signup_open', 'allow_draft_policies');` — kullanıcı onayı**, push ile aynı onaylı adımda, hedef ref iki kez kontrol edilerek; ardından `select key, value from app.settings` ile ikisinin `true` olduğu görülür. Bu bir yazmadır; onaysız koşmaz.
+- **Production:** iki bayrak da `false` kalır; `signup_open = true` yalnız `docs/legal/LEGAL-GATE.md` onay tablosu tamamen dolunca (🔒). `supabase/seed.sql` artık bayrakları da `true` yapar — production'a seed zaten uygulanmaz.
+- Push sonrası remote regresyon **30–30k** geçmeli; **30g ve 30h MUST PASS** (kapı kapalı + listede değil → `signup_closed`; listede → profil tamam). Blok bayrakların gerçek değerinden bağımsızdır: dosya başında fikstürler için iki bayrağı rollback'li işlem içinde açar, blok 30 kapıyı yine işlem içinde kapatıp test eder. Kontroller: 30/30a anon·authenticated `signup_allowlist`'i okuyamaz/yazamaz, 30b `policy_versions` anon ve authenticated için okunur, 30c doğrudan yazma yok, 30d `publish_policy_version` admin dışı 403 / anon çağıramaz, 30e `add_signup_allowlist` aynı, 30f `app.settings` API rollerince (anon, authenticated, service_role) okunamaz/yazılamaz, 30i taslak kapalıyken sürüm yalnız yayımlanmış sürüm ya da 409, 30j grant'ler, 30k `search_path = ''`.
+- Yerel prova (14 Kasım, gömülü Postgres, tüm migration'lar + regresyon dosyası, rollback): **135/135**, Storage'lı **140/140**, kalıntı 0.
+- Mobil istemci (`signup_closed` / `policy_not_published` COPY'si, "Bize yaz") migration'dan bağımsız yayınlanabilir; web `/gizlilik` ve `/kosullar` sürüm satırı tablo yokken sessizce görünmez.
 
 ## Faz 3a — takım kaydı migration'ları (13 Kasım 2026, bekletiliyor)
 

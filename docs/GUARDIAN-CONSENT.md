@@ -78,7 +78,7 @@ Takım etkinlik kaydı (`features.teamRegistration`, production'da **kapalı**; 
 
 ## Hukuk için açık sorular
 
-1. Onay metninin içeriği ve sürümlemesi (`app.current_policy_version` şu an `…@2026-09-draft` döner).
+1. Onay metninin içeriği ve sürümlemesi (`app.current_policy_version` şu an `…@2026-09-draft` döner; Faz 6 T1 migration'ı `20261114000100` ile sürüm `public.policy_versions`'tan gelir, yayımlanmış sürüm yoksa yalnız `allow_draft_policies` açıkken taslak — `docs/legal/LEGAL-GATE.md`).
 2. E-posta bağlantısı + beyan edilen ad-soyad, veli kimliği için yeterli doğrulama gücünde mi? Daha güçlü yöntem gerekirse `verification_method` genişletilebilir.
 3. Hangi işlemler için veli onayı gerçekten gerekli; yaş eşiği ne olmalı (şu an etkinlik başına ayarlanabilir, varsayılan 18).
 4. Veli e-postası, `decided_name` ve rıza kayıtlarının saklama süresi; hesap silindiğinde ne kalmalı.

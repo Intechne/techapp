@@ -38,7 +38,7 @@ Son güncelleme: 2026-11-14 (V5, Faz 5 kapanışı). Güncel durumun tek kaynağ
 - Yerel auth gateway gerçek GoTrue değildir (hız sınırı, kod süresi, e-posta şablonu farklıdır).
 - **Çözüldü:** `AuthOtp` artık parametre taşımaz; web URL'sinde e-posta görünmez (`/AuthOtp`). Diğer rotalarda PII param yok.
 - Veli isteklerinin süre dolumu tembel çalışır; `pg_cron` zamanlaması dağıtımda eklenmeli.
-- `app.current_policy_version()` sabit bir taslak sürüm döner; gerçek sürümleme tablosu yok.
+- `app.current_policy_version()` sabit bir taslak sürüm döner; gerçek sürümleme tablosu yok. **Faz 6 T1 (`20261114000100`, staging'e uygulanmadı):** `public.policy_versions` + `publish_policy_version`; yayımlanmış sürüm yoksa ve `app.settings.allow_draft_policies = false` ise rıza yazan her yol 409 `policy_not_published` döner. Hiçbir metin yayımlanmadı (hukuk metni yok) — `docs/legal/LEGAL-GATE.md`.
 - Uygulama ikonu / splash artık yer tutucu değil ("Açık devre T" amblemi, `design-source/brand`); cihazda bakılmadı.
 - **Crash raporlama kapalı:** Sentry kodu kurulu (PII temizleme, ortam ayrımı) ama DSN olmadığı için `Sentry.init` hiç çağrılmaz. Açık: DSN bağlantısı, saklama süresi kararı ve pilot kapısı 7 için "kapalı"nın yazılı kabulü (`docs/CRASH-REPORTING.md`). Gerçek analytics sink'i yok (`expo-updates` var). **Push bildirimi yok.**
 - HIG Doctor (11 Kasım, final review düzeltmeleri sonrası): `--fail-on serious` kapısı geçer, **0 critical**, 1 moderate (OTP alanı `autoFocus`, bilinçli). İlk rapor `docs/audits/2026-11-11-hig-doctor.md`. Otomatik denetim HIG uyumunu kanıtlamaz.
