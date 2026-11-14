@@ -1,5 +1,6 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { AccessibilityInfo } from 'react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import * as Reanimated from 'react-native-reanimated';
 import { BookmarkButton } from '../components/cards/BookmarkButton';
 
@@ -34,5 +35,21 @@ describe('BookmarkButton motion + haptic', () => {
     expect(screen.getByRole('button', { name: 'Kaydedildi' }).props.accessibilityState).toMatchObject({ selected: true });
     await rerender(<BookmarkButton saved={false} onToggle={jest.fn()} />);
     expect(screen.getByRole('button', { name: 'Kaydet' }).props.accessibilityState).toMatchObject({ selected: false });
+  });
+  it('reduced motion: no scale write at all, the haptic and onToggle still happen', async () => {
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
+    const writes: unknown[] = [];
+    jest.spyOn(Reanimated, 'useSharedValue').mockImplementation(((init: unknown) => {
+      const r = React.useRef({ value: init, get() { return this.value; }, set(v: unknown) { writes.push(v); this.value = v; } });
+      return r.current;
+    }) as never);
+    const onToggle = jest.fn();
+    await render(<BookmarkButton saved={false} onToggle={onToggle} />);
+    await act(async () => {});
+    const btn = screen.getByRole('button', { name: 'Kaydet' });
+    await fireEvent(btn, 'pressIn'); await fireEvent.press(btn); await fireEvent(btn, 'pressOut');
+    expect(writes).toEqual([]);
+    expect(mockH.selection).toHaveBeenCalledTimes(1);
+    expect(onToggle).toHaveBeenCalledTimes(1);
   });
 });
