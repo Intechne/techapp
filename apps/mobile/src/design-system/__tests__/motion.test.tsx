@@ -162,7 +162,8 @@ describe('toast inset follows the focused screen', () => {
 describe('skeleton easing', () => {
   it('CardSkeletonFrame pulses with EASE_IN_OUT from motion.ts, not an ad-hoc Easing', () => {
     const src = read('components/cards/CardBase.tsx');
-    expect(src).toMatch(/EASE_IN_OUT/);
+    expect(src).toMatch(/skeletonPulse\(\)/); // EASE_IN_OUT lives in motion.ts's skeletonPulse
+    expect(read('motion.ts')).toMatch(/EASE_IN_OUT/);
     expect(src).not.toMatch(/Easing\.inOut\(Easing\.sin\)/);
   });
 });

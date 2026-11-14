@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect } from 'react';
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { cancelAnimation, ReduceMotion, useAnimatedStyle, useSharedValue, withRepeat, withSpring, withTiming } from 'react-native-reanimated';
-import { EASE_IN_OUT } from '../../motion';
+import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { skeletonPulse } from '../../motion';
 import { motion, radius, semantic } from '../../tokens';
 import { useReducedMotion } from '../../useReducedMotion';
 import { cardLayout } from './metrics';
@@ -55,7 +55,7 @@ export function CardSkeletonFrame({ children, style, testID }: { children: React
   const opacity = useSharedValue(1);
   useEffect(() => {
     if (reduced) { cancelAnimation(opacity); opacity.set(1); return; }
-    opacity.set(withRepeat(withTiming(0.55, { duration: 900, easing: EASE_IN_OUT, reduceMotion: ReduceMotion.System }), -1, true, undefined, ReduceMotion.System));
+    opacity.set(skeletonPulse());
     return () => cancelAnimation(opacity);
   }, [opacity, reduced]);
   const animated = useAnimatedStyle(() => ({ opacity: opacity.get() }));

@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, View, type DimensionValue } from 'react-native';
-import Animated, { cancelAnimation, ReduceMotion, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
-import { EASE_IN_OUT } from '../motion';
+import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import { skeletonPulse } from '../motion';
 import { colors, fonts, radius, space } from '../tokens';
 import { keepNumbersTogether } from './cards/label';
 import { Text } from '../Text';
@@ -46,7 +46,7 @@ export function Skeleton({ width = '100%', height = 16, rounded = radius.small }
   const opacity = useSharedValue(1);
   useEffect(() => {
     if (reduced) { cancelAnimation(opacity); opacity.set(1); return; }
-    opacity.set(withRepeat(withTiming(0.55, { duration: 900, easing: EASE_IN_OUT, reduceMotion: ReduceMotion.System }), -1, true, undefined, ReduceMotion.System));
+    opacity.set(skeletonPulse());
     return () => cancelAnimation(opacity);
   }, [opacity, reduced]);
   const animated = useAnimatedStyle(() => ({ opacity: reduced ? 1 : opacity.get() }));
