@@ -2,7 +2,7 @@
 
 # Bilinen sorunlar ve sınırlar
 
-Son güncelleme: 2026-11-13 (V5, Faz 3b kapanışı). Güncel durumun tek kaynağı `IMPLEMENTATION-STATUS.md` başındaki V5 bölümüdür; bu liste onunla çelişmez. Bu liste bilinçli olarak eksiksiz tutulur; buradaki bir madde kapanmadan ilgili alan "tamamlandı" sayılmaz.
+Son güncelleme: 2026-11-14 (V5, Faz 5 kapanışı). Güncel durumun tek kaynağı `IMPLEMENTATION-STATUS.md` başındaki V5 bölümüdür; bu liste onunla çelişmez. Bu liste bilinçli olarak eksiksiz tutulur; buradaki bir madde kapanmadan ilgili alan "tamamlandı" sayılmaz.
 
 ## Doğrulanmamış olanlar
 
@@ -14,7 +14,7 @@ Son güncelleme: 2026-11-13 (V5, Faz 3b kapanışı). Güncel durumun tek kayna�
 | 4 | `…000500_storage.sql` | Testlerde no-op. `storage.buckets` sütunları ve `storage.foldername()` canlı projeye karşı denenmedi. |
 | 5 | Gerçek e-posta teslimi (OTP, veli) | 🟡 7 Ekim'de doğrulandı (OTP kodu ve veli e-postası gerçek gelen kutusuna ulaştı), bugün yeniden çalıştırılmadı. OTP süre dolumu / hız limiti denenmedi. |
 | 6 | Huawei / HMS | Cihaz testi yok. `expo-camera` QR taramasının GMS'siz davranışı bilinmiyor (`docs/HUAWEI.md`). |
-| 7 | Erişilebilirlik | 🟡 Roller, etiketler, 44 pt hedefler, reduced motion kodda var. Emülatörde yazı ölçeği 2.0 PASS ve 320 dp turu yapıldı (D6/D8 bulundu, kodda düzeltildi, yeniden bakılacak). **TalkBack/VoiceOver sesli turu yapılmadı** (emülatörde adb dokunuşu TouchExplorer'dan geçmiyor). |
+| 7 | Erişilebilirlik | 🟡 Roller, etiketler, 44 pt hedefler, reduced motion kodda var. Emülatörde yazı ölçeği 2.0 PASS ve 320 dp turu yapıldı (D6/D8 bulundu, kodda düzeltildi, yeniden bakılacak). **TalkBack/VoiceOver sesli turu yapılmadı** (emülatörde adb dokunuşu TouchExplorer'dan geçmiyor). **Faz 5 (14 Kasım) — açık kalemler:** (a) giriş alanı kenarlığı `borderStrong` yüzeyde 1,47:1 (WCAG 1.4.11, kenarlık tek gösterge ise 3:1 gerekir): koyu kenarlık tokeni veya dolu alan — tasarım kararı (Faz 6); (b) `docs/qa/2026-11-14-a11y-android.md` kararları F-05 (vitrin okunuşu türsüz), F-06 (başlık gürültüsü), F-10 (çalışma anında yazı ölçeği değişince kök ekrana dönüş, release'te denenmedi), F-11 (320 dp + %200'de içerik penceresi dar) kayıt/karar bekliyor; (c) koyu tema taslağında 3 kontrast çifti eşiğin altında (yalnız rapor); (d) kaydet düğmesinde koruma nedeniyle düşen dokunuşta geri bildirim yok; (e) yükte kırılgan testler: `searchScreen` debounce `act` uyarısı, `crash.test` 8 KB zamanlaması; (f) canlı TalkBack konuşması yakalanamadı (yalnız odak/ağaç), iOS/VoiceOver yok, release build hareketi gözlenmedi; (g) **Button "busy" etiketi hatası (F-01)** pilot dalında da var, yalnız ürün dalında düzeltildi — go/no-go notu: düşük risk (kontrollü kullanıcılar, yükleme sonrası düğme etiketi okunmuyor). Performans: ürün dalı ölçülmedi, bkz. `docs/qa/2026-11-14-performance-android.md`. |
 | 8 | PostgREST'in `experiences_with_status` görünümünü embed edebilmesi | Denenmedi. |
 
 ## Remote Supabase ile ilgili açıklar

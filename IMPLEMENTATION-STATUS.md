@@ -124,6 +124,24 @@ Plan: `docs/superpowers/plans/2026-11-12-techapp-v5-faz3b-core-modules.md`. Gör
 **Önceden var olan hata:** `app.promote_waitlist` → `pending_guardian` veli isteği/son kullanma tarihi olmadan kontenjan tutar (`20260919000200_events.sql:318-340`); pilot dalında kontrol listesi kuralı `9380d5d`; ürün düzeltmesi yok.
 **Faz 6 ön koşulları:** `/gizlilik` ve `/kosullar` hukuk metinleri (bugün yer tutucu); admin rapor/moderasyon konsolu; beş bekletilen migration'ın kullanıcı onayıyla staging'e basılması + remote regresyon; expo yama sürümleri (`expo-doctor` 20/21). Bilinen sorunlar: `docs/KNOWN-ISSUES.md` > Faz 3b kapanışı. Yayın sırası: `docs/RELEASE.md` > Faz 3b — bekletilen migration'lar.
 
+## Faz 5 — hareket, erişilebilirlik, performans (14 Kasım 2026, dal `feat/v5-product`)
+Plan: `docs/superpowers/plans/2026-11-12-techapp-v5-faz5-motion-a11y-performance.md`. Kullanıcı kararı (14 Kasım): ürün dalı için release build alınmaz; release gözlemi ve ürün performansı pilot sonrası tek EAS build'inde (Faz 6 ile ortak) yapılır.
+
+| Görev | Konu | Commit'ler |
+|---|---|---|
+| T1 | Hareket temeli (`motion.ts`), Reanimated iskelet/toast, sheet'ler native `formSheet` | `640cab1` |
+| T2 | Durum hareketleri (SuccessMark, ShakeOnError, kaydet), haptic haritası, toast inset | `6667172`, `09e50d7`, `2431eeb`, `be021e7` |
+| T3 | OTP odağı `transitionEnd`, hareket denetimi (B1–B4 düzeltildi, K1–K3 kayıtlı) | `b21d691`, `fb7b2c2`, `2634fa6`, `0717379`, `902e000` |
+| T4 | TalkBack betikleri + emülatör erişilebilirlik ağacı denetimi (24 adım: 18 geçti / 3 / 3) | `f509990` |
+| T5 | Erişilebilirlik düzeltmeleri (F-01…F-04, F-08, F-09), sekme etiketleri | `f598d91`, `fa37f7e` |
+| T6 | WCAG kontrast denetimi (`npm run contrast`, 80 açık çift geçer), segment etiketi | `7934493`, `bd7ae39` |
+| T7 | Performans betikleri (`apps/mobile/scripts/perf/`) + ölçüm belgesi | `f17ba96` |
+| T8 | Kapanış: HIG Doctor, durum ve bilinen sorunlar | bu commit |
+
+**Ölçüm:** `npm --prefix apps/mobile run verify` → jest **1184** geçti, lint 0, konsol çıktısı temiz; HIG Doctor `--fail-on serious` çıkış 0 (1 moderate: arama `autoFocus`; [rapor](docs/audits/2026-11-14-hig-doctor.md)).
+**Performans ([belge](docs/qa/2026-11-14-performance-android.md)):** pilot preview APK (pilot dalı, ürün dalı değil), emülatör `sdk_gphone64_arm64` Android 16: soğuk açılış `TotalTime` **medyan 456 ms · en kötü 941 ms** (10 koşu; JS içeriği süresi dahil değil). Ürün dalı JS paketi: Hermes **6.163.768 bayt**. Ürün dalı soğuk açılış, ilk içerik, kaydırma fps, görsel belleği, basma fps: **ölçülmedi** (release build yok, pilot sonrası tek EAS build'i). Bütçe önerisi kullanıcı kararı bekliyor.
+**Doğrulandığı yerler:** web; Android emülatör dev client (hareket gözlemi, erişilebilirlik ağacı denetimi, sınırlı canlı TalkBack odak turu — konuşma çıktısı yakalanmadı). **Doğrulanmadı:** release build hareketi, iOS/VoiceOver (simülatör dahil), gerçek cihaz, ürün dalı performansı.
+
 ## Faz 4 — tasarım sistemi ve beş sekme (12–13 Kasım 2026, dal `feat/v5-product`)
 Plan: `docs/superpowers/plans/2026-11-12-techapp-v5-faz4-design-system-and-five-tabs.md`. Önizleme kapısı kullanıcı tarafından onaylandı (12 Kasım, “önerilerle onay”; `docs/design/faz4-preview/REVIEW.md`). Son görüntüler onaylı taslakla yan yana: `docs/design/faz4-final/` (README'de sapmalar). Bu dal pilot dalından ayrıdır; pilot yolu etkilenmedi.
 
@@ -179,9 +197,9 @@ M4 hatalı OTP'de yeniden gönderme beklemesi; M6 test portu. Ayrıntı ve cihaz
 | 1 | Staging adult + minor/veli E2E, gerçek e-posta teslimiyle, son build üzerinde | 🟡 | 7 Ekim PASS (eski commit); bu dalın build'iyle yeniden koşulmadı · geliştirme |
 | 2 | Ayrı production Supabase (migration, OTP şablonu, SMTP, secret'lar) | ⛔ | Proje yok; açılması kullanıcı onayı gerektirir · kullanıcı + geliştirme |
 | 3 | Hukuk: aydınlatma + veli onayı + koşullar onaylı ve sürümlü | ⛔ | Metinler yok (`/gizlilik`, `/kosullar` "hazırlanıyor"); gerçek kullanıcıya açılma blokeri · kullanıcı / hukuk |
-| 4 | EAS Android + iOS, emülatörde 8 adımlık yolculuk, gerçek iPhone + Android, Huawei check-in | ⛔ | Dev build emülatörde koştu (7/8, D1–D10 sonradan kodda düzeltildi); preview build + emülatör tekrarı, gerçek Android cihaz, iOS ve Huawei yok · geliştirme + kullanıcı |
+| 4 | EAS Android + iOS, emülatörde 8 adımlık yolculuk, gerçek iPhone + Android, Huawei check-in | ⛔ | Dev build emülatörde koştu (7/8, D1–D10 sonradan kodda düzeltildi); preview build + emülatör tekrarı, gerçek Android cihaz, iOS ve Huawei yok. Performans (14 Kasım, pilot preview APK, emülatör): soğuk açılış medyan 456 ms / en kötü 941 ms; ürün dalı performansı ölçülmedi (docs/qa/2026-11-14-performance-android.md) · geliştirme + kullanıcı |
 | 5 | Remote güvenlik regresyonu, yeni tablo RLS, 18 yaş altı görünürlük denetimi | 🟡 | Staging remote regresyon 38/38 PASS; yerel `pilot-privacy`; açık: `teams.created_by` / `recruitment_posts.created_by` anon okunabilir (KNOWN-ISSUES) · geliştirme |
-| 6 | Erişilebilirlik turu + HIG Doctor'da serious yok | 🟡 | HIG Doctor 0 critical / 1 moderate; emülatörde yazı ölçeği 2.0 PASS, 320 dp turu yapıldı (D6/D8 bulundu, kodda düzeltildi, yeniden bakılacak); TalkBack sesli turu yapılamadı · geliştirme |
+| 6 | Erişilebilirlik turu + HIG Doctor'da serious yok | 🟡 | HIG Doctor 0 critical / 1 moderate; Faz 5 (14 Kasım): ürün dalında erişilebilirlik ağacı denetimi + düzeltmeler + kontrast denetimi, HIG Doctor `--fail-on serious` 0, 1 moderate; canlı TalkBack konuşması yakalanmadı, iOS/VoiceOver ve gerçek cihaz yok; pilot dalında Button "busy" etiket hatası (F-01) var, yalnız üründe düzeltildi (go/no-go notu, KNOWN-ISSUES). Eski: emülatörde yazı ölçeği 2.0 PASS, 320 dp turu yapıldı (D6/D8 bulundu, kodda düzeltildi, yeniden bakılacak); TalkBack sesli turu yapılamadı · geliştirme |
 | 7 | Crash reporting açık veya kapalı olduğu yazılı kabul | ⛔ | Sentry kurulu ama kapalı (DSN yok); "kapalı" için yazılı kabul ya da DSN + saklama kararı yok · geliştirme + kullanıcı |
 | 8 | Etkinlik günü planı (görevli hesapları, cihaz başına check-in testi, admin web + kısa kod yedeği) | ⛔ | Plan yazılmadı · kullanıcı + geliştirme |
 
