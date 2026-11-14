@@ -63,7 +63,7 @@ Bilinçli olarak bırakılanlar; her biri ya kozmetik ya da cihaz doğrulaması 
 ## Eksik ürün kapsamı
 
 - **Fırsatlar ve Topluluk salt okunur değildir** (11 Kasım, kodda kontrol edildi): fırsat detayı, başvuru, başvurularım, son tarihler; takım detayı + katılma isteği, takım oluşturma, takım çalışma alanı (kanban), görev düzenleyici mobilde var. Profilde deneyim düzenleyici/detay, doğrulama talebi, CV paylaşımı ve gönüllü alanı var. Bunlar yalnız yerel/Expo web ortamında denendi; cihazda değil.
-- **Takım etkinlik kaydı yok.** DB `registration_mode = 'team'` kaydını reddeder; arayüz "yalnız takım" uyarısı verir. Cezeri'de resmî takım kaydı TechApp dışında kalır (kullanıcı kararı); ürün kapsamında Faz 3a.
+- ~~Takım etkinlik kaydı yok~~ — **Faz 3a (`feat/v5-product`, 13–14 Kasım):** kaptan/mentor kaydı, üye daveti, veli akışı, organizatör incelemesi kodda var; `features.teamRegistration` **production'da kapalı**, sunucu parçası staging'de uygulanmadı, cihazda denenmedi (aşağıda "Faz 3a kapanışı"). Bireysel kayıt (`register_for_event`) `registration_mode = 'team'` etkinliğe hâlâ 'yalnız takım' diye kapalıdır. Cezeri pilotunda resmî takım kaydı TechApp dışında kalır (kullanıcı kararı; pilot dalına bu iş girmedi).
 - ~~Yer imi arayüzü yalnız fırsatlarda~~ / ~~Kaydedilenler yok~~ — **Faz 3b T8 (`feat/v5-product`):** etkinlik, fırsat, takım ve eğitim kartlarında kaydet var, Profil > Kaydedilenler var (aşağıdaki sınırlar).
 - ~~Arama yalnız etkinlik~~ — **Faz 3b T13:** birleşik arama (etkinlik, fırsat, takım, eğitim; yalnız başlık/ad). Tam metin arama yok.
 - ~~Kapak görselleri yok~~ — **Faz 3b T3–T4:** etkinlik/fırsat kapağı (admin yükleme) ve mobil gösterim kodda var; **sunucu tarafı staging'de uygulanmadı** (yayın sırası `docs/RELEASE.md`). Takım kapağı yüklemesi **bilerek yok** (kullanıcı kararı, aşağıda).
@@ -78,6 +78,7 @@ Bilinçli olarak bırakılanlar; her biri ya kozmetik ya da cihaz doğrulaması 
 - En küçük hesap yaşı (şu an 13) ve veli onayı eşiği (etkinlik başına, varsayılan 18).
 - Onay metinleri, e-posta bağlantısının doğrulama gücü, saklama süreleri.
 - Reşit olmayanların takım üyeliği için veli onayı gerekip gerekmediği.
+- Takım **etkinlik kaydı** için her 18 yaş altı üyenin kendi veli onayı bu fazda mevcut akışla uygulanır (`docs/GUARDIAN-CONSENT.md`); hukuki uygunluğu onaylanmadı → bayrağı production'da açmadan Faz 6 Task 1 hukuk kapısı.
 - Uygulamada hukuki metin **yoktur**; uydurulmadı. **Gizlilik politikası, KVKK aydınlatma metni, kullanım koşulları, saklama politikası ve veli onay metni eksiktir** (web `/gizlilik` ve `/kosullar` "hazırlanıyor" der).
 - **Gerçek kullanıcıya açılma blokeri:** hukuki onay olmadan gerçek 18 yaş altı kullanıcının kişisel verisini toplayan akış ve herkese açık kayıt açılmaz (kullanıcı kararı, 2026-11-11). Yerel ve staging testleri devam eder. Pilot kapısı 3 ⛔.
 
@@ -114,3 +115,18 @@ Kaynak: `.superpowers/sdd/2026-11-12-techapp-v5-faz3b-core-modules/progress.md` 
 - Pilot dalı Keşfet araması `.or()` dizesini kullanıcı metninden (`%`, `(`, `)` temizlenerek) kurar: RLS veriyi sınırlar, en kötü durum hata/tuhaf eşleşme; düşük risk, donma süresince dokunulmadı, go/no-go'da anılacak. Ürün dalında bu yol kaldırıldı (Task 13).
 - Bildirim listesi son 100 satırla sınırlı (sayfalama yok; rozet sayısı kesin). Rozet odakta ve uygulama öne gelince yenilenir (realtime/polling yok).
 - Test altyapısı (13 Kasım): Ayarlar ve Gelişim testlerindeki `fireEvent` çağrıları `await` edilmiyordu (RNTL 14'te `fireEvent` async); bu açık act kapsamı ve konsol uyarısına yol açıyordu, düzeltildi. Başka test dosyalarında (opportunitiesList, consentCenter, profile*, myRegistrationsOffline, eventDetail, communityScreen) hâlâ `await`'siz `fireEvent.press` var; uyarı üretmiyorlar ama aynı kalıp — dokunulduğunda `await` eklenmeli.
+
+## Faz 3a kapanışı (14 Kasım 2026, dal `feat/v5-product`)
+Kaynak: `.superpowers/sdd/2026-11-12-techapp-v5-faz3a-team-registration/progress.md` ve görev raporları. Ölçüm: `db:test` 355, mobil 1047, admin 30. Hiçbir parça cihazda denenmedi, staging'e uygulanmadı; `IMPLEMENTATION-STATUS.md` > Faz 3a ile aynı durum.
+
+**Bayrak açılmadan önce karar gerekenler**
+- `team_registration.cancelled` / `.removed` / `.rejected` bildirimleri yok: yönetici iptali, üyenin kadrodan çıkarılması/ayrılması ve organizatör reddinde (kadroda olmayan kaptan/mentor) bildirim gitmez; red alan üyelere mevcut `registration.rejected` gider.
+- Hukuk kapısı: yukarıdaki "Hukuki / politika" maddeleri + Faz 6 Task 1.
+
+**Bilinen sorunlar (düzeltilmedi)**
+- **Kilit sırası (önceden var, pilot fonksiyonları dokunulmadı):** `guardian_decide` / `guardian_revoke` önce veli isteğini, sonra etkinliği kilitler (istek → etkinlik); takım yolları ve `cancel_event_registration` etkinlik → … sırasıyla gider. Aynı kayıtta eşzamanlı ret/iptal ya da hesap silme (cascade satırları kilitleyip sonra etkinliği kilitler) Postgres'te nadiren deadlock ile birini düşürebilir; kullanıcı yeniden dener. Takım dalındaki süre dolumu cron'u `SKIP LOCKED` ile bekleyip kilitlenmez.
+- **Önceden var olan bireysel hata:** `app.promote_waitlist` reşit olmayanı veli isteği/son kullanma tarihi olmadan `pending_guardian` yapar (koltuk süresiz tutulur). Pilot dalında yalnız kontrol listesi kuralı (`9380d5d`, `feat/v5-pilot-platform`); ürün dalında düzeltilmedi. Takım üyeleri bu yoldan geçmez (`promote_waitlist` yalnız bireysel kayıtlara sınırlandı; üye kaydı hiç `waitlisted` olmaz).
+- **Yüke duyarlı testler (Faz 5'e):** `searchScreen` debounce `act` uyarısı ve `crash.test` 8 KB zamanlaması; takım kaydı ekranı testi `6a84065` ile kararlı hâle getirildi (5/5 tam koşu).
+- **`database.generated.ts` elle yamalı** (events `team_*`, takım RPC'leri, admin RPC'leri): `db push` sonrası `db:types` ile yeniden üret.
+- Süresi dolan `pending_members` tutması en çok ~10 dk (cron `*/10`) listede görünebilir; admin arayüzü `hold_expires_at`'e bakıp "Süresi doldu, kapanıyor" der. Onaysız takım üyesi `admin_event_registrations`'ta sayılmaz (giriş yapmış kişi hariç).
+- HIG Doctor (14 Kasım): 0 serious; kalan 1 moderate `SearchScreen` `autoFocus` (Faz 3b; takım ekranlarında bulgu yok) — `docs/audits/2026-11-14-hig-doctor.md`.
