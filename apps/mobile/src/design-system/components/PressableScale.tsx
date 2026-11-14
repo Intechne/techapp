@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { Pressable, type GestureResponderEvent, type PressableProps, type PressableStateCallbackType, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { spring } from '../motion';
 import { motion } from '../tokens';
 import { useReducedMotion } from '../useReducedMotion';
 
@@ -22,18 +23,18 @@ export function PressableScale({ scaleTo = motion.pressScale, disabled, style, o
   const reduced = useReducedMotion();
   const scale = useSharedValue(1);
   const [pressed, setPressed] = useState(false);
-  const animated = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const animated = useAnimatedStyle(() => ({ transform: [{ scale: scale.get() }] }));
   const animate = !reduced && !disabled;
 
   const handleIn = useCallback((e: GestureResponderEvent) => {
     if (typeof style === 'function') setPressed(true);
-    if (animate) scale.set(withSpring(scaleTo, motion.spring.snappy));
+    if (animate) scale.set(withSpring(scaleTo, spring('snappy')));
     onPressIn?.(e);
   }, [animate, scale, scaleTo, onPressIn, style]);
 
   const handleOut = useCallback((e: GestureResponderEvent) => {
     if (typeof style === 'function') setPressed(false);
-    if (animate) scale.set(withSpring(1, motion.spring.snappy));
+    if (animate) scale.set(withSpring(1, spring('snappy')));
     onPressOut?.(e);
   }, [animate, scale, onPressOut, style]);
 

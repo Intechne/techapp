@@ -16,9 +16,9 @@ describe('PressableScale', () => {
     await render(<PressableScale accessibilityLabel="Katıl"><Text>Katıl</Text></PressableScale>);
     const el = screen.getByLabelText('Katıl');
     await fireEvent(el, 'pressIn');
-    expect(spring).toHaveBeenLastCalledWith(motion.pressScale, motion.spring.snappy);
+    expect(spring).toHaveBeenLastCalledWith(motion.pressScale, { ...motion.spring.snappy, reduceMotion: 'system' });
     await fireEvent(el, 'pressOut');
-    expect(spring).toHaveBeenLastCalledWith(1, motion.spring.snappy);
+    expect(spring).toHaveBeenLastCalledWith(1, { ...motion.spring.snappy, reduceMotion: 'system' });
   });
 
   it('honours a custom scaleTo', async () => {
@@ -26,7 +26,7 @@ describe('PressableScale', () => {
     const spring = jest.spyOn(Reanimated, 'withSpring');
     await render(<PressableScale scaleTo={0.9} accessibilityLabel="x"><Text>x</Text></PressableScale>);
     await fireEvent(screen.getByLabelText('x'), 'pressIn');
-    expect(spring).toHaveBeenLastCalledWith(0.9, motion.spring.snappy);
+    expect(spring).toHaveBeenLastCalledWith(0.9, expect.objectContaining(motion.spring.snappy));
   });
 
   it('reduced motion: no scale animation starts, onPress still fires', async () => {

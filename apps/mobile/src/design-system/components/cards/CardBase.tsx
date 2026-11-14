@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect } from 'react';
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
-import { skeletonPulse } from '../../motion';
-import { motion, radius, semantic } from '../../tokens';
+import { skeletonPulse, spring } from '../../motion';
+import { radius, semantic } from '../../tokens';
 import { useReducedMotion } from '../../useReducedMotion';
 import { cardLayout } from './metrics';
 
@@ -31,8 +31,8 @@ export function CardBase({ label, onPress, children, accessory, style, testID }:
   const reduced = useReducedMotion();
   const scale = useSharedValue(1);
   const animated = useAnimatedStyle(() => ({ transform: [{ scale: scale.get() }] }));
-  const pressIn = useCallback(() => { if (!reduced) scale.set(withSpring(cardLayout.pressScale, motion.spring.snappy)); }, [reduced, scale]);
-  const pressOut = useCallback(() => { if (!reduced) scale.set(withSpring(1, motion.spring.snappy)); }, [reduced, scale]);
+  const pressIn = useCallback(() => { if (!reduced) scale.set(withSpring(cardLayout.pressScale, spring('snappy'))); }, [reduced, scale]);
+  const pressOut = useCallback(() => { if (!reduced) scale.set(withSpring(1, spring('snappy'))); }, [reduced, scale]);
 
   return (
     <Animated.View testID={testID} style={[styles.frame, style, animated]}>

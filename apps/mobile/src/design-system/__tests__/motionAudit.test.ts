@@ -24,4 +24,16 @@ describe('motion review guards', () => {
     expect(src).toMatch(/SKELETON_PULSE_MS = 900/);
     expect(src).toMatch(/withRepeat\([\s\S]*easing: EASE_IN_OUT[\s\S]*ReduceMotion\.System[\s\S]*ReduceMotion\.System/);
   });
+  it('every press spring goes through spring(): no raw motion.spring config (it would skip the reduce-motion option)', () => {
+    const offenders = all.filter((f) => !f.endsWith('design-system/motion.ts') && /withSpring\([^)]*motion\.spring/.test(read(f))).map(rel);
+    expect(offenders).toEqual([]);
+  });
+  it('no render-phase .value reads on shared values in design-system components', () => {
+    const offenders = all.filter((f) => f.includes('design-system/components') && /\b(scale|opacity|progress|x)\.value\b/.test(read(f))).map(rel);
+    expect(offenders).toEqual([]);
+  });
+  it('core react-native Animated is gone (Reanimated only)', () => {
+    const offenders = all.filter((f) => /\bAnimated\b[^;\n]*from 'react-native'|\bAnimated\.(Value|timing|loop|spring)\b/.test(read(f))).map(rel);
+    expect(offenders).toEqual([]);
+  });
 });
