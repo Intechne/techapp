@@ -63,6 +63,9 @@ export default async function setup() {
       throw new Error(`Migration ${file} failed: ${(error as Error).message}`);
     }
   }
+  // The legal gate (20261114000100) ships closed: sign-up and draft policy versions are off by default. Every test file
+  // runs with both on, like local dev; supabase/tests/legal-gate.test.ts switches them off where it tests the gate.
+  await client.query(`update app.settings set value = 'true'::jsonb where key in ('signup_open', 'allow_draft_policies')`);
   await client.end();
   process.env.TECHAPP_TEST_DB_URL = url;
 

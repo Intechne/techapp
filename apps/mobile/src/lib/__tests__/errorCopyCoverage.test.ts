@@ -43,6 +43,8 @@ const ALLOWED: Record<string, string> = {
   attestation_not_pending: ADMIN, attestation_not_verified: ADMIN, attestation_scope_required: ADMIN,
   self_attestation_forbidden: ADMIN, revoke_reason_required: ADMIN, volunteer_withdrawn: ADMIN,
   team_registration_not_pending_review: ADMIN,
+  // legal gate (20261114000100): platform-admin RPCs publish_policy_version / add_signup_allowlist
+  policy_version_invalid: ADMIN, policy_url_invalid: ADMIN, policy_version_exists: ADMIN, allowlist_note_invalid: ADMIN,
 };
 const ELSEWHERE: Record<string, string> = { [WEB]: 'apps/web/app/veli/GuardianConsent.tsx', [ADMIN]: 'apps/admin/src/lib.ts' };
 

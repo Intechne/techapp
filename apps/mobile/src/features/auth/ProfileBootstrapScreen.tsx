@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Button, DateField, Input, Notice, Screen, Select, Text, space } from '../../design-system';
+import { AppHeader, Button, DateField, Input, Notice, Screen, Select, Text, space, useToast } from '../../design-system';
 import { parseBirthDate } from '../../lib/dates';
+import { WEB_ORIGIN, WEB_PATHS } from '../../lib/domain';
 import { toAppError } from '../../lib/errors';
+import { openExternalUrl } from '../../lib/links';
 import { getSupabase } from '../../lib/supabase';
 import type { EducationStage } from '../../lib/database.types';
 import type { RootStackParamList } from '../../navigation/types';
@@ -17,6 +19,7 @@ export function ProfileBootstrapScreen({ navigation }: NativeStackScreenProps<Ro
   const { prefs } = usePrefs();
   const { userId } = useSession();
   const qc = useQueryClient();
+  const toast = useToast();
   const [name, setName] = useState('');
   const [birth, setBirth] = useState('');
   const [stage, setStage] = useState<EducationStage | null>(prefs.educationStage);
@@ -60,7 +63,14 @@ export function ProfileBootstrapScreen({ navigation }: NativeStackScreenProps<Ro
           help="Veli onayı gerekip gerekmediğini belirlemek için kullanılır. Profilinde görünmez, sonradan değiştirilemez." />
         <Select label="Eğitim aşaman" options={EDUCATION_STAGES} value={stage} onChange={(v) => { setStage(v); clear('stage'); }} />
         {errors.stage && <Text variant="caption" color="danger">{errors.stage}</Text>}
-        {save.error && <Notice tone="danger">{toAppError(save.error).message}</Notice>}
+        {save.error && (toAppError(save.error).code === 'signup_closed'
+          // Closed sign-up (legal gate): not a failure of the form. Say so honestly and offer the way in for pilot staff.
+          ? <View style={{ gap: space[3] }}>
+              <Notice tone="warning" alert>{toAppError(save.error).message}</Notice>
+              <Button kind="secondary" label="Bize yaz" icon="link"
+                onPress={() => { void openExternalUrl(WEB_ORIGIN + WEB_PATHS.support, () => toast.show('Bağlantı açılamadı.', 'danger')); }} />
+            </View>
+          : <Notice tone="danger">{toAppError(save.error).message}</Notice>)}
       </View>
     </Screen>
   );

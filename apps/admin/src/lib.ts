@@ -44,6 +44,9 @@ const COPY: Record<string, string> = {
   outside_checkin_window: 'Giriş kontrolü etkinlikten 3 saat önce açılır ve etkinlik bitince kapanır.',
   registration_not_pending_review: 'Bu kayıt artık değerlendirme beklemiyor.', review_forbidden: 'Kayıt değerlendirme yetkin yok.',
   team_registration_not_found: 'Bu takım kaydı bulunamadı.', team_registration_not_pending_review: 'Bu takım kaydı artık değerlendirme beklemiyor.',
+  // legal gate (publish_policy_version / add_signup_allowlist; no admin screen yet — SQL editor or a future page)
+  policy_version_invalid: 'Sürüm biçimi geçersiz: <amaç>@YYYY-AA-GG olmalı.', policy_url_invalid: 'Metin bağlantısı https:// ile başlamalı.',
+  policy_version_exists: 'Bu sürüm zaten kayıtlı.', allowlist_note_invalid: 'Not en fazla 120 karakter olmalı ve e-posta adresi içermemeli.',
   tenant_locked: 'Kayıt başka bir kuruma taşınamaz.', field_locked: 'Bu alan yalnızca Intechne tarafından değiştirilebilir.',
   volunteer_application_not_found: 'Gönüllü başvurusu bulunamadı.', volunteer_withdrawn: 'Başvuru sahibi gönüllülükten çekilmiş; karar verilemez.',
   application_review_forbidden: 'Bu başvuruyu değerlendirme yetkin yok.', cannot_review_own_application: 'Kendi başvurunu değerlendiremezsin.',

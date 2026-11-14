@@ -93,6 +93,9 @@ async function applyPendingMigrations() {
 
 if (fresh) await db.query(readFileSync(join(root, 'supabase/tests/supabase-shim.sql'), 'utf8'));
 await applyPendingMigrations();
+// Legal gate (20261114000100): closed by default everywhere. This LOCAL stack always opens sign-up and draft policy versions,
+// also on an existing dev database that never re-runs seed.sql. Staging/production never run this script.
+await db.query(`update app.settings set value = 'true'::jsonb where key in ('signup_open', 'allow_draft_policies')`);
 if (fresh) {
   await db.query(readFileSync(join(root, 'supabase/seed.sql'), 'utf8'));
   // Dev organiser: owner of the first demo organisation + platform admin. Sign in with this address (OTP is printed here).

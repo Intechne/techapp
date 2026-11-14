@@ -4,8 +4,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ProfileBootstrapScreen } from '../ProfileBootstrapScreen';
 import { parseBirthDate } from '../../../lib/dates';
+import { SUPPORT_LINK_TEXT } from '../../../lib/errors';
 
-jest.mock('../../../lib/supabase', () => ({ getSupabase: () => ({ rpc: jest.fn() }) }));
+const mockRpc = jest.fn();
+const mockOpenExternalUrl = jest.fn();
+jest.mock('../../../lib/supabase', () => ({ getSupabase: () => ({ rpc: mockRpc }) }));
+jest.mock('../../../lib/links', () => ({ openExternalUrl: (...args: unknown[]) => mockOpenExternalUrl(...args) }));
 jest.mock('../authService', () => ({ signOut: jest.fn().mockResolvedValue(undefined) }));
 jest.mock('../SessionProvider', () => ({ useSession: () => ({ userId: 'u1' }) }));
 jest.mock('../../onboarding/PrefsProvider', () => ({ usePrefs: () => ({ prefs: { educationStage: null, interestSlugs: [] } }) }));
@@ -39,5 +43,35 @@ describe('ProfileBootstrap field errors clear as the user fixes them', () => {
     await fireEvent.press(screen.getByText('Lise'));
     expect(screen.queryByText(STAGE_ERR)).toBeNull();
     expect(screen.getByText(NAME_ERR)).toBeTruthy();
+  });
+});
+
+describe('ProfileBootstrap · closed sign-up (legal gate)', () => {
+  beforeEach(() => { mockRpc.mockReset(); mockOpenExternalUrl.mockReset(); });
+
+  const fillAndSubmit = async () => {
+    await open();
+    await fireEvent.changeText(screen.getByLabelText('Ad soyad'), 'Ada Pilot');
+    await fireEvent.changeText(screen.getByLabelText('Doğum tarihi'), '01.01.2000');
+    await fireEvent.press(screen.getByText('Lise'));
+    await fireEvent.press(screen.getByText('Devam et'));
+  };
+
+  it('403 signup_closed → the honest "not open yet" sentence with the support link, and "Bize yaz" opens the support page', async () => {
+    mockRpc.mockResolvedValue({ error: { code: 'PT403', message: 'signup_closed', details: '' } });
+    await fillAndSubmit();
+    const sentence = `Kayıtlar henüz açık değil. Pilot ekibindeysen bize yaz: ${SUPPORT_LINK_TEXT}`;
+    expect(await screen.findByText(sentence)).toBeTruthy();
+    expect(SUPPORT_LINK_TEXT).toBe('techapp.intechne.com.tr/destek');
+    expect(screen.queryByText('Bu işlem için yetkin yok.')).toBeNull();
+    await fireEvent.press(screen.getByText('Bize yaz'));
+    expect(mockOpenExternalUrl).toHaveBeenCalledWith('https://techapp.intechne.com.tr/destek', expect.any(Function));
+  });
+
+  it('any other error keeps the plain danger notice and no "Bize yaz" button', async () => {
+    mockRpc.mockResolvedValue({ error: { code: 'PT409', message: 'birth_date_locked', details: '' } });
+    await fillAndSubmit();
+    expect(await screen.findByText('Doğum tarihi sonradan değiştirilemiyor. Bir hata varsa destek ekibine yaz.')).toBeTruthy();
+    expect(screen.queryByText('Bize yaz')).toBeNull();
   });
 });

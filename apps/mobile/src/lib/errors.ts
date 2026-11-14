@@ -1,3 +1,5 @@
+import { WEB_ORIGIN, WEB_PATHS } from './domain';
+
 /** One error contract for the whole app. Screens never show raw backend messages. */
 export interface AppError {
   code: string;
@@ -9,6 +11,9 @@ export interface AppError {
   /** Raw PostgREST `details` of one of our RPC errors. Machine data (e.g. a JSON array of offending member ids), never shown to people. */
   detail?: string;
 }
+
+/** The support page as it is written inside a sentence (no scheme): techapp.intechne.com.tr/destek. */
+export const SUPPORT_LINK_TEXT = `${WEB_ORIGIN.replace(/^https:\/\//, '')}${WEB_PATHS.support}`;
 
 const COPY: Record<string, string> = {
   network_unreachable: 'İnternet bağlantını kontrol edip tekrar dener misin? İşlemin tamamlanmadı.',
@@ -27,6 +32,9 @@ const COPY: Record<string, string> = {
   registration_not_open: 'Kayıtlar henüz açılmadı.',
   team_registration_only: 'Bu etkinliğe yalnızca takım olarak kayıt olunabiliyor.',
   profile_incomplete: 'Devam etmeden önce profilini tamamlaman gerekiyor.',
+  // legal gate (20261114000100): closed sign-up and unpublished policy texts
+  signup_closed: `Kayıtlar henüz açık değil. Pilot ekibindeysen bize yaz: ${SUPPORT_LINK_TEXT}`,
+  policy_not_published: 'Bu işlem için gereken onay metni henüz yayımlanmadı, işlemin tamamlanmadı. Metin yayımlanınca tekrar dene.',
   below_min_age: 'Bu etkinlik senin yaş grubuna açık değil.',
   above_max_age: 'Bu etkinlik senin yaş grubuna açık değil.',
   event_already_started: 'Etkinlik başladığı için kayıt artık iptal edilemiyor.',

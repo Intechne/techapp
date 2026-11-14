@@ -355,3 +355,9 @@ insert into public.event_announcements (id, event_id, audience, title, body, pin
   ('00000000-0000-4000-a009-000000000002', '00000000-0000-4000-a001-000000000001', 'all', 'Program güncellendi', 'Açılış konuşması 09.45''e alındı. Takım eşleştirmeleri 10.15''te başlıyor.', false),
   ('00000000-0000-4000-a009-000000000003', '00000000-0000-4000-a001-000000000001', 'participants', 'Yanında getir', 'Dizüstü bilgisayarını ve şarj aletini unutma. Öğle yemeği bizden.', false)
 on conflict (id) do nothing;
+
+-- ---------------------------------------------------------------- legal gate (LOCAL / development only)
+-- 20261114000100 ships with sign-up closed and draft policy versions refused. A development database opens both so the
+-- OTP → profile → registration flow works end to end. Staging sets them in a separate user-approved step
+-- (docs/RELEASE.md); production keeps both false until the legal texts are published (docs/legal/LEGAL-GATE.md).
+update app.settings set value = 'true'::jsonb where key in ('signup_open', 'allow_draft_policies');

@@ -107,7 +107,15 @@ declare
   v_t3_reg uuid; v_t3_caprow uuid; v_t3_memrow uuid; v_t3_capreg uuid;
   v_t4_reviewer uuid; v_t4_staff uuid; v_t4_member_status text;
   v_out jsonb;
+  v_lg_user uuid; v_lg_text text; v_lg_cur text; v_lg_bool boolean;
 begin
+  -- Legal gate (20261114000100): sign-up and draft policy versions ship CLOSED. The fixtures below sign up and register, so
+  -- both switches are opened INSIDE this always-rolled-back transaction; block 30 closes them again where it tests the gate.
+  -- The real app.settings values are never changed (the file ends in RAISE) and no check depends on them.
+  if to_regclass('app.settings') is not null then
+    insert into app.settings (key, value) values ('signup_open', 'true'::jsonb), ('allow_draft_policies', 'true'::jsonb)
+    on conflict (key) do update set value = excluded.value;
+  end if;
   -- ================================================================ CV
   v_adult := pg_temp.t_user(22, 'Remote Yetişkin'); v_minor := pg_temp.t_user(15);
   v_token := pg_temp.t_val('authenticated', v_adult, 'select public.set_cv_sharing(true)');
@@ -776,6 +784,93 @@ begin
      where n.nspname = 'public' and p.proname in ('admin_event_team_registrations', 'review_team_registration');
     perform pg_temp.t_rec('29j grants: admin_event_team_registrations / review_team_registration authenticated-only',
       v_text = 'admin_event_team_registrations=false/true review_team_registration=false/true', coalesce(v_text, 'missing'));
+  end;
+
+  -- ================================================================ 30 · legal gate (20261114000100)
+  -- Independent of the real flag values: every switch a check needs is set inside this rolled-back transaction.
+  perform pg_temp.t_fail('30 anon cannot read signup_allowlist → permission denied', 'anon', null,
+    'select count(*) from public.signup_allowlist', '^42501');
+  perform pg_temp.t_fail('30 authenticated cannot read signup_allowlist → permission denied', 'authenticated', v_other,
+    'select count(*) from public.signup_allowlist', '^42501');
+  perform pg_temp.t_fail('30a authenticated cannot insert into signup_allowlist → permission denied', 'authenticated', v_other,
+    $q$insert into public.signup_allowlist (email_hash) values (extensions.digest('x@remote-test.invalid', 'sha256'))$q$, '^42501');
+  begin
+    v_n := pg_temp.t_val('anon', null, $q$select count(*)::text from public.policy_versions
+      where purpose in ('event_participation', 'guardian_event_participation', 'application_data_sharing')$q$)::int;
+    v_lg_text := pg_temp.t_val('authenticated', v_other, 'select count(*)::text from public.policy_versions');
+    perform pg_temp.t_rec('30b policy_versions readable by anon (≥ 3 consent-purpose rows) and authenticated',
+      v_n >= 3 and v_lg_text::int >= 3, 'anon=' || v_n || ' authenticated=' || v_lg_text);
+  exception when others then
+    perform pg_temp.t_rec('30b policy_versions readable by anon (≥ 3 consent-purpose rows) and authenticated', false, sqlstate || ' ' || sqlerrm);
+  end;
+  perform pg_temp.t_fail('30c authenticated cannot write policy_versions directly → permission denied', 'authenticated', v_other,
+    'update public.policy_versions set is_draft = false', '^42501');
+  perform pg_temp.t_fail('30c anon cannot insert into policy_versions → permission denied', 'anon', null,
+    $q$insert into public.policy_versions (purpose, version) values ('privacy_policy', 'privacy_policy@2099-01-01')$q$, '^42501');
+  perform pg_temp.t_fail('30d publish_policy_version by a signed-in non-admin → 403 forbidden', 'authenticated', v_other,
+    $q$select public.publish_policy_version('privacy_policy', 'privacy_policy@2099-01-01', 'https://remote-test.invalid/p')$q$, '^PT403 forbidden$');
+  perform pg_temp.t_fail('30d anon cannot call publish_policy_version → permission denied', 'anon', null,
+    $q$select public.publish_policy_version('privacy_policy', 'privacy_policy@2099-01-01', 'https://remote-test.invalid/p')$q$, '^42501');
+  perform pg_temp.t_fail('30e add_signup_allowlist by a signed-in non-admin → 403 forbidden', 'authenticated', v_other,
+    $q$select public.add_signup_allowlist('x@remote-test.invalid')$q$, '^PT403 forbidden$');
+  perform pg_temp.t_fail('30e anon cannot call add_signup_allowlist → permission denied', 'anon', null,
+    $q$select public.add_signup_allowlist('x@remote-test.invalid')$q$, '^42501');
+  perform pg_temp.t_fail('30f anon cannot read app.settings → permission denied', 'anon', null,
+    'select count(*) from app.settings', '^42501');
+  perform pg_temp.t_fail('30f authenticated cannot update app.settings → permission denied', 'authenticated', v_other,
+    $q$update app.settings set value = 'true'::jsonb where key = 'signup_open'$q$, '^42501');
+  perform pg_temp.t_fail('30f service_role cannot update app.settings → permission denied', 'service_role', null,
+    $q$update app.settings set value = 'true'::jsonb where key = 'signup_open'$q$, '^42501');
+  -- 30g/30h: gate closed (in this transaction only). A fresh account off the list cannot finish sign-up; on the list it can.
+  begin
+    update app.settings set value = 'false'::jsonb where key = 'signup_open';
+    v_lg_user := gen_random_uuid();
+    insert into auth.users (id, email, aud, role) values (v_lg_user, v_lg_user || '@remote-test.invalid', 'authenticated', 'authenticated');
+    perform pg_temp.t_fail('30g gate closed + not on the allow-list → 403 signup_closed (MUST PASS)', 'authenticated', v_lg_user,
+      $q$select public.complete_profile_bootstrap('Remote Kapalı', 'university', (current_date - interval '20 years 30 days')::date, '{}')$q$,
+      '^PT403 signup_closed$');
+    select p.onboarded_at is null and pp.birth_date is null into v_lg_bool
+      from public.profiles p join public.profile_private pp on pp.user_id = p.id where p.id = v_lg_user;
+    perform pg_temp.t_rec('30g refused account has no onboarded profile and no birth date', coalesce(v_lg_bool, false), coalesce(v_lg_bool::text, 'no profile row'));
+    insert into public.signup_allowlist (email_hash, note) values (app.email_hash(v_lg_user || '@remote-test.invalid'), 'remote test');
+    v_lg_text := pg_temp.t_val('authenticated', v_lg_user,
+      $q$select ((public.complete_profile_bootstrap('Remote Listede', 'university', (current_date - interval '20 years 30 days')::date, '{}')).onboarded_at is not null)::text$q$);
+    perform pg_temp.t_rec('30h gate closed + on the allow-list → profile completes (MUST PASS)', v_lg_text = 'true', coalesce(v_lg_text, 'null'));
+    update app.settings set value = 'true'::jsonb where key = 'signup_open';
+  exception when others then
+    perform pg_temp.t_rec('30h gate closed + on the allow-list → profile completes (MUST PASS)', false, sqlstate || ' ' || sqlerrm);
+  end;
+  -- 30i: drafts refused (in this transaction): the consent version is the latest PUBLISHED one, or 409 policy_not_published.
+  begin
+    update app.settings set value = 'false'::jsonb where key = 'allow_draft_policies';
+    select pv.version into v_lg_cur from public.policy_versions pv
+     where pv.purpose = 'event_participation' and not pv.is_draft order by pv.published_at desc, pv.version desc limit 1;
+    begin
+      v_lg_text := app.current_policy_version('event_participation');
+      perform pg_temp.t_rec('30i drafts refused → current_policy_version is the latest published version, never a draft',
+        v_lg_cur is not null and v_lg_text = v_lg_cur, 'got=' || coalesce(v_lg_text, 'null') || ' published=' || coalesce(v_lg_cur, 'none'));
+    exception when others then
+      perform pg_temp.t_rec('30i drafts refused → current_policy_version is the latest published version, never a draft',
+        v_lg_cur is null and sqlstate = 'PT409' and sqlerrm = 'policy_not_published', sqlstate || ' ' || sqlerrm || ' published=' || coalesce(v_lg_cur, 'none'));
+    end;
+    update app.settings set value = 'true'::jsonb where key = 'allow_draft_policies';
+  end;
+  begin
+    select string_agg(n.nspname || '.' || p.proname || '=' || has_function_privilege('anon', p.oid, 'execute')::text || '/'
+                      || has_function_privilege('authenticated', p.oid, 'execute')::text, ' ' order by n.nspname, p.proname) into v_lg_text
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where (n.nspname = 'public' and p.proname in ('publish_policy_version', 'add_signup_allowlist', 'remove_signup_allowlist'))
+        or (n.nspname = 'app' and p.proname in ('current_policy_version', 'setting_enabled', 'signup_allowed'));
+    perform pg_temp.t_rec('30j grants: the three admin RPCs authenticated-only; gate helpers not callable by API roles',
+      v_lg_text = 'app.current_policy_version=false/false app.setting_enabled=false/false app.signup_allowed=false/false '
+                  'public.add_signup_allowlist=false/true public.publish_policy_version=false/true public.remove_signup_allowlist=false/true',
+      coalesce(v_lg_text, 'missing'));
+    select string_agg(n.nspname || '.' || p.proname, ' ' order by 1) into v_lg_text
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where ((n.nspname = 'public' and p.proname in ('publish_policy_version', 'add_signup_allowlist', 'remove_signup_allowlist', 'complete_profile_bootstrap'))
+         or (n.nspname = 'app' and p.proname in ('current_policy_version', 'setting_enabled', 'signup_allowed')))
+       and not (p.prosecdef and coalesce(p.proconfig, '{}') @> array['search_path=""']);
+    perform pg_temp.t_rec('30k gate functions are SECURITY DEFINER with search_path = ''''', v_lg_text is null, coalesce(v_lg_text, 'ok'));
   end;
 
   -- ================================================================ report (always rolls back)
