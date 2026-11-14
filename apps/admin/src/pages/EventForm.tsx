@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { teamChangeNeedsReview, validateTeamSettings } from '../team';
 import { CoverField } from '../components/CoverField';
 import { TEAM_REGISTRATION, supabase, toUiError, type Account, type EventInsert, type EventRow } from '../lib';
 
@@ -26,6 +27,7 @@ export function EventForm({ account, eventId }: { account: Account; eventId?: st
   const [interests, setInterests] = useState<{ id: number; label_tr: string }[]>([]);
   const [status, setStatus] = useState<EventRow['status']>('draft');
   const [coverPath, setCoverPath] = useState<string | null>(null);
+  const [origTeam, setOrigTeam] = useState<Pick<EventRow, 'team_capacity' | 'team_min_size' | 'team_max_size'> | null>(null);
   const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -35,7 +37,7 @@ export function EventForm({ account, eventId }: { account: Account; eventId?: st
     if (!eventId) return;
     supabase.from('events').select('*').eq('id', eventId).single().then(({ data: e, error: err }) => {
       if (err || !e) { setError(toUiError(err).message); return; }
-      setStatus(e.status); setCoverPath(e.cover_path);
+      setStatus(e.status); setCoverPath(e.cover_path); setOrigTeam({ team_capacity: e.team_capacity, team_min_size: e.team_min_size, team_max_size: e.team_max_size });
       setForm({ organization_id: e.organization_id, title: e.title, slug: e.slug, poster_line: e.poster_line ?? '', summary: e.summary, description: e.description ?? '', type: e.type, format: e.format,
         topic_interest_id: e.topic_interest_id?.toString() ?? '', tone: e.tone, city: e.city ?? '', venue: e.venue ?? '', online_url: e.online_url ?? '', starts_at: toLocal(e.starts_at), ends_at: toLocal(e.ends_at),
         registration_opens_at: toLocal(e.registration_opens_at), registration_closes_at: toLocal(e.registration_closes_at), capacity: e.capacity?.toString() ?? '', waitlist_enabled: e.waitlist_enabled,
@@ -51,12 +53,7 @@ export function EventForm({ account, eventId }: { account: Account; eventId?: st
     if (new Date(form.registration_closes_at) > new Date(form.ends_at)) return setError('Son kayıt tarihi etkinlik bitişinden sonra olamaz.');
     const teamMode = TEAM_REGISTRATION && form.registration_mode !== 'individual';
     if (teamMode) {
-      // Same limits as the database checks (events.team_* and events_team_size_range); the server still decides.
-      const whole = (v: string, lo: number, hi: number) => /^\d+$/.test(v.trim()) && Number(v) >= lo && Number(v) <= hi;
-      if (form.team_capacity.trim() !== '' && !whole(form.team_capacity, 1, 1_000_000)) return setError('Takım kontenjanı 1 veya daha büyük bir tam sayı olmalı; sınırsız için boş bırak.');
-      if (!whole(form.team_min_size, 1, 100)) return setError('Takımın en az kişi sayısı 1 ile 100 arasında olmalı.');
-      if (form.team_max_size.trim() !== '' && !whole(form.team_max_size, 1, 100)) return setError('Takımın en çok kişi sayısı 1 ile 100 arasında olmalı; sınırsız için boş bırak.');
-      if (form.team_max_size.trim() !== '' && Number(form.team_min_size) > Number(form.team_max_size)) return setError('Takımın en az kişi sayısı en çok kişi sayısından büyük olamaz.');
+      const teamErr = validateTeamSettings(form); if (teamErr) return setError(teamErr);
     }
     setBusy(true);
     const teamFields: { team_capacity?: number | null; team_min_size?: number; team_max_size?: number | null } = teamMode ? { team_capacity: num(form.team_capacity), team_min_size: Number(form.team_min_size), team_max_size: num(form.team_max_size) } : {};
@@ -70,11 +67,10 @@ export function EventForm({ account, eventId }: { account: Account; eventId?: st
       ...teamFields,
       audience_note: form.audience_note.trim() || null, cancellation_policy: form.cancellation_policy.trim() || null, support_contact: form.support_contact.trim() || null,
     } satisfies Partial<EventInsert>;
-    // The hand-patched Insert type lacks team_* (Update has them), hence the cast on insert: regenerate with db:types.
     const { data: userData } = await supabase.auth.getUser();
     const res = eventId
       ? await supabase.from('events').update(payload).eq('id', eventId).select('id').single()
-      : await supabase.from('events').insert({ ...payload, organization_id: form.organization_id, created_by: userData.user?.id } as EventInsert).select('id').single();
+      : await supabase.from('events').insert({ ...payload, organization_id: form.organization_id, created_by: userData.user?.id }).select('id').single();
     setBusy(false);
     if (res.error) return setError(res.error.code === 'PGRST116' ? 'Bu etkinliği düzenleme yetkin yok.' : toUiError(res.error).message);
     location.hash = `#/events/${res.data.id}`;
@@ -120,7 +116,7 @@ export function EventForm({ account, eventId }: { account: Account; eventId?: st
             <h3>Takım kaydı</h3>
             <p className="muted small">{form.registration_mode === 'both' ? 'Bireysel kontenjan ve takım kontenjanı ayrı sayılır.' : 'Katılım yalnızca takımla olur; yukarıdaki kontenjan bireysel kayıtlar içindir.'} Kaptan ya da mentor başvurur; her üyenin kendi onayı (18 yaş altı için veli onayı) gerekir. Takımlar üyeleri hazır olana kadar 7 gün yer tutar.</p>
             <div className="grid3">{T({ k: 'team_capacity', label: 'Takım kontenjanı (boş = sınırsız)', type: 'number' })}{T({ k: 'team_min_size', label: 'Takımda en az kişi', type: 'number', required: true })}{T({ k: 'team_max_size', label: 'Takımda en çok kişi (boş = sınırsız)', type: 'number' })}</div>
-            {status === 'published' && <div className="notice warn">Yayındaki etkinlikte takım büyüklüğü sınırlarını değiştirmek ya da takım kontenjanını azaltmak etkinliği yeniden incelemeye gönderir.</div>}
+            {status === 'published' && teamChangeNeedsReview(origTeam, form) && <div className="notice warn">Takım büyüklüğü sınırlarını değiştirmek, takım kontenjanını azaltmak ya da ilk kez bir kontenjan sınırı koymak yayındaki etkinliği yeniden incelemeye gönderir.</div>}
           </div>)}
         <label className="row" style={{ fontWeight: 500 }}><input type="checkbox" style={{ width: 20, minHeight: 20 }} checked={form.waitlist_enabled} onChange={(e) => set('waitlist_enabled', e.target.checked)} /> Kontenjan dolunca bekleme listesi aç</label>
         <label className="row" style={{ fontWeight: 500 }}><input type="checkbox" style={{ width: 20, minHeight: 20 }} checked={form.requires_review} onChange={(e) => set('requires_review', e.target.checked)} /> Kayıtları ekibimiz tek tek değerlendirsin</label>

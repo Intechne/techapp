@@ -1,6 +1,6 @@
 // NOTE: team registration (migrations 20261113000500..000800: events.team_*, enums team_registration_status / team_registration_member_state,
 // submit_team_registration, update_team_roster, cancel_team_registration, team_registration_detail, respond_team_registration,
-// my_team_registration_invites) hand-patched — regenerate with db:types after db push.
+// my_team_registration_invites, admin_event_team_registrations, review_team_registration, events Insert team_*) hand-patched — regenerate with db:types after db push.
 // NOTE: covers fields (cover_path, cover_blurhash, set_cover) hand-patched — regenerate with db:types after db push.
 // NOTE: team_recruitment_applications (migration 20261113000300) hand-patched too.
 // NOTE: team profile (migration 20261113000200: teams.category_key, team_projects, upsert_team_project, delete_team_project,
@@ -878,6 +878,11 @@ export type Database = {
           summary: string
           support_contact?: string | null
           timezone?: string
+          team_capacity?: number | null
+          team_max_size?: number | null
+          team_min_size?: number
+          team_waitlist_count?: number
+          teams_taken?: number
           title: string
           tone?: string
           topic_interest_id?: number | null
@@ -2894,6 +2899,16 @@ export type Database = {
           message: string | null
           status: string
         }[]
+      }
+      admin_event_team_registrations: {
+        Args: { p_event_id: string }
+        Returns: Json[]
+        SetofOptions: { from: "*"; to: "jsonb"; isOneToOne: false; isSetofReturn: true }
+      }
+      review_team_registration: {
+        Args: { p_approve: boolean; p_team_registration_id: string }
+        Returns: Database["public"]["Tables"]["team_event_registrations"]["Row"]
+        SetofOptions: { from: "*"; to: "team_event_registrations"; isOneToOne: true; isSetofReturn: false }
       }
       submit_team_registration: {
         Args: { p_event_id: string; p_idempotency_key: string; p_member_ids: string[]; p_team_id: string }
