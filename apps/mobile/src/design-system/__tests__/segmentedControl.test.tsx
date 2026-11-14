@@ -57,3 +57,12 @@ describe('SegmentedControl layout', () => {
     expect(dir()).toBe('column');
   });
 });
+
+describe('SegmentedControl label contrast', () => {
+  it('both selected and unselected labels are Ink: secondary text on the sunken track is 4.45:1, below AA', async () => {
+    await render(<SegmentedControl options={COMMUNITY} value="Takımlar" onChange={() => {}} />);
+    for (const name of COMMUNITY) {
+      expect(StyleSheet.flatten(screen.getByText(name).props.style).color).toBe('#20241F');
+    }
+  });
+});

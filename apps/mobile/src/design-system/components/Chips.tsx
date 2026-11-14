@@ -31,7 +31,7 @@ export function ChipRail({ children }: { children: React.ReactNode }) {
 }
 
 type TagTone = 'iris' | 'moss' | 'neutral' | 'onDark' | 'danger' | 'apricot';
-const tagTones: Record<TagTone, { bg: string; fg: string }> = {
+export const tagTones: Record<TagTone, { bg: string; fg: string }> = {
   iris: { bg: colors.primarySoft, fg: colors.primary },
   moss: { bg: colors.mossSoft, fg: colors.moss },
   neutral: { bg: colors.surfaceSunken, fg: colors.ink },
@@ -83,7 +83,7 @@ export function SegmentedControl<T extends string>({ options, value, onChange }:
       {options.map((o) => (
         <Pressable key={o} accessibilityRole="tab" accessibilityState={{ selected: o === value }} onPress={() => onChange(o)}
           style={[styles.segment, o === value && styles.segmentActive]}>
-          <Text variant="label" center breakStrategy="words" color={o === value ? 'ink' : 'textSecondary'}>{o}</Text>
+          <Text variant="label" center breakStrategy="words" color="ink">{o}</Text>
         </Pressable>
       ))}
     </View>
