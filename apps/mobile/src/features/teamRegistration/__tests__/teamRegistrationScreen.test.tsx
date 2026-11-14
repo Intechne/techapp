@@ -64,6 +64,8 @@ async function renderScreen(params: { eventId: string; teamRegistrationId?: stri
 beforeEach(() => { nav.replace.mockClear(); nav.navigate.mockClear(); nav.goBack.mockClear(); });
 const checkbox = (name: string) => screen.getByRole('checkbox', { name: new RegExp(name) });
 const submitButton = () => screen.getByRole('button', { name: /Takımı kaydet/ });
+// A busy button has no label (spinner), so wait for the label before pressing: whether the previous mutation has settled by now depends on CPU load.
+const pressSubmit = async () => { await fireEvent.press(await screen.findByRole('button', { name: /Takımı kaydet/ })); };
 const disabledButtons = () => screen.queryAllByRole('button').filter((b) => b.props.accessibilityState?.disabled);
 
 describe('Takım kaydı — kadro seçimi', () => {
@@ -81,7 +83,7 @@ describe('Takım kaydı — kadro seçimi', () => {
     expect(await screen.findByText(/En az 2 kişi seçmelisin/)).toBeTruthy();
     expect(disabledButtons()).toHaveLength(0);
     expect(submitButton().props.accessibilityState?.disabled).toBeFalsy();
-    await fireEvent.press(submitButton());
+    await pressSubmit();
     expect(await screen.findByText('Kadro etkinliğin istediği büyüklükte değil')).toBeTruthy();
     expect(calls('submit_team_registration')).toHaveLength(0);
   });
@@ -100,15 +102,15 @@ describe('Takım kaydı — kadro seçimi', () => {
     let n = 0;
     rpcHandlers.submit_team_registration = () => (++n === 1 ? new Promise((r) => { release = r; }) : ok(row('tr1')));
     await renderScreen();
-    await fireEvent.press(submitButton()); await fireEvent.press(submitButton());
+    const button = submitButton();
+    await fireEvent.press(button); await fireEvent.press(button); // the same element twice: the second tap lands on a busy button
     await waitFor(() => expect(calls('submit_team_registration')).toHaveLength(1));
     const key = (calls('submit_team_registration')[0]![1] as { p_idempotency_key: string }).p_idempotency_key;
     expect(key).toMatch(/^[0-9a-f-]{36}$/);
     expect(calls('submit_team_registration')[0]![1]).toMatchObject({ p_event_id: 'e1', p_team_id: 't1', p_member_ids: ['aaaaaaaa-0000-4000-8000-000000000001', 'aaaaaaaa-0000-4000-8000-000000000002', 'aaaaaaaa-0000-4000-8000-000000000003', 'aaaaaaaa-0000-4000-8000-000000000004'] });
     await act(async () => { release({ data: null, error: { code: '', message: 'Network request failed', details: null, hint: null } }); });
     expect(await screen.findByText(/İnternet bağlantını/)).toBeTruthy();
-    await screen.findByRole('button', { name: /Takımı kaydet/ }); // the button is busy until the mutation has settled
-    await fireEvent.press(submitButton());
+    await pressSubmit();
     await waitFor(() => expect(calls('submit_team_registration')).toHaveLength(2));
     expect((calls('submit_team_registration')[1]![1] as { p_idempotency_key: string }).p_idempotency_key).toBe(key);
     expect(mockUuid).toBe(1); // generated once, at the first press
@@ -117,12 +119,12 @@ describe('Takım kaydı — kadro seçimi', () => {
   it('changing the selection starts a new idempotency key; retrying the same selection keeps it', async () => {
     rpcHandlers.submit_team_registration = () => fail('team_size_out_of_range', 422);
     await renderScreen();
-    await fireEvent.press(submitButton());
+    await pressSubmit();
     await waitFor(() => expect(calls('submit_team_registration')).toHaveLength(1));
-    await fireEvent.press(submitButton());
+    await pressSubmit();
     await waitFor(() => expect(calls('submit_team_registration')).toHaveLength(2));
     await fireEvent.press(checkbox('Elif Şahin'));
-    await fireEvent.press(submitButton());
+    await pressSubmit();
     await waitFor(() => expect(calls('submit_team_registration')).toHaveLength(3));
     const key = (i: number) => (calls('submit_team_registration')[i]![1] as { p_idempotency_key: string }).p_idempotency_key;
     expect(key(1)).toBe(key(0));
@@ -132,7 +134,7 @@ describe('Takım kaydı — kadro seçimi', () => {
   it('member_already_registered: the COPY sits under the offending rows (ids from the error detail), never a server name or age', async () => {
     rpcHandlers.submit_team_registration = () => fail('member_already_registered', 409, '["aaaaaaaa-0000-4000-8000-000000000002","aaaaaaaa-0000-4000-8000-000000000004"]');
     await renderScreen();
-    await fireEvent.press(submitButton());
+    await pressSubmit();
     const copy = toAppError({ code: 'PT409', message: 'member_already_registered' }).message;
     await waitFor(() => expect(within(screen.getByTestId('member-row-aaaaaaaa-0000-4000-8000-000000000002')).getByText(copy)).toBeTruthy());
     expect(within(screen.getByTestId('member-row-aaaaaaaa-0000-4000-8000-000000000004')).getByText(copy)).toBeTruthy();
@@ -143,14 +145,14 @@ describe('Takım kaydı — kadro seçimi', () => {
   it('member_not_active and member_age_not_eligible map to their own COPY under their rows', async () => {
     rpcHandlers.submit_team_registration = () => fail('member_age_not_eligible', 403, '["aaaaaaaa-0000-4000-8000-000000000003"]');
     await renderScreen();
-    await fireEvent.press(submitButton());
+    await pressSubmit();
     const copy = toAppError({ code: 'PT403', message: 'member_age_not_eligible' }).message;
     await waitFor(() => expect(within(screen.getByTestId('member-row-aaaaaaaa-0000-4000-8000-000000000003')).getByText(copy)).toBeTruthy());
   });
 
   it('success replaces the screen with the status screen', async () => {
     await renderScreen();
-    await fireEvent.press(submitButton());
+    await pressSubmit();
     await waitFor(() => expect(nav.replace).toHaveBeenCalledWith('TeamRegistrationStatus', { teamRegistrationId: 'tr1' }));
   });
 

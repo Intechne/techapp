@@ -101,7 +101,7 @@ describe('Takım daveti', () => {
     await fireEvent.press(await screen.findByText('Katılıyorum'));
     await waitFor(() => expect(respondCalls()).toHaveLength(1));
     await screen.findByText(/Bağlantı|bağlantı|internet/);
-    await fireEvent.press(screen.getByText('Katılıyorum'));
+    await fireEvent.press(await screen.findByText('Katılıyorum')); // busy button shows no label until the first call has settled
     await waitFor(() => expect(respondCalls()).toHaveLength(2));
     expect(respondCalls()[1][1].p_idempotency_key).toBe(respondCalls()[0][1].p_idempotency_key);
     await settle();
