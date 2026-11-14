@@ -821,7 +821,8 @@ begin
     $q$update app.settings set value = 'true'::jsonb where key = 'signup_open'$q$, '^42501');
   perform pg_temp.t_fail('30f service_role cannot update app.settings → permission denied', 'service_role', null,
     $q$update app.settings set value = 'true'::jsonb where key = 'signup_open'$q$, '^42501');
-  -- 30g/30h: gate closed (in this transaction only). A fresh account off the list cannot finish sign-up; on the list it can.
+  -- 30g/30h/30l: gate closed (in this transaction only). Each check runs in its own subtransaction, so a throw in one
+  -- cannot drop the others' results; each closes the gate itself and the outer transaction rolls everything back.
   begin
     update app.settings set value = 'false'::jsonb where key = 'signup_open';
     v_lg_user := gen_random_uuid();
@@ -832,14 +833,59 @@ begin
     select p.onboarded_at is null and pp.birth_date is null into v_lg_bool
       from public.profiles p join public.profile_private pp on pp.user_id = p.id where p.id = v_lg_user;
     perform pg_temp.t_rec('30g refused account has no onboarded profile and no birth date', coalesce(v_lg_bool, false), coalesce(v_lg_bool::text, 'no profile row'));
+  exception when others then
+    perform pg_temp.t_rec('30g gate closed + not on the allow-list → 403 signup_closed (MUST PASS)', false, sqlstate || ' ' || sqlerrm);
+  end;
+  update app.settings set value = 'true'::jsonb where key = 'signup_open';
+  begin
+    update app.settings set value = 'false'::jsonb where key = 'signup_open';
+    v_lg_user := gen_random_uuid();
+    insert into auth.users (id, email, aud, role) values (v_lg_user, v_lg_user || '@remote-test.invalid', 'authenticated', 'authenticated');
     insert into public.signup_allowlist (email_hash, note) values (app.email_hash(v_lg_user || '@remote-test.invalid'), 'remote test');
     v_lg_text := pg_temp.t_val('authenticated', v_lg_user,
       $q$select ((public.complete_profile_bootstrap('Remote Listede', 'university', (current_date - interval '20 years 30 days')::date, '{}')).onboarded_at is not null)::text$q$);
     perform pg_temp.t_rec('30h gate closed + on the allow-list → profile completes (MUST PASS)', v_lg_text = 'true', coalesce(v_lg_text, 'null'));
-    update app.settings set value = 'true'::jsonb where key = 'signup_open';
   exception when others then
     perform pg_temp.t_rec('30h gate closed + on the allow-list → profile completes (MUST PASS)', false, sqlstate || ' ' || sqlerrm);
   end;
+  update app.settings set value = 'true'::jsonb where key = 'signup_open';
+  -- 30l (fix round 1, Critical): the account writes onboarded_at itself, then calls bootstrap — must stay closed.
+  begin
+    update app.settings set value = 'false'::jsonb where key = 'signup_open';
+    v_lg_user := gen_random_uuid();
+    insert into auth.users (id, email, aud, role) values (v_lg_user, v_lg_user || '@remote-test.invalid', 'authenticated', 'authenticated');
+    perform pg_temp.t_fail('30l closed gate: direct onboarded_at write → permission denied (MUST PASS)', 'authenticated', v_lg_user,
+      format('update public.profiles set onboarded_at = now() where id = %L', v_lg_user), '^42501');
+    perform pg_temp.t_fail('30l closed gate: bootstrap after the onboarded_at attempt → 403 signup_closed (MUST PASS)', 'authenticated', v_lg_user,
+      $q$select public.complete_profile_bootstrap('Remote Atlatma', 'university', (current_date - interval '20 years 30 days')::date, '{}')$q$,
+      '^PT403 signup_closed$');
+    select pp.birth_date is null into v_lg_bool from public.profile_private pp where pp.user_id = v_lg_user;
+    perform pg_temp.t_rec('30l closed gate: no birth date written (MUST PASS)', coalesce(v_lg_bool, false), coalesce(v_lg_bool::text, 'no row'));
+    perform pg_temp.t_fail('30l closed gate: direct legal_name / phone write → 403 signup_closed', 'authenticated', v_lg_user,
+      format($q$update public.profile_private set legal_name = 'Remote Ad', phone = '+900000000000' where user_id = %L$q$, v_lg_user), '^PT403 signup_closed$');
+    perform pg_temp.t_fail('30l closed gate: profile_interests insert → 403 signup_closed', 'authenticated', v_lg_user,
+      format('insert into public.profile_interests (user_id, interest_id) select %L, id from public.interests limit 1', v_lg_user), '^PT403 signup_closed$');
+  exception when others then
+    perform pg_temp.t_rec('30l closed gate: bootstrap after the onboarded_at attempt → 403 signup_closed (MUST PASS)', false, sqlstate || ' ' || sqlerrm);
+  end;
+  update app.settings set value = 'true'::jsonb where key = 'signup_open';
+  -- 30m: Before User Created hook — callable by supabase_auth_admin only; closed gate rejects, open gate allows.
+  begin
+    select string_agg(r || '=' || has_function_privilege(r, 'public.hook_before_user_created(jsonb)'::regprocedure, 'execute')::text, ' ' order by r)
+      into v_lg_text from unnest(array['anon', 'authenticated', 'supabase_auth_admin']) r;
+    perform pg_temp.t_rec('30m hook_before_user_created: execute only for supabase_auth_admin',
+      v_lg_text = 'anon=false authenticated=false supabase_auth_admin=true', coalesce(v_lg_text, 'missing'));
+    update app.settings set value = 'false'::jsonb where key = 'signup_open';
+    v_out := public.hook_before_user_created(jsonb_build_object('user', jsonb_build_object('email', gen_random_uuid() || '@remote-test.invalid')));
+    perform pg_temp.t_rec('30m hook, closed gate, address not listed → error http_code 403',
+      (v_out -> 'error' ->> 'http_code') = '403' and coalesce(v_out -> 'error' ->> 'message', '') <> '', left(v_out::text, 200));
+    update app.settings set value = 'true'::jsonb where key = 'signup_open';
+    v_out := public.hook_before_user_created(jsonb_build_object('user', jsonb_build_object('email', gen_random_uuid() || '@remote-test.invalid')));
+    perform pg_temp.t_rec('30m hook, open gate → {} (allow)', v_out = '{}'::jsonb, left(v_out::text, 200));
+  exception when others then
+    perform pg_temp.t_rec('30m hook_before_user_created: execute only for supabase_auth_admin', false, sqlstate || ' ' || sqlerrm);
+  end;
+  update app.settings set value = 'true'::jsonb where key = 'signup_open';
   -- 30i: drafts refused (in this transaction): the consent version is the latest PUBLISHED one, or 409 policy_not_published.
   begin
     update app.settings set value = 'false'::jsonb where key = 'allow_draft_policies';

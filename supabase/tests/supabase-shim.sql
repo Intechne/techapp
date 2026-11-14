@@ -3,6 +3,7 @@
 create role anon nologin noinherit;
 create role authenticated nologin noinherit;
 create role service_role nologin noinherit bypassrls;
+create role supabase_auth_admin nologin noinherit;
 create role authenticator login password 'authenticator' noinherit;
 grant anon, authenticated, service_role to authenticator;
 grant anon, authenticated, service_role to postgres;

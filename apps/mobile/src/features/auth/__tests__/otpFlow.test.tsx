@@ -18,6 +18,8 @@ jest.mock('../SessionProvider', () => ({
   useSession: () => ({ userId: null }),
   useAccountState: () => ({ data: undefined }),
 }));
+const mockOpenExternalUrl = jest.fn();
+jest.mock('../../../lib/links', () => ({ openExternalUrl: (...args: unknown[]) => mockOpenExternalUrl(...args) }));
 jest.mock('../../../lib/database.types', () => ({ accountStateSchema: { safeParse: (v: unknown) => ({ success: true, data: v }) } }));
 
 const metrics = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
@@ -50,6 +52,23 @@ describe('AuthEmailScreen', () => {
     await act(async () => {});
     expect(n.navigate).toHaveBeenCalledWith('AuthOtp');
     expect(otpFlow.email()).toBe('ada@example.com');
+  });
+});
+
+describe('AuthEmailScreen · closed sign-up (Before User Created hook)', () => {
+  it('a new address refused by the hook → the "not open yet" sentence + "Bize yaz", and no navigation to the code screen', async () => {
+    mockSignInWithOtp.mockResolvedValueOnce({ error: { name: 'AuthApiError', status: 403, code: 'hook_rejected',
+      message: 'Kayıtlar henüz açık değil. Pilot ekibindeysen bize yaz: techapp.intechne.com.tr/destek' } });
+    const n = nav();
+    await render(wrap(<AuthEmailScreen {...asProps(n)} />));
+    await fireEvent.changeText(screen.getByPlaceholderText('ornek@eposta.com'), 'yeni@example.com');
+    await fireEvent.press(screen.getByText('Kodu gönder'));
+    await act(async () => {});
+    expect(screen.getByText('Kayıtlar henüz açık değil. Pilot ekibindeysen bize yaz: techapp.intechne.com.tr/destek')).toBeTruthy();
+    expect(n.navigate).not.toHaveBeenCalled();
+    expect(otpFlow.email()).toBeNull();
+    await fireEvent.press(screen.getByText('Bize yaz'));
+    expect(mockOpenExternalUrl).toHaveBeenCalledWith('https://techapp.intechne.com.tr/destek', expect.any(Function));
   });
 });
 

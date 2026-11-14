@@ -1,4 +1,4 @@
-import { toAppError } from '../errors';
+import { SIGNUP_CLOSED_HOOK_PREFIX, makeError, toAppError } from '../errors';
 
 describe('toAppError', () => {
   it('maps RPC PTxxx errors to status + machine code + Turkish copy', () => {
@@ -48,5 +48,22 @@ describe('error detail (per-member ids)', () => {
   });
   it('an error without details has no detail key', () => {
     expect('detail' in toAppError({ code: 'PT409', message: 'roster_changed', details: null })).toBe(false);
+  });
+  it('maps the Before User Created hook rejection (closed sign-up) to signup_closed, whatever Auth puts in error_code', () => {
+    const msg = 'Kayıtlar henüz açık değil. Pilot ekibindeysen bize yaz: techapp.intechne.com.tr/destek';
+    for (const raw of [{ message: msg, status: 403, code: 'hook_rejected' }, { message: msg, status: 403 }, { message: msg, status: 400, code: 'unexpected_failure' }]) {
+      const e = toAppError(raw);
+      expect([e.code, e.status, e.retryable]).toEqual(['signup_closed', 403, false]);
+      expect(e.message).toBe(msg);
+    }
+  });
+  it('the hook message in the migration is exactly the signup_closed sentence (change both together)', () => {
+    const { readFileSync, readdirSync } = jest.requireActual<typeof import('fs')>('fs');
+    const { join } = jest.requireActual<typeof import('path')>('path');
+    const dir = join(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations');
+    const sql = readFileSync(join(dir, readdirSync(dir).find((f) => f.endsWith('_policy_versions_signup_gate.sql'))!), 'utf8');
+    const hookMessage = /'message', '([^']+)'/.exec(sql.slice(sql.indexOf('function public.hook_before_user_created')))?.[1];
+    expect(hookMessage).toBe(makeError('signup_closed', 403).message);
+    expect(hookMessage!.startsWith(SIGNUP_CLOSED_HOOK_PREFIX)).toBe(true);
   });
 });

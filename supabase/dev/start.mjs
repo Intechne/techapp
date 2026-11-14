@@ -139,6 +139,16 @@ const readBody = (req) => new Promise((resolve) => { let raw = ''; req.on('data'
 const send = (res, status, body) => { res.writeHead(status, { 'content-type': 'application/json' }); res.end(body === undefined ? '' : JSON.stringify(body)); };
 const bearer = (req) => verifyJwt((req.headers.authorization ?? '').replace(/^Bearer /i, ''));
 
+// Same rule as the hosted Before User Created hook (public.hook_before_user_created, 20261114000100): a NEW address gets
+// an account only if the function allows it. Locally signup_open is true, so this only bites when you close the gate.
+async function beforeUserCreated(res, email) {
+  if ((await db.query(`select 1 from auth.users where email = $1`, [email])).rowCount) return true;
+  const out = (await db.query(`select public.hook_before_user_created($1::jsonb) r`, [JSON.stringify({ metadata: { name: 'before-user-created' }, user: { email } })])).rows[0].r;
+  if (!out?.error) return true;
+  send(res, out.error.http_code ?? 403, { code: out.error.http_code ?? 403, error_code: 'hook_rejected', msg: out.error.message });
+  return false;
+}
+
 async function auth(req, res, path, url) {
   const body = await readBody(req);
   if (path === '/otp' && req.method === 'POST') {
@@ -147,6 +157,7 @@ async function auth(req, res, path, url) {
     if (body.create_user === false && !(await db.query(`select 1 from auth.users where email = $1`, [email])).rowCount) {
       return send(res, 422, { code: 422, error_code: 'otp_disabled', msg: 'Signups not allowed for otp' });
     }
+    if (body.create_user !== false && !(await beforeUserCreated(res, email))) return;
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
     otps.set(email, { code, expires: Date.now() + 10 * 60_000 });
     writeFileSync(join(here, '.last-otp'), code);
@@ -157,6 +168,7 @@ async function auth(req, res, path, url) {
     const email = String(body.email ?? '').toLowerCase(); const entry = otps.get(email);
     if (!entry || entry.code !== String(body.token) || entry.expires < Date.now()) return send(res, 403, { code: 403, error_code: 'otp_expired', msg: 'Token has expired or is invalid' });
     otps.delete(email);
+    if (!(await beforeUserCreated(res, email))) return;
     await db.query(`insert into auth.users (email) values ($1) on conflict (email) do nothing`, [email]);
     const { rows } = await db.query(`select * from auth.users where email = $1`, [email]);
     return send(res, 200, sessionFor(rows[0]));

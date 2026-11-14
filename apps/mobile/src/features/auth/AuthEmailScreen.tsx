@@ -8,6 +8,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import { isValidEmail, signInWithEmailOtp } from './authService';
 import { otpFlow } from './otpFlow';
 import { usePendingIntent } from './pendingIntent';
+import { SignupClosedNotice } from './SignupClosedNotice';
 
 export function AuthEmailScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'AuthEmail'>) {
   const [email, setEmail] = useState('');
@@ -30,7 +31,7 @@ export function AuthEmailScreen({ navigation }: NativeStackScreenProps<RootStack
         <Input label="E-posta" value={email} onChangeText={setEmail} onBlur={() => setTouched(true)} autoCapitalize="none" autoComplete="email"
           keyboardType="email-address" textContentType="emailAddress" returnKeyType="send" placeholder="ornek@eposta.com"
           error={invalid ? 'Geçerli bir e-posta adresi yaz.' : undefined} onSubmitEditing={() => isValidEmail(email) && send.mutate(email)} />
-        {error && <Notice tone="danger">{error.message}</Notice>}
+        {error && (error.code === 'signup_closed' ? <SignupClosedNotice /> : <Notice tone="danger">{error.message}</Notice>)}
       </View>
     </Screen>
   );

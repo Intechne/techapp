@@ -115,6 +115,84 @@ describe('legal gate · closed sign-up', () => {
   });
 });
 
+describe('legal gate · the gate cannot be bypassed from the client (fix round 1)', () => {
+  it('C1: closed gate, the account writes onboarded_at itself → permission denied; bootstrap still 403 and no birth date', async () => {
+    await setFlags({ signup_open: false, allow_draft_policies: false });
+    const { id } = await newAccount();
+    await expect(asUser(id, (q) => q(`update public.profiles set onboarded_at = now(), display_name = 'Sneaky' where id = $1`, [id]))).rejects.toThrow(PERMISSION_DENIED);
+    await expect(asUser(id, (q) => q(`update public.profiles set onboarded_at = now() where id = $1`, [id]))).rejects.toThrow(PERMISSION_DENIED);
+    await expectFail(bootstrap(id), 403, 'signup_closed');
+    expect((await admin(`select birth_date from public.profile_private where user_id = $1`, [id])).rows[0].birth_date).toBeNull();
+    expect((await admin(`select onboarded_at from public.profiles where id = $1`, [id])).rows[0].onboarded_at).toBeNull();
+  });
+
+  it('C1: even with onboarded_at set behind the guards, the gate reads the server-owned birth date and still refuses', async () => {
+    await setFlags({ signup_open: false });
+    const { id } = await newAccount();
+    // simulate a future grant / bug that let onboarded_at through: the gate must not trust it
+    await admin(`begin; select set_config('app.allow_onboarded_write', 'on', true); update public.profiles set onboarded_at = now() where id = '${id}'; commit;`);
+    await expectFail(bootstrap(id), 403, 'signup_closed');
+    expect((await admin(`select birth_date from public.profile_private where user_id = $1`, [id])).rows[0].birth_date).toBeNull();
+  });
+
+  it('C1 defence in depth: onboarded_at changes only inside complete_profile_bootstrap (trigger, 403 onboarded_at_locked)', async () => {
+    const { id } = await newAccount();
+    await expectFail(admin(`update public.profiles set onboarded_at = now() where id = $1`, [id]), 403, 'onboarded_at_locked');
+    await bootstrap(id); // gate open: the RPC itself still sets it
+    expect((await admin(`select onboarded_at from public.profiles where id = $1`, [id])).rows[0].onboarded_at).not.toBeNull();
+    await expectFail(admin(`update public.profiles set onboarded_at = null where id = $1`, [id]), 403, 'onboarded_at_locked');
+    // the columns the app edits stay writable by the owner
+    expect((await asUser(id, (q) => q(`update public.profiles set headline = 'Robotik', bio = 'b', city = 'İzmir', education_stage = 'university', skills = '{CAD}', display_name = 'Ada' where id = $1`, [id]))).rowCount).toBe(1);
+  });
+
+  it('I2: closed gate, not on the list → no direct writes of legal name / phone / school or interests; open or listed → allowed', async () => {
+    const pa = await platformAdmin();
+    await setFlags({ signup_open: false });
+    const { id } = await newAccount();
+    await expectFail(asUser(id, (q) => q(`update public.profile_private set legal_name = 'Ad Soyad', phone = '+905551112233' where user_id = $1`, [id])), 403, 'signup_closed');
+    await expectFail(asUser(id, (q) => q(`insert into public.profile_interests (user_id, interest_id) select $1, id from public.interests limit 1`, [id])), 403, 'signup_closed');
+    expect((await admin(`select legal_name, phone from public.profile_private where user_id = $1`, [id])).rows[0]).toEqual({ legal_name: null, phone: null });
+    const listed = await newAccount(`liste.${randomUUID()}@example.test`);
+    await asUser(pa, (q) => q(`select public.add_signup_allowlist($1)`, [listed.email]));
+    expect((await asUser(listed.id, (q) => q(`update public.profile_private set phone = '+905550000000' where user_id = $1`, [listed.id]))).rowCount).toBe(1);
+    await setFlags({ signup_open: true });
+    expect((await asUser(id, (q) => q(`update public.profile_private set school_name = 'Test Lisesi' where user_id = $1`, [id]))).rowCount).toBe(1);
+  });
+});
+
+describe('legal gate · Before User Created auth hook', () => {
+  const hook = (email: string | null) =>
+    admin(`select public.hook_before_user_created($1::jsonb) r`, [JSON.stringify({ metadata: { name: 'before-user-created' }, user: email === null ? {} : { email } })]).then((r) => r.rows[0].r);
+  const REJECT = { error: { http_code: 403, message: 'Kayıtlar henüz açık değil. Pilot ekibindeysen bize yaz: techapp.intechne.com.tr/destek' } };
+
+  it('gate open → {} (allow) for anyone', async () => {
+    await setFlags({ signup_open: true });
+    expect(await hook(`acik.${randomUUID()}@example.test`)).toEqual({});
+  });
+
+  it('gate closed → 403 error object unless the address (any case / spaces) is on the allow-list; no address → reject', async () => {
+    const pa = await platformAdmin();
+    const email = `hook.${randomUUID()}@example.test`;
+    await setFlags({ signup_open: false });
+    expect(await hook(email)).toEqual(REJECT);
+    expect(JSON.stringify(await hook(email))).not.toContain(email.split('@')[0]);
+    expect(await hook(null)).toEqual(REJECT);
+    await asUser(pa, (q) => q(`select public.add_signup_allowlist($1)`, [email]));
+    expect(await hook(`  ${email.toUpperCase()} `)).toEqual({});
+  });
+
+  it('only supabase_auth_admin may execute it; SECURITY DEFINER with empty search_path', async () => {
+    const r = (await admin(`select has_function_privilege('supabase_auth_admin', p.oid, 'execute') auth_admin,
+        has_function_privilege('anon', p.oid, 'execute') anon, has_function_privilege('authenticated', p.oid, 'execute') authenticated,
+        has_function_privilege('service_role', p.oid, 'execute') service, p.prosecdef d, p.proconfig c
+      from pg_proc p where p.oid = 'public.hook_before_user_created(jsonb)'::regprocedure`)).rows[0];
+    expect(r).toEqual({ auth_admin: true, anon: false, authenticated: false, service: false, d: true, c: ['search_path=""'] });
+    const user = await createUser();
+    await expect(asUser(user, (q) => q(`select public.hook_before_user_created('{}'::jsonb)`))).rejects.toThrow(PERMISSION_DENIED);
+    await expect(asAnon((q) => q(`select public.hook_before_user_created('{}'::jsonb)`))).rejects.toThrow(PERMISSION_DENIED);
+  });
+});
+
 describe('legal gate · allow-list privacy and access', () => {
   it('the allow-list stores only sha256(lower(trim(email))): no plaintext e-mail in the table or the audit log', async () => {
     const pa = await platformAdmin();

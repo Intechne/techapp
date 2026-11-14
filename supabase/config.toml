@@ -32,6 +32,16 @@ content_path = "./supabase/templates/otp.html"
 subject = "TechApp giriş kodun"
 content_path = "./supabase/templates/otp.html"
 
+# Before User Created hook (migration 20261114000100, public.hook_before_user_created): while app.settings.signup_open is
+# false only addresses on public.signup_allowlist can get an account. SHIPPED DISABLED on purpose: `config push` sends
+# this file to the hosted project, and enabling the hook before the migration is on that project would point Auth at a
+# missing function (every new sign-up would fail). Enabling = 🔒 per project, AFTER the migration push:
+# set enabled = true → `npx supabase config diff` → user approval → `npx supabase config push` (docs/RELEASE.md).
+# The Docker-free local stack (supabase/dev/start.mjs) always applies the same function itself; locally the gate is open.
+[auth.hook.before_user_created]
+enabled = false
+uri = "pg-functions://postgres/public/hook_before_user_created"
+
 [db.seed]
 enabled = true
 sql_paths = ["./seed.sql"]

@@ -15,6 +15,12 @@ export interface AppError {
 /** The support page as it is written inside a sentence (no scheme): techapp.intechne.com.tr/destek. */
 export const SUPPORT_LINK_TEXT = `${WEB_ORIGIN.replace(/^https:\/\//, '')}${WEB_PATHS.support}`;
 
+/**
+ * Start of the Before User Created auth hook's rejection message (public.hook_before_user_created, migration
+ * 20261114000100). Supabase Auth relays the hook's message as the error message; we match it rather than an error_code.
+ */
+export const SIGNUP_CLOSED_HOOK_PREFIX = 'Kayıtlar henüz açık değil.';
+
 const COPY: Record<string, string> = {
   network_unreachable: 'İnternet bağlantını kontrol edip tekrar dener misin? İşlemin tamamlanmadı.',
   not_configured: 'Uygulama henüz bir sunucuya bağlanmadı. Kurulum ayarlarını kontrol et.',
@@ -199,6 +205,8 @@ export function toAppError(input: unknown): AppError {
   // Our RPCs raise SQLSTATE PTxxx with a machine code as the message.
   const pt = /^PT(\d{3})$/.exec(code);
   if (pt) return makeError(message, Number(pt[1]), typeof e.details === 'string' && e.details ? { detail: e.details } : {});
+  // Closed sign-up refused by the auth hook on signInWithOtp (new address not on the allow-list)
+  if (message.startsWith(SIGNUP_CLOSED_HOOK_PREFIX)) return makeError('signup_closed', 403);
   if (code === '42501') return makeError('forbidden', 403);
   if (code === 'PGRST116') return makeError('not_found', 404);
   if (code === '23505') return makeError('conflict', 409);

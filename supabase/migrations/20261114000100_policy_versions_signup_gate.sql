@@ -9,6 +9,9 @@
 --   staging    : 🔒 a one-time `update app.settings` in the same user-approved step as this push (docs/RELEASE.md)
 --   production : both stay false until the legal texts are published (docs/legal/LEGAL-GATE.md)
 -- No legal text lives here: policy_versions only stores version ids and the https URL where the approved text is published.
+-- Fix round 1: the gate reads the server-owned profile_private.birth_date (not the formerly client-writable
+-- profiles.onboarded_at, now server-owned too); closed-gate accounts cannot write profile_private / profile_interests;
+-- public.hook_before_user_created is the Supabase Before User Created auth hook (shipped disabled in config.toml).
 
 -- ---------------------------------------------------------------- settings (private schema, no API access)
 create table app.settings (
@@ -178,19 +181,92 @@ begin
   return jsonb_build_object('removed', v_removed);
 end $$;
 
--- May this account complete its profile? Gate open, or already onboarded (the gate guards the first completion only),
--- or the sign-in address is on the allow-list.
+-- May this account complete its profile / write personal data? Gate open, or the profile was already completed, or the
+-- sign-in address is on the allow-list. "Already completed" is a SERVER-OWNED fact: profile_private.birth_date is written
+-- only by complete_profile_bootstrap (no client column grant + protect_birth_date trigger). profiles.onboarded_at is not
+-- used here; it is server-owned as well since this migration (column grants + protect_onboarded_at below).
 create or replace function app.signup_allowed(p_uid uuid) returns boolean
 language sql stable security definer set search_path = '' as $$
   select app.setting_enabled('signup_open')
-      or exists (select 1 from public.profiles p where p.id = p_uid and p.onboarded_at is not null)
+      or exists (select 1 from public.profile_private pp where pp.user_id = p_uid and pp.birth_date is not null)
       or exists (select 1 from auth.users u
                    join public.signup_allowlist s on s.email_hash = app.email_hash(u.email)
                   where u.id = p_uid and u.email is not null);
 $$;
 
+-- ---------------------------------------------------------------- profiles.onboarded_at is server-owned
+-- Until now the default grants + profiles_update_own let the owner write every column, onboarded_at included. A column
+-- REVOKE does nothing while the table-level UPDATE grant exists, so: table-level UPDATE off, the client-editable columns
+-- back on (the app writes headline/bio/city/education_stage/skills/discoverable; display_name/avatar_path stay as before).
+-- A column added to profiles later needs its own `grant update (...)` if the client must write it.
+revoke update on public.profiles from anon, authenticated;
+grant update (display_name, headline, bio, city, education_stage, avatar_path, discoverable, skills) on public.profiles to authenticated;
+
+-- Defence in depth, same pattern as birth_date: even a future grant cannot open onboarded_at.
+create or replace function app.protect_onboarded_at() returns trigger
+language plpgsql as $$
+begin
+  if new.onboarded_at is distinct from old.onboarded_at
+     and coalesce(current_setting('app.allow_onboarded_write', true), '') <> 'on' then
+    perform app.fail(403, 'onboarded_at_locked');
+  end if;
+  return new;
+end $$;
+create trigger profiles_protect_onboarded before update on public.profiles
+  for each row execute function app.protect_onboarded_at();
+
+-- Closed gate: an account that may not sign up cannot store personal data through its own direct writes either
+-- (legal name, phone, school; interests). Server paths without an end-user identity (auth.uid() is null: the sign-up
+-- trigger, service role, migrations) are not affected. Other tables a signed-in account can write (experiences, bookmarks,
+-- reports, teams …) are NOT gated here: the Before User Created auth hook below removes that whole class once enabled
+-- (docs/legal/LEGAL-GATE.md, held item).
+create or replace function app.require_signup_allowed() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare v_uid uuid := (select auth.uid());
+begin
+  if v_uid is not null and not app.signup_allowed(v_uid) then
+    perform app.fail(403, 'signup_closed');
+  end if;
+  return new;
+end $$;
+create trigger profile_private_require_signup before insert or update on public.profile_private
+  for each row execute function app.require_signup_allowed();
+create trigger profile_interests_require_signup before insert or update on public.profile_interests
+  for each row execute function app.require_signup_allowed();
+
+-- ---------------------------------------------------------------- Before User Created auth hook (Supabase Auth)
+-- Contract (Supabase "before-user-created" Postgres hook): called by supabase_auth_admin with the event as jsonb
+-- ({"metadata": {...}, "user": {"email": ...}}); return '{}' to allow, or {"error": {"http_code": n, "message": "..."}} to
+-- reject. Rejects creating an account unless sign-up is open or the address is on the allow-list, so a closed gate leaves
+-- no auth.users row and no way to write anything. SHIPPED DISABLED: enabling it is a 🔒 `config diff` → approval →
+-- `config push` step per hosted project (supabase/config.toml [auth.hook.before_user_created], docs/RELEASE.md).
+-- The message is matched by the app (apps/mobile/src/lib/errors.ts) — change both together.
+create or replace function public.hook_before_user_created(event jsonb) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare v_email text := lower(btrim(coalesce(event -> 'user' ->> 'email', '')));
+begin
+  if app.setting_enabled('signup_open')
+     or (v_email <> '' and exists (select 1 from public.signup_allowlist s where s.email_hash = app.email_hash(v_email))) then
+    return '{}'::jsonb;
+  end if;
+  return jsonb_build_object('error', jsonb_build_object('http_code', 403,
+    'message', 'Kayıtlar henüz açık değil. Pilot ekibindeysen bize yaz: techapp.intechne.com.tr/destek'));
+end $$;
+revoke execute on function public.hook_before_user_created(jsonb) from public, anon, authenticated, service_role;
+do $$
+begin
+  -- the role exists on every hosted Supabase project; the Docker-free local stack / tests create it in supabase-shim.sql
+  if exists (select 1 from pg_roles where rolname = 'supabase_auth_admin') then
+    execute 'grant usage on schema public to supabase_auth_admin';
+    execute 'grant execute on function public.hook_before_user_created(jsonb) to supabase_auth_admin';
+  else
+    raise notice 'supabase_auth_admin role missing: hook_before_user_created has no caller here';
+  end if;
+end $$;
+
 -- ---------------------------------------------------------------- profile bootstrap: gate first
--- Same body as 20260919000100_foundation, with the sign-up gate before anything is validated or written.
+-- Same body as 20260919000100_foundation, with the sign-up gate before anything is validated or written, and the
+-- onboarded_at write opened only around its own update (protect_onboarded_at).
 create or replace function public.complete_profile_bootstrap(
   p_display_name text,
   p_education_stage public.education_stage,
@@ -227,12 +303,14 @@ begin
    where user_id = v_uid;
   perform set_config('app.allow_birth_date_write', 'off', true);
 
+  perform set_config('app.allow_onboarded_write', 'on', true);
   update public.profiles
      set display_name = btrim(p_display_name),
          education_stage = p_education_stage,
          onboarded_at = coalesce(onboarded_at, now())
    where id = v_uid
    returning * into v_profile;
+  perform set_config('app.allow_onboarded_write', 'off', true);
 
   if coalesce(array_length(p_interest_slugs, 1), 0) > 0 then
     delete from public.profile_interests where user_id = v_uid;
@@ -246,7 +324,8 @@ end $$;
 
 -- ---------------------------------------------------------------- grants
 revoke execute on function app.setting_enabled(text), app.policy_purposes(), app.current_policy_version(text),
-  app.email_hash(text), app.allowlist_email(text), app.signup_allowed(uuid) from public, anon, authenticated, service_role;
+  app.email_hash(text), app.allowlist_email(text), app.signup_allowed(uuid), app.protect_onboarded_at(),
+  app.require_signup_allowed() from public, anon, authenticated, service_role;
 revoke execute on function public.publish_policy_version(text, text, text), public.add_signup_allowlist(text, text),
   public.remove_signup_allowlist(text) from public, anon, service_role;
 grant execute on function public.publish_policy_version(text, text, text), public.add_signup_allowlist(text, text),
