@@ -8,7 +8,8 @@ import * as Reanimated from 'react-native-reanimated';
 import { EASE_IN_OUT, EASE_OUT, spring, timing } from '../motion';
 import { Skeleton } from '../components/States';
 import * as Overlays from '../components/Overlays';
-import { ToastProvider, useToast } from '../components/Overlays';
+import { ToastProvider, useToast, useToastFooterInset } from '../components/Overlays';
+import { Screen } from '../components/Screen';
 import { motion } from '../tokens';
 
 const metrics = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
@@ -82,5 +83,45 @@ describe('Toast', () => {
     const style = await open();
     expect(style.transform).toBeUndefined();
     expect(style).toHaveProperty('opacity');
+  });
+});
+
+describe('Toast never covers a pinned Screen footer', () => {
+  afterEach(() => jest.restoreAllMocks());
+  const Trigger = () => { const t = useToast(); return <RNText onPress={() => t.show('Kaydedildi', 'success')}>aç</RNText>; };
+  const bottomOf = () => (StyleSheet.flatten(screen.getByText('Kaydedildi').parent!.props.style as never) as { bottom: number }).bottom;
+  const NAV = 76; // insets.bottom (0) + layout.bottomNavHeight
+  it('without a footer the toast sits above the bottom nav as before', async () => {
+    reduce(false);
+    await render(<SafeAreaProvider initialMetrics={metrics}><ToastProvider><Trigger /></ToastProvider></SafeAreaProvider>);
+    await act(async () => {});
+    await fireEvent.press(screen.getByText('aç'));
+    expect(bottomOf()).toBeGreaterThanOrEqual(NAV);
+  });
+  it('a Screen with a footer registers its height; the toast rises above it and drops back when the screen goes away', async () => {
+    reduce(false);
+    const ui = (withScreen: boolean) => (
+      <SafeAreaProvider initialMetrics={metrics}><ToastProvider><Trigger />
+        {withScreen && <Screen scroll={false} footer={<RNText>Devam</RNText>}><RNText>içerik</RNText></Screen>}
+      </ToastProvider></SafeAreaProvider>
+    );
+    const { rerender } = await render(ui(true));
+    await act(async () => {});
+    await fireEvent(screen.getByText('Devam'), 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 200 } } });
+    await fireEvent.press(screen.getByText('aç'));
+    expect(bottomOf()).toBeGreaterThan(200);
+    await rerender(ui(false));
+    expect(bottomOf()).toBeLessThan(200);
+  });
+  it('useToastFooterInset is a no-op outside a provider', () => {
+    expect(typeof useToastFooterInset).toBe('function');
+  });
+});
+
+describe('skeleton easing', () => {
+  it('CardSkeletonFrame pulses with EASE_IN_OUT from motion.ts, not an ad-hoc Easing', () => {
+    const src = read('components/cards/CardBase.tsx');
+    expect(src).toMatch(/EASE_IN_OUT/);
+    expect(src).not.toMatch(/Easing\.inOut\(Easing\.sin\)/);
   });
 });

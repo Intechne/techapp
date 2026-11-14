@@ -67,6 +67,9 @@ export function Modal({ visible, title, onClose, children }: SheetProps) {
 }
 
 type ToastTone = 'neutral' | 'success' | 'danger';
+/** A Screen with a pinned footer reports its height here so a toast never lands on top of it. `owner` identifies the Screen. */
+const ToastInsetContext = createContext<(owner: object, height: number) => void>(() => {});
+export function useToastFooterInset(): (owner: object, height: number) => void { return useContext(ToastInsetContext); }
 interface ToastApi { show: (message: string, tone?: ToastTone) => void }
 const ToastContext = createContext<ToastApi>({ show: () => {} });
 export const useToast = () => useContext(ToastContext);
@@ -75,6 +78,16 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const insets = useSafeAreaInsets();
   const reduced = useReducedMotion();
   const [toast, setToast] = useState<{ message: string; tone: ToastTone } | null>(null);
+  const [footers, setFooters] = useState<ReadonlyMap<object, number>>(() => new Map());
+  const setFooter = useCallback((owner: object, height: number) => {
+    setFooters((prev) => {
+      if ((prev.get(owner) ?? 0) === height) return prev;
+      const next = new Map(prev);
+      if (height > 0) next.set(owner, height); else next.delete(owner);
+      return next;
+    });
+  }, []);
+  const footerInset = Math.max(0, ...footers.values());
   const progress = useSharedValue(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const clearTimers = () => { timers.current.forEach(clearTimeout); timers.current = []; };
@@ -100,9 +113,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const bg = toast?.tone === 'danger' ? colors.danger : toast?.tone === 'success' ? colors.moss : colors.ink;
   return (
     <ToastContext.Provider value={api}>
-      {children}
+      <ToastInsetContext.Provider value={setFooter}>{children}</ToastInsetContext.Provider>
       {toast && (
-        <Animated.View style={[styles.toast, { pointerEvents: 'none', bottom: insets.bottom + layout.bottomNavHeight + space[3], backgroundColor: bg }, animated]}>
+        <Animated.View style={[styles.toast, { pointerEvents: 'none', bottom: Math.max(insets.bottom + layout.bottomNavHeight, footerInset) + space[3], backgroundColor: bg }, animated]}>
           <Text variant="bodySmall" color="white">{toast.message}</Text>
         </Animated.View>
       )}

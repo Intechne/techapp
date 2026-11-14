@@ -27,6 +27,7 @@ describe('Role başvur sheet route', () => {
     mockApply.mockResolvedValue({ id: 'a1' });
     await wrap(<RecruitmentApplyScreen {...applyProps} />);
     expect(screen.getByText('Role başvur')).toBeTruthy();
+    expect(screen.getByText(/Başvurduğunda takım yöneticileri adını ve notunu görür; iletişim bilgilerin paylaşılmaz\./)).toBeTruthy();
     expect(screen.getByText('Mekanik lideri')).toBeTruthy();
     expect(screen.getByText('Mekanik ekibine katıl')).toBeTruthy();
     await fireEvent.changeText(screen.getByLabelText('Kısa bir not (isteğe bağlı)'), 'CAD biliyorum');

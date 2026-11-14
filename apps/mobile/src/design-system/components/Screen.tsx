@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, View, type ScrollViewProps } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, layout, space } from '../tokens';
@@ -7,6 +7,7 @@ import { IconButton } from './Button';
 import { BrandMark } from '../BrandMark';
 import { useLayout } from '../useLayout';
 import { useKeyboardOverlap } from '../useKeyboardOverlap';
+import { useToastFooterInset } from './Overlays';
 
 interface ScreenProps extends ScrollViewProps {
   header?: React.ReactNode;
@@ -27,6 +28,11 @@ export function Screen({ header, footer, scroll = true, wide, refreshing, onRefr
   const bodyRef = useRef<View>(null);
   const kbOverlap = useKeyboardOverlap(bodyRef, Platform.OS === 'android');
   const { gutter, contentMaxWidth, readingMaxWidth } = useLayout();
+  // A pinned footer tells the toast host how tall it is, so toasts rise above it instead of covering the primary action.
+  const reportFooter = useToastFooterInset();
+  const [owner] = useState(() => ({}));
+  useEffect(() => () => reportFooter(owner, 0), [reportFooter, owner]);
+  useEffect(() => { if (!footer) reportFooter(owner, 0); }, [footer, reportFooter, owner]);
   const bounded = { width: '100%' as const, maxWidth: wide ? contentMaxWidth : readingMaxWidth, alignSelf: 'center' as const };
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.root}>
@@ -42,7 +48,7 @@ export function Screen({ header, footer, scroll = true, wide, refreshing, onRefr
         ) : (
           <View style={{ flex: 1 }}>{children}</View>
         )}
-        {footer && <View style={[styles.footer, { paddingHorizontal: gutter, paddingBottom: kbOverlap > 0 ? space[4] : Math.max(insets.bottom, space[4]), marginBottom: kbOverlap }]}><View style={[bounded, { maxWidth: readingMaxWidth, gap: space[2] }]}>{footer}</View></View>}
+        {footer && <View onLayout={(e) => reportFooter(owner, e.nativeEvent.layout.height)} style={[styles.footer, { paddingHorizontal: gutter, paddingBottom: kbOverlap > 0 ? space[4] : Math.max(insets.bottom, space[4]), marginBottom: kbOverlap }]}><View style={[bounded, { maxWidth: readingMaxWidth, gap: space[2] }]}>{footer}</View></View>}
       </KeyboardAvoidingView>
       </View>
     </SafeAreaView>
