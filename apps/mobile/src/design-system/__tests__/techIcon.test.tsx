@@ -6,9 +6,11 @@ import { TechIcon } from '../TechIcon';
 const root = async (el: React.ReactElement) => (await render(el)).toJSON() as unknown as { props: Record<string, unknown> };
 
 const captured: string[] = [];
+const mounts: string[] = [];
 jest.mock('react-native-svg', () => {
   const { View } = jest.requireActual('react-native');
-  return { SvgXml: ({ xml, ...rest }: { xml: string }) => { captured.push(xml); return <View {...rest} />; } };
+  const R = jest.requireActual('react');
+  return { SvgXml: ({ xml, ...rest }: { xml: string }) => { captured.push(xml); R.useEffect(() => { mounts.push(xml); }, []); return <View {...rest} />; } };
 });
 
 describe('TechIcon accessibility', () => {
@@ -43,5 +45,18 @@ describe('TechIcon svg markup', () => {
   });
   it('labelled icons do NOT carry aria-hidden in the markup', async () => {
     expect(await xmlOf(<TechIcon name="verified" accessibilityLabel="Doğrulanmış" />)).not.toContain('aria-hidden');
+  });
+});
+
+describe('TechIcon fill state remounts the svg (Android keeps a removed fill otherwise)', () => {
+  it('toggling filled mounts a fresh svg; an unrelated re-render does not', async () => {
+    mounts.length = 0;
+    const { rerender } = await render(<TechIcon name="bookmark" />);
+    await rerender(<TechIcon name="bookmark" />);
+    expect(mounts).toHaveLength(1);
+    await rerender(<TechIcon name="bookmark" filled />);
+    expect(mounts).toHaveLength(2);
+    await rerender(<TechIcon name="bookmark" />);
+    expect(mounts).toHaveLength(3);
   });
 });

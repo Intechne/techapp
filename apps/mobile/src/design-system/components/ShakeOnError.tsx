@@ -12,7 +12,8 @@ const LEGS = [-SWING, SWING, -SWING, SWING, -SWING, SWING, 0];
 /**
  * Wraps a field: when `trigger` (the error key, usually the message) changes to a new non-empty value the field shakes once and
  * the error haptic fires. Same value again, a cleared error, and the first render do nothing. Reduced motion: no transform at all;
- * the message and its live-region announcement (in the field shell) carry the news, and the haptic still fires.
+ * IMPORTANT: set the error at submit time (or on blur), never recompute it per keystroke: every new message shakes and buzzes.
+ * The message and its live-region announcement (in the field shell) carry the news, and the haptic still fires.
  */
 export function ShakeOnError({ trigger, children, testID = 'shake' }: { trigger: string | number | null | undefined; children: React.ReactNode; testID?: string }) {
   const reduced = useReducedMotion();

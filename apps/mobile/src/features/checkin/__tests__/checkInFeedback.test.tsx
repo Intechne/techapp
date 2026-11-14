@@ -357,4 +357,29 @@ describe('check-in visual contract (Faz 4)', () => {
     expect(badge.parent!.props.accessibilityRole).toBeUndefined();
     expect(mockHaptics.error).toHaveBeenCalledTimes(1);
   });
+
+  it('repeat scan: exactly one announce, no alert role or live region', async () => {
+    mockRpc.mockResolvedValueOnce(ok('checked_in')).mockResolvedValueOnce(ok('already_checked_in'));
+    await renderScreen();
+    await typeAndSubmit('TA1.abc');
+    await screen.findByText('GİRİŞ ONAYLANDI');
+    announce.mockClear();
+    await fireEvent.press(screen.getByText('Sıradaki katılımcı'));
+    await typeAndSubmit('TA1.abc');
+    const badge = await screen.findByTestId('checkin-result-badge');
+    expect(announce).toHaveBeenCalledTimes(1);
+    expect(badge.parent!.props.accessibilityRole).toBeUndefined();
+    expect(badge.parent!.props.accessibilityLiveRegion).toBeUndefined();
+    expect(mockHaptics.warning).toHaveBeenCalledTimes(1);
+  });
+
+  it('invalid token (server refusal): exactly one announce, no alert role', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'invalid_token', details: null, hint: null } });
+    await renderScreen();
+    await typeAndSubmit('TA1.bad');
+    const badge = await screen.findByTestId('checkin-result-badge');
+    expect(announce).toHaveBeenCalledTimes(1);
+    expect(badge.parent!.props.accessibilityRole).toBeUndefined();
+    expect(mockHaptics.error).toHaveBeenCalledTimes(1);
+  });
 });

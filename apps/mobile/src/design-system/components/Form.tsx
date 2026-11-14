@@ -18,6 +18,7 @@ function FieldShell({ label, error, help, children }: FieldShellProps) {
   );
 }
 
+/** `error` shakes the field and fires the error haptic whenever it changes to a new message: set it on submit/blur, never per keystroke. */
 export interface InputProps extends TextInputProps { label: string; error?: string; help?: string }
 
 export const Input = forwardRef<TextInput, InputProps>(function Input({ label, error, help, style, onFocus, onBlur, ...rest }, ref) {
