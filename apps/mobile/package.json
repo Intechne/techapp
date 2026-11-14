@@ -63,6 +63,7 @@
     "android": "expo run:android",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
+    "contrast": "node scripts/contrast-audit.mjs",
     "test": "jest",
     "icons": "node scripts/generate-icons.mjs",
     "doctor": "expo-doctor",

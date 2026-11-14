@@ -1,62 +1,85 @@
 import fs from 'fs';
 import path from 'path';
-import { semantic } from '../tokens';
+import { colors, semantic, tones } from '../tokens';
+import { TEXT_PAIRS, DISABLED_PAIRS, TAG_TONES, NOTICE_TONES, THRESHOLD, audit, auditDark, composite, contrastRatio } from '../contrastAudit';
+import { tagTones } from '../components/Chips';
+import { noticeTones } from '../components/Surface';
 
-const { dark } = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../../../design-source/tokens.json'), 'utf8')).semantic;
-
-const lum = (hex: string) => {
-  const [r = 0, g = 0, b = 0] = hex.slice(1).match(/../g)!.map((h) => parseInt(h, 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-};
-export const ratio = (a: string, b: string) => {
-  const hi = Math.max(lum(a), lum(b)), lo = Math.min(lum(a), lum(b));
-  return (hi + 0.05) / (lo + 0.05);
-};
-
+const darkDraft = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../../../design-source/tokens.json'), 'utf8')).semantic.dark.colors;
 const L = semantic.light;
-/**
- * Every text/background pair the app uses from the light map. `min` 4.5 = normal text, 3 = large text (>=24 px, or >=18.66 px bold) and UI glyphs.
- * Rule recorded here: Lime is NEVER text on a light background; on light it is a fill carrying Ink text (`text.onLime`). Lime text only on `bg.inverse`.
- */
-const PAIRS: [string, string, string, number][] = [
-  ['text.primary', L.text.primary, 'bg.canvas', 4.5], ['text.primary', L.text.primary, 'bg.surface', 4.5], ['text.primary', L.text.primary, 'bg.sunken', 4.5],
-  ['text.secondary', L.text.secondary, 'bg.canvas', 4.5], ['text.secondary', L.text.secondary, 'bg.surface', 4.5],
-  ['text.secondary', L.text.secondary, 'action.primarySoft', 4.5], ['text.secondary', L.text.secondary, 'status.successSoft', 4.5], ['text.secondary', L.text.secondary, 'status.dangerSoft', 4.5],
-  ['text.inverse', L.text.inverse, 'bg.inverse', 4.5], ['text.onInverseAccent', L.text.onInverseAccent, 'bg.inverse', 4.5],
-  ['text.onAction', L.text.onAction, 'action.primary', 4.5], ['text.onAction', L.text.onAction, 'action.primaryPressed', 4.5],
-  ['text.onLime', L.text.onLime, 'action.lime', 4.5], ['text.onLime', L.text.onLime, 'action.limePressed', 4.5],
-  ['action.primary (link text)', L.action.primary, 'bg.surface', 4.5], ['action.primary (link text)', L.action.primary, 'bg.canvas', 4.5],
-  ['action.primary', L.action.primary, 'action.primarySoft', 4.5],
-  ['status.success', L.status.success, 'status.successSoft', 4.5], ['status.success', L.status.success, 'bg.surface', 4.5],
-  ['status.warning', L.status.warning, 'status.warningSoft', 4.5], ['status.warning', L.status.warning, 'bg.surface', 4.5],
-  ['status.danger', L.status.danger, 'status.dangerSoft', 4.5], ['status.danger', L.status.danger, 'bg.surface', 4.5],
-  ['status.info', L.status.info, 'status.infoSoft', 4.5], ['status.info', L.status.info, 'bg.surface', 4.5],
-  ['action.lime (as text)', L.action.lime, 'bg.inverse', 4.5],
-];
-const resolve = (name: string) => name.split('.').reduce<any>((o, k) => o[k], L);
 
-describe('semantic.light contrast (WCAG AA)', () => {
-  it.each(PAIRS)('%s on %s', (fgName, fg, bgName, min) => {
-    expect(ratio(fg, resolve(bgName))).toBeGreaterThanOrEqual(min);
+describe('contrastRatio (WCAG 2.x)', () => {
+  it('matches known values', () => {
+    expect(contrastRatio('#000000', '#FFFFFF')).toBeCloseTo(21, 5);
+    expect(contrastRatio('#FFFFFF', '#FFFFFF')).toBeCloseTo(1, 5);
+    expect(contrastRatio('#777777', '#FFFFFF')).toBeCloseTo(4.48, 1);
+    expect(contrastRatio('#fff', '#000')).toBeCloseTo(21, 5);
   });
-  it('KNOWN FAIL (recorded, brand colour kept): text.secondary on bg.sunken is 4.45:1, so secondary text is not allowed on sunken; use text.primary there', () => {
-    const r = ratio(L.text.secondary, L.bg.sunken);
-    expect(r).toBeLessThan(4.5);
-    expect(r).toBeGreaterThanOrEqual(3); // still fine for large text and non-text UI
+  it('is symmetric and composite() blends', () => {
+    expect(contrastRatio('#20241F', '#D9F36E')).toBeCloseTo(contrastRatio('#D9F36E', '#20241F'), 10);
+    expect(composite('#FFFFFF', '#000000', 0.5)).toBe('#808080');
   });
-  it('documents why lime is not text on light: it fails AA there', () => {
-    expect(ratio(L.action.lime, L.bg.surface)).toBeLessThan(3);
-    expect(ratio(L.action.lime, L.bg.canvas)).toBeLessThan(3);
+});
+
+describe('every text/background pair in use (light)', () => {
+  it('thresholds: body 4.5, large 3, icon 3', () => expect(THRESHOLD).toEqual({ body: 4.5, large: 3, icon: 3 }));
+  it('audits a broad list', () => expect(TEXT_PAIRS.length).toBeGreaterThanOrEqual(80));
+  it.each(audit(TEXT_PAIRS).map((r) => [r.usage, r.kind, r.min, r.ratio, r.pass] as const))('%s (%s >= %s): %d', (_u, _k, _m, _r, pass) => {
+    expect(pass).toBe(true);
   });
-  it('draft dark map: primary and secondary text meet AA on its surfaces', () => {
-    const D = (dark as any).colors;
-    for (const bg of [D.bg.canvas, D.bg.surface]) {
-      expect(ratio(D.text.primary, bg)).toBeGreaterThanOrEqual(4.5);
-      expect(ratio(D.text.secondary, bg)).toBeGreaterThanOrEqual(4.5);
-      for (const k of ['success', 'warning', 'danger', 'info']) expect(ratio(D.status[k], bg)).toBeGreaterThanOrEqual(4.5);
+  it('no pair uses Lime or white-on-Lime as text', () => {
+    const lime = colors.lime.toLowerCase();
+    for (const p of TEXT_PAIRS) {
+      // White on lime: never. Lime as foreground: only on an ink/Iris ground and only large.
+      expect(p.fg.toLowerCase() === '#ffffff' && [lime, colors.limePressed.toLowerCase()].includes(p.bg.toLowerCase())).toBe(false);
+      if (p.fg.toLowerCase() === lime) {
+        expect(p.kind).toBe('large');
+        expect([tones.ink.bg, colors.primary].map((c) => c.toLowerCase())).toContain(p.bg.toLowerCase());
+      }
     }
   });
-  it('ratio helper is sane', () => {
-    expect(ratio('#000000', '#FFFFFF')).toBeCloseTo(21, 0);
+  it('Ink on Lime (and pressed Lime) meets body text', () => {
+    expect(contrastRatio(L.text.onLime, L.action.lime)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(L.text.onLime, L.action.limePressed)).toBeGreaterThanOrEqual(4.5);
+  });
+  it('documents why Lime is not text on light surfaces', () => {
+    expect(contrastRatio(L.action.lime, L.bg.surface)).toBeLessThan(3);
+    expect(contrastRatio(L.action.lime, L.bg.canvas)).toBeLessThan(3);
+  });
+  it('KNOWN LIMIT (recorded, brand colour kept): text.secondary on bg.sunken is below 4.5, so it must not carry text there', () => {
+    const r = contrastRatio(L.text.secondary, L.bg.sunken);
+    expect(r).toBeLessThan(4.5);
+    expect(r).toBeGreaterThanOrEqual(3);
+    expect(TEXT_PAIRS.some((p) => p.fg === L.text.secondary && p.bg === L.bg.sunken && p.kind === 'body')).toBe(false);
+  });
+  it('disabled controls are exempt from AA but their ratio is on record', () => {
+    for (const r of audit(DISABLED_PAIRS)) expect(r.ratio).toBeGreaterThan(1);
+  });
+});
+
+describe('the audit list is derived from what components render (drift guard)', () => {
+  it('Tag tones equal Chips.tsx (onDark is audited over the darkest photo)', () => {
+    for (const [k, t] of Object.entries(tagTones)) {
+      if (k === 'onDark') { expect(t.fg).toBe(TAG_TONES[k]!.fg); continue; }
+      expect(TAG_TONES[k]).toEqual(t);
+    }
+    expect(Object.keys(TAG_TONES).sort()).toEqual(Object.keys(tagTones).sort());
+  });
+  it('Notice tones equal Surface.tsx', () => {
+    for (const [k, t] of Object.entries(noticeTones)) expect(NOTICE_TONES[k]).toEqual({ bg: t.bg, fg: t.fg });
+  });
+  it('every poster tone and every Tag/Notice tone is in TEXT_PAIRS', () => {
+    for (const t of [...Object.values(tones), ...Object.values(TAG_TONES), ...Object.values(NOTICE_TONES)]) {
+      expect(TEXT_PAIRS.some((p) => p.fg === t.fg && p.bg === t.bg)).toBe(true);
+    }
+  });
+});
+
+describe('semantic.dark draft (report only: never blocks)', () => {
+  it('is audited with the same thresholds and reports a result per semantic pair', () => {
+    const rows = auditDark(darkDraft);
+    expect(rows.length).toBeGreaterThan(20);
+    for (const r of rows) expect(Number.isFinite(r.ratio)).toBe(true);
+    // The numbers are printed by `npm run contrast`; nothing here may fail on the draft.
   });
 });
