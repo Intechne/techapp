@@ -11,6 +11,8 @@ export * from './components/PressableScale';
 export * from './components/Surface';
 export * from './components/Chips';
 export * from './components/Form';
+export * from './components/SuccessMark';
+export * from './components/ShakeOnError';
 export * from './components/States';
 export * from './components/Overlays';
 export * from './components/Screen';

@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Button, Card, ErrorState, LoadingSkeleton, Skeleton, MetadataRow, Modal, Notice, RegistrationStatus, Screen, StatusBadge, StatusTimeline, TechIcon, Text, colors, radius, guardianStatusView, registrationSteps, space, teamAwareRegistrationView, useToast, type TechIconName } from '../../design-system';
+import { AppHeader, Button, Card, ErrorState, LoadingSkeleton, Skeleton, MetadataRow, Modal, Notice, RegistrationStatus, Screen, StatusBadge, StatusTimeline, SuccessMark, TechIcon, Text, colors, radius, guardianStatusView, registrationSteps, space, teamAwareRegistrationView, useToast, type TechIconName } from '../../design-system';
 import { formatDateRange, formatDateTime, isPast } from '../../lib/dates';
 import { toAppError } from '../../lib/errors';
+import { haptics } from '../../lib/haptics';
 import type { RegistrationStatus as Status } from '../../lib/database.types';
 import type { SharedEventParamList } from '../../navigation/types';
 import { cancelRegistration, eventKeys, fetchEligibility, fetchGuardianRequest, fetchRegistration } from './api';
@@ -30,7 +31,7 @@ const HEADLINE: Record<Status, { title: string; body: string; icon: TechIconName
 const TEAM_PENDING_HEADLINE = { title: 'Senin kaydın tamam.', body: 'Takımdaki herkes hazır olunca takım kaydı onaylanır; kartın o zaman açılır.', icon: 'clock' as TechIconName, good: false };
 
 export function RegistrationStatusScreen({ navigation, route }: NativeStackScreenProps<SharedEventParamList, 'RegistrationStatus'>) {
-  const { registrationId } = route.params;
+  const { registrationId, fresh } = route.params;
   const qc = useQueryClient(); const toast = useToast();
   const { userId } = useSession();
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -64,6 +65,17 @@ export function RegistrationStatusScreen({ navigation, route }: NativeStackScree
     if (userId && status && status !== 'confirmed') void dropCards(userId, [registrationId]).catch(() => {});
   }, [userId, status, registrationId]);
 
+  // The first view of a registration that was just made (`fresh`) says so with a haptic, once: `confirmed` celebrates, `waitlisted`
+  // warns. Coming back to the screen, a refetch or a re-render never repeats it; opening it from a list is never `fresh`.
+  const celebrated = useRef(false);
+  const teamConfirmed = !teamRegistrationId || team.data?.status === 'confirmed';
+  useEffect(() => {
+    if (!fresh || celebrated.current || !status) return;
+    if (status === 'confirmed' && teamConfirmed) { celebrated.current = true; haptics.success(); }
+    else if (status === 'waitlisted') { celebrated.current = true; haptics.warning(); }
+    else if (status !== 'confirmed') celebrated.current = true;
+  }, [fresh, status, teamConfirmed]);
+
   if (reg.isPending) return <Screen header={<AppHeader onBack={navigation.goBack} />}><LoadingSkeleton cards={1} /></Screen>;
   if (reg.isError) return <Screen header={<AppHeader onBack={navigation.goBack} />}><ErrorState error={toAppError(reg.error)} onRetry={() => void reg.refetch()} /></Screen>;
 
@@ -95,9 +107,13 @@ export function RegistrationStatusScreen({ navigation, route }: NativeStackScree
           : needsGuardian ? <Button label={canSendGuardian ? 'Veli onayı iste' : 'Bağlantıyı yeniden gönder'} icon="shield" onPress={() => navigation.navigate('GuardianRequest', { registrationId })} />
             : !live ? <Button kind="secondary" label="Etkinliğe dön" onPress={() => navigation.navigate('EventDetail', { eventId: r.event_id })} /> : undefined
       }>
-      <View style={[styles.icon, { backgroundColor: h.good ? colors.mossSoft : colors.primarySoft }]}>
-        <TechIcon name={h.icon} size={32} color={h.good ? colors.moss : colors.primary} />
-      </View>
+      {fresh && h.good ? (
+        <View style={styles.iconSlot}><SuccessMark tone="moss" icon={h.icon} size={76} glyph={32} plate="soft" rounded={radius.hero} /></View>
+      ) : (
+        <View style={[styles.icon, { backgroundColor: h.good ? colors.mossSoft : colors.primarySoft }]}>
+          <TechIcon name={h.icon} size={32} color={h.good ? colors.moss : colors.primary} />
+        </View>
+      )}
       <Text variant="title" center>{h.title}</Text>
       <Text variant="body" color="textSecondary" center style={{ marginTop: space[3] }}>{h.body}</Text>
 
@@ -151,5 +167,6 @@ export function RegistrationStatusScreen({ navigation, route }: NativeStackScree
 
 const styles = StyleSheet.create({
   inlineRetry: { minHeight: 44, justifyContent: 'center', marginTop: space[2] },
+  iconSlot: { alignSelf: 'center', marginTop: space[5], marginBottom: space[5] },
   icon: { width: 76, height: 76, borderRadius: radius.hero, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: space[5], marginBottom: space[5] },
 });

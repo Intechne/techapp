@@ -336,4 +336,25 @@ describe('check-in visual contract (Faz 4)', () => {
     expect(screen.getByTestId('camera')).toBeTruthy();
     expect(screen.getByPlaceholderText(PLACEHOLDER)).toBeTruthy();
   });
+
+  it('the result block is announced once: announceForAccessibility only, no live region or alert role on the block', async () => {
+    mockRpc.mockResolvedValue(ok('checked_in'));
+    await renderScreen();
+    await typeAndSubmit('TA1.abc');
+    const badge = await screen.findByTestId('checkin-result-badge');
+    const block = badge.parent!;
+    expect(announce).toHaveBeenCalledTimes(1);
+    expect(block.props.accessibilityLiveRegion).toBeUndefined();
+    expect(block.props.accessibilityRole).toBeUndefined();
+  });
+
+  it('a failed check-in is also announced once (no alert role on top of announceForAccessibility)', async () => {
+    mockRpc.mockRejectedValue(makeError('network_unreachable', 0));
+    await renderScreen();
+    await typeAndSubmit('TA1.bad');
+    const badge = await screen.findByTestId('checkin-result-badge');
+    expect(announce).toHaveBeenCalledTimes(1);
+    expect(badge.parent!.props.accessibilityRole).toBeUndefined();
+    expect(mockHaptics.error).toHaveBeenCalledTimes(1);
+  });
 });

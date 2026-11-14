@@ -32,5 +32,7 @@ export function TechIcon({ name, size = 24, color = colors.ink, filled = false, 
     : Platform.OS === 'web'
       ? ({ 'aria-hidden': true } as const)
       : ({ accessibilityElementsHidden: true, importantForAccessibility: 'no-hide-descendants' } as const);
-  return <SvgXml xml={xml} width={size} height={size} {...a11y} />;
+  // Keyed by fill state: react-native-svg (Android) keeps a path's old fill when the attribute disappears, so a saved bookmark that is
+  // un-saved would stay a solid glyph. A fresh native view per state draws exactly the markup it is given.
+  return <SvgXml key={filled ? 'filled' : 'outline'} xml={xml} width={size} height={size} {...a11y} />;
 }

@@ -3,7 +3,7 @@ import { AccessibilityInfo, StyleSheet, TextInput, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, Button, Card, ErrorState, Input, Notice, Screen, Select, Skeleton, TechIcon, Text, checkInOutcomeView, checkInResultView, colors, radius, space } from '../../design-system';
+import { AppHeader, Button, Card, ErrorState, Input, Notice, Screen, Select, Skeleton, SuccessMark, Text, checkInOutcomeView, checkInResultView, colors, radius, space } from '../../design-system';
 import { formatDateRange, formatTimeRange, formatTime } from '../../lib/dates';
 import { haptics } from '../../lib/haptics';
 import { toAppError } from '../../lib/errors';
@@ -101,10 +101,8 @@ export function CheckInScreen({ navigation }: NativeStackScreenProps<ProfileStac
       )}
 
       {outcome && palette ? (
-        <View style={[styles.result, { backgroundColor: palette.bg }]} accessibilityRole={outcome.tone === 'danger' ? 'alert' : undefined} accessible accessibilityLabel={`${outcome.spoken}. ${outcome.name ?? ''} ${outcome.detail}`.replace(/\s+/g, ' ').trim()}>
-          <View testID="checkin-result-badge" style={styles.badge}>
-            <View testID={`checkin-result-icon-${outcome.icon}`}><TechIcon name={outcome.icon} size={RESULT_GLYPH} color={palette.fg} /></View>
-          </View>
+        <View style={[styles.result, { backgroundColor: palette.bg }]} accessible accessibilityLabel={`${outcome.spoken}. ${outcome.name ?? ''} ${outcome.detail}`.replace(/\s+/g, ' ').trim()}>
+          <SuccessMark testID="checkin-result-badge" tone={outcome.tone} icon={outcome.icon} size={RESULT_BADGE} glyph={RESULT_GLYPH} iconTestID={`checkin-result-icon-${outcome.icon}`} />
           <Text variant="title" style={{ color: palette.fg, textAlign: 'center' }}>{outcome.title}</Text>
           {outcome.name && <Text variant="section" breakStrategy="words" style={{ color: palette.fg, textAlign: 'center' }}>{outcome.name}</Text>}
           <Text variant="body" style={{ color: palette.fg, textAlign: 'center' }}>{outcome.detail}</Text>
@@ -137,7 +135,6 @@ const RESULT_BADGE = 40;
 const RESULT_GLYPH = 24;
 
 const styles = StyleSheet.create({
-  badge: { width: RESULT_BADGE, height: RESULT_BADGE, borderRadius: RESULT_BADGE / 2, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
   result: { borderRadius: radius.card, padding: space[6], alignItems: 'center', gap: space[3], minHeight: 300, justifyContent: 'center' },
   camera: { height: 300, borderRadius: radius.card, overflow: 'hidden', backgroundColor: colors.ink },
 });

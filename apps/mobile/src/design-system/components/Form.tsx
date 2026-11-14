@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Switch, TextInput, View, type TextInputProps } f
 import { colors, fonts, layout, radius, space, type } from '../tokens';
 import { Text } from '../Text';
 import { TechIcon } from '../TechIcon';
+import { ShakeOnError } from './ShakeOnError';
 
 interface FieldShellProps { label: string; error?: string; help?: string; children: React.ReactNode }
 
@@ -23,15 +24,17 @@ export const Input = forwardRef<TextInput, InputProps>(function Input({ label, e
   const [focused, setFocused] = useState(false);
   return (
     <FieldShell label={label} error={error} help={help}>
-      <TextInput
-        ref={ref}
-        accessibilityLabel={label}
-        placeholderTextColor={colors.textSecondary}
-        {...rest}
-        onFocus={(e) => { setFocused(true); onFocus?.(e); }}
-        onBlur={(e) => { setFocused(false); onBlur?.(e); }}
-        style={[styles.input, focused && styles.focused, !!error && styles.errored, style]}
-      />
+      <ShakeOnError trigger={error}>
+        <TextInput
+          ref={ref}
+          accessibilityLabel={label}
+          placeholderTextColor={colors.textSecondary}
+          {...rest}
+          onFocus={(e) => { setFocused(true); onFocus?.(e); }}
+          onBlur={(e) => { setFocused(false); onBlur?.(e); }}
+          style={[styles.input, focused && styles.focused, !!error && styles.errored, style]}
+        />
+      </ShakeOnError>
     </FieldShell>
   );
 });

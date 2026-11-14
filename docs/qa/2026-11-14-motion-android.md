@@ -47,3 +47,23 @@ Tarih: 2026-11-14. Cihaz: Android emülatörü (emulator-5554, Pixel sınıfı, 
 
 - Toast'ın alt konumu bir ekranın sabit alt düğmesini (Katılma isteği gönder) kısa süre örtüyor; bu konum Faz 5 öncesinden geliyor, değiştirilmedi.
 - Dev client'ta `System UI isn't responding` penceresi bir kez görüldü (emülatör yükü); uygulamayla ilgisi yok.
+
+## Task 2 — durum hareketleri ve haptic haritası (Android emülatörü)
+
+- **Yapı:** EAS dev client + yerel Metro (Task 1 ile aynı); `expo-image` için geçici Metro yönlendirmesi kullanıldı, gözlem sonunda `metro.config.js` bayt bayt eski haline getirildi (md5 doğrulandı).
+- **Release build gözlemi: yapılmadı — pilot sonrası tek EAS build'inde.** Bu gözlemler hız/akıcılık kanıtı değildir.
+- iOS simülatörü bu makinede gözlenmedi. **iOS klavye/fit-sheet davranışı doğrulanmadı** (Task 1'den devreden madde).
+- Haptic titreşimi emülatörde duyulmaz/görülmez: haptic çağrıları yalnız jest ile (`hapticsMap.test.ts`, ekran testleri) doğrulandı.
+
+| Durum | Sonuç |
+|---|---|
+| Kaydet, hızlı basış (4 ve 3 ardışık dokunuş, etkinlik detayı) | Çökme/hata yok; son görünüm sunucu cevabıyla (kaydedildi/kaydedilmedi) aynı. Dokunuş sayısı çift/tek olmayabilir: `useBookmarks.toggle` o anki sunucu durumundan türetir, uçuştaki yazma bitmeden gelen dokunuşlar aynı hedefe yazar (Task 2 öncesi davranış, değiştirilmedi). |
+| Kaydet glifi | **Bulunan hata:** kaydedilmişten kaydedilmemişe dönüşte glif dolu kalıyordu (react-native-svg Android, kalkan `fill` özniteliğini sıfırlamıyor). `TechIcon` doldurma durumuna göre `key`'lenerek düzeltildi; sonra kaydet → kaldır → outline glif doğrulandı. |
+| Toast ve sabit alt düğme | **Bulunan hata:** "Kaydedildi" toast'ı sekme çubuğu üstündeki sabit "Etkinliğe katıl" düğmesini örtüyordu (alt alan sekme çubuğunun üstünde, pencere altından uzak). Düzeltme: `Screen` alt alanın pencere altından uzaklığını `measureInWindow` ile ölçüp toast sağlayıcısına bildirir. Sonra toast ("Kayıt kaldırıldı.") düğmenin üstünde göründü. |
+| Kayıt onayı (`fresh`) | "Yerini ayırdık." ekranı `SuccessMark` ile geldi (yerleşim eski ikonla aynı: 76 px yumuşak plaka, ortalı). Animasyon karesi yakalanamadı (220 ms; yakalanan kareler yükleme iskeleti ve yerleşmiş ekran). |
+| Check-in: geçersiz kod | Kırmızı sonuç bloğu, beyaz rozet + ✕, tek blok. |
+| Check-in: geçerli kod | Yeşil blok, ✓, ad, "Hoş geldin diyebilirsin." (yerel DB'de kaydı bugünkü etkinliğe taşıdım; yalnız yerel test verisi). |
+| Check-in: aynı kod tekrar | Kayısı blok, saat ikonu, "ilk giriş saati". |
+| Doğrulama sarsması (e-posta alanı, geçersiz giriş) | 6 ardışık ekran görüntüsünden birinde alan ~6 dp sağa kaymış, yerleşmiş karelerde 0 px: sarsma çalışıyor. Hata metni alanın altında göründü. |
+| Reduced motion (`animator`, `transition`, `window` = 0) | Check-in sonucu tam ve eksiksiz görünür (yalnız opaklık yolu). Doğrulama sarsması reduced motion'da emülatörde **gözlenmedi** (formu hata verecek biçimde yeniden sürmek için oturum kapatmak gerekiyordu); `shake.test.tsx` reduced motion'da `transform` olmadığını ve hata metninin `accessibilityLiveRegion="polite"` ile geldiğini doğrular. Ayarlar 1'e geri alındı. |
+| Ekran okuyucu | Check-in sonucu: sonuç bloğundaki `alert` rolü kaldırıldı; duyuru yalnız `announceForAccessibility` ile (çift okuma kapandı). TalkBack ile emülatörde dinlenmedi; Task 4 betiğinde. |
