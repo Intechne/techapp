@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { BottomSheet, Button, Notice, Tag, Text, TextArea, useToast } from '../../design-system';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { Button, Notice, SheetFrame, Tag, Text, TextArea, useToast } from '../../design-system';
 import { toAppError } from '../../lib/errors';
+import type { RootStackParamList } from '../../navigation/types';
+import { closeSheet } from '../../navigation/sheets';
+import { useSession } from '../auth/SessionProvider';
 import { applyToRecruitment, teamKeys, type RecruitmentPost } from './api';
 
 /**
  * Apply to an open role. The server decides everything (closed post, already a member, profile incomplete): its code is shown
  * with the app's own copy, inside the sheet, and the person stays where they are. No retry button for a refusal.
  */
-export function RecruitmentApplySheet({ post, userId, onClose }: { post: RecruitmentPost | null; userId: string; onClose: () => void }) {
+export function RecruitmentApplySheet({ post, userId, onClose }: { post: Pick<RecruitmentPost, 'id' | 'title' | 'role_label'> | null; userId: string; onClose: () => void }) {
   const qc = useQueryClient(); const toast = useToast();
   const [message, setMessage] = useState('');
   const apply = useMutation({
@@ -19,7 +23,7 @@ export function RecruitmentApplySheet({ post, userId, onClose }: { post: Recruit
   const close = () => { apply.reset(); onClose(); };
 
   return (
-    <BottomSheet visible={!!post} title="Role başvur" onClose={close}>
+    <SheetFrame fit title="Role başvur" onClose={close}>
       {!!post && (
         <>
           {/* Free text written by the team: shown as typed. */}
@@ -31,6 +35,12 @@ export function RecruitmentApplySheet({ post, userId, onClose }: { post: Recruit
           <Button label="Başvuruyu gönder" loading={apply.isPending} onPress={() => apply.mutate({ postId: post.id, message })} />
         </>
       )}
-    </BottomSheet>
+    </SheetFrame>
   );
+}
+
+/** Root-stack form-sheet route (fit to contents). The role travels as params; the opener's "GÖNDERİLDİ" comes from the invalidated query. */
+export function RecruitmentApplyScreen({ navigation, route }: NativeStackScreenProps<RootStackParamList, 'RecruitmentApply'>) {
+  const { postId, title, roleLabel } = route.params; const { userId } = useSession();
+  return <RecruitmentApplySheet post={{ id: postId, title, role_label: roleLabel }} userId={userId ?? ''} onClose={() => closeSheet(navigation)} />;
 }

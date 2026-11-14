@@ -1,22 +1,21 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { StyleSheet, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AppHeader, ApplicationStatus, Avatar, BookmarkButton, BottomSheet, Button, Card, DemoTag, Divider, ErrorState, LoadingSkeleton, MetadataRow, Notice, Screen, StatusBadge, Tag, Text, TextArea, TextButton, colors, formatCount, membershipStatusView, radius, space, useToast } from '../../design-system';
+import { AppHeader, ApplicationStatus, Avatar, BookmarkButton, Button, Card, DemoTag, Divider, ErrorState, LoadingSkeleton, MetadataRow, Notice, Screen, StatusBadge, Tag, Text, TextButton, colors, formatCount, membershipStatusView, radius, space, useToast } from '../../design-system';
 import { formatDate } from '../../lib/dates';
 import { openExternalUrl } from '../../lib/links';
 import { toAppError } from '../../lib/errors';
 import type { CommunityStackParamList } from '../../navigation/types';
 import { useSession } from '../auth/SessionProvider';
 import { usePendingIntent } from '../auth/pendingIntent';
-import { ReportLink, ReportSheet, type ReportSubject } from '../reports/ReportSheet';
+import { ReportLink, type ReportSubject } from '../reports/ReportSheet';
 import { useBookmarks } from '../saved/useBookmarks';
-import { fetchMyMembership, fetchMyRecruitmentApplications, fetchOpenPosts, fetchTeam, fetchTeamProfile, fetchTeamProjects, requestJoin, teamKeys, withdrawJoin, type RecruitmentPost } from './api';
+import { fetchMyMembership, fetchMyRecruitmentApplications, fetchOpenPosts, fetchTeam, fetchTeamProfile, fetchTeamProjects, teamKeys, withdrawJoin, type RecruitmentPost } from './api';
 import { categoryIcon } from './categoryIcon';
 import { KIND_LABEL, RECRUITMENT_STATUS, ROLE_LABEL, ROLE_NAME, ROLE_TONE } from './labels';
 import { permissionsFor } from './logic';
-import { RecruitmentApplySheet } from './RecruitmentApplySheet';
 import { TeamCover } from './TeamCover';
 
 const MEMBER = { one: 'üye', other: 'üye' };
@@ -29,8 +28,7 @@ export function TeamDetailScreen({ navigation, route }: NativeStackScreenProps<C
   const qc = useQueryClient(); const toast = useToast();
   const intent = usePendingIntent();
   const saves = useBookmarks('team');
-  const [sheet, setSheet] = useState(false); const [message, setMessage] = useState(''); const [applyTo, setApplyTo] = useState<RecruitmentPost | null>(null);
-  const [report, setReport] = useState<ReportSubject | null>(null);
+  const openReport = (s: ReportSubject) => navigation.getParent()?.getParent()?.navigate('ReportSheet', s);
 
   const team = useQuery({ queryKey: teamKeys.detail(teamId), queryFn: () => fetchTeam(teamId) });
   const posts = useQuery({ queryKey: teamKeys.posts(teamId), queryFn: () => fetchOpenPosts(teamId) });
@@ -40,16 +38,19 @@ export function TeamDetailScreen({ navigation, route }: NativeStackScreenProps<C
   const membership = useQuery({ queryKey: teamKeys.membership(teamId, userId), queryFn: () => fetchMyMembership(teamId, userId!), enabled: !!userId });
 
   const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ['teams'] })]);
-  const join = useMutation({ mutationFn: () => requestJoin(teamId, message), onSuccess: async () => { setSheet(false); setMessage(''); await refresh(); toast.show('İsteğin gönderildi.', 'success'); } });
   const withdraw = useMutation({ mutationFn: (id: string) => withdrawJoin(id), onSuccess: async () => { await refresh(); toast.show('İsteğin geri çekildi.'); } });
+
+  const openApplySheet = useCallback((p: RecruitmentPost) => {
+    navigation.getParent()?.getParent()?.navigate('RecruitmentApply', { teamId, postId: p.id, title: p.title, roleLabel: p.role_label });
+  }, [navigation, teamId]);
 
   // A guest who tapped "Başvur" was sent to sign in: once the session exists, the sheet for that role opens.
   useFocusEffect(useCallback(() => {
     if (!userId || !posts.data) return;
     const resumed = intent.consume('apply_recruitment');
     const post = resumed && resumed.teamId === teamId ? posts.data.find((p) => p.id === resumed.postId) : undefined;
-    if (post) setApplyTo(post);
-  }, [userId, posts.data, intent, teamId]));
+    if (post) openApplySheet(post);
+  }, [userId, posts.data, intent, teamId, openApplySheet]));
 
   if (team.isPending) return <Screen header={<AppHeader onBack={navigation.goBack} />}><LoadingSkeleton cards={1} /></Screen>;
   if (team.isError) return <Screen header={<AppHeader onBack={navigation.goBack} />}><ErrorState error={toAppError(team.error)} onRetry={() => void team.refetch()} /></Screen>;
@@ -57,11 +58,11 @@ export function TeamDetailScreen({ navigation, route }: NativeStackScreenProps<C
   const t = team.data; const m = membership.data ?? null; const perms = permissionsFor(m);
   const openApply = (p: RecruitmentPost) => {
     if (!userId) { intent.set({ type: 'apply_recruitment', teamId, postId: p.id }); navigation.getParent()?.getParent()?.navigate('AuthEmail'); return; }
-    setApplyTo(p);
+    openApplySheet(p);
   };
   const appliedPosts = new Map((myApps.data ?? []).filter((a) => a.status === 'submitted' || a.status === 'accepted').map((a) => [a.post_id, a.status]));
   const counts = profile.data?.role_counts; const hasRoles = !!counts && counts.captain + counts.mentor + counts.member > 0;
-  const openJoin = () => { if (!userId) { navigation.getParent()?.getParent()?.navigate('AuthEmail'); return; } setSheet(true); };
+  const openJoin = () => { if (!userId) { navigation.getParent()?.getParent()?.navigate('AuthEmail'); return; } navigation.getParent()?.getParent()?.navigate('TeamJoinRequest', { teamId }); };
 
   const footer = perms.isMember ? <Button label="Takım alanına git" iconRight="arrow" onPress={() => navigation.navigate('TeamWorkspace', { teamId })} />
     : m?.status === 'pending' ? <Button kind="secondary" label="İsteği geri çek" loading={withdraw.isPending} onPress={() => withdraw.mutate(m.id)} />
@@ -138,7 +139,7 @@ export function TeamDetailScreen({ navigation, route }: NativeStackScreenProps<C
                   {!!p.closes_at && <Text variant="caption" color="textSecondary">Son başvuru: {formatDate(p.closes_at)}</Text>}
                   {applied ? <View style={{ flexDirection: 'row', marginTop: space[1] }}><ApplicationStatus status={RECRUITMENT_STATUS[applied]} /></View>
                     : !perms.isMember && <Button kind="secondary" label="Başvur" accessibilityLabel={`${p.title}: başvur`} onPress={() => openApply(p)} style={{ marginTop: space[2] }} />}
-                  {!perms.isMember && <View style={{ flexDirection: 'row' }}><ReportLink accessibilityLabel={`${p.title}: ilanı bildir`} onPress={() => setReport({ targetType: 'recruitment_post', targetId: p.id, label: p.title })} /></View>}
+                  {!perms.isMember && <View style={{ flexDirection: 'row' }}><ReportLink accessibilityLabel={`${p.title}: ilanı bildir`} onPress={() => openReport({ targetType: 'recruitment_post', targetId: p.id, label: p.title })} /></View>}
                 </Card>
               );
             })}
@@ -158,7 +159,7 @@ export function TeamDetailScreen({ navigation, route }: NativeStackScreenProps<C
                   {!!pr.summary && <Text variant="bodySmall" color="textSecondary">{pr.summary}</Text>}
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[4] }}>
                     {!!pr.url && <TextButton label="Bağlantıyı aç" iconRight="arrow" accessibilityRole="link" accessibilityLabel={`${pr.title}: bağlantıyı aç`} onPress={() => void openExternalUrl(pr.url, () => toast.show('Bağlantı açılamadı.', 'danger'))} />}
-                    {!perms.isMember && <ReportLink accessibilityLabel={`${pr.title}: projeyi bildir`} onPress={() => setReport({ targetType: 'team_project', targetId: pr.id, label: pr.title })} />}
+                    {!perms.isMember && <ReportLink accessibilityLabel={`${pr.title}: projeyi bildir`} onPress={() => openReport({ targetType: 'team_project', targetId: pr.id, label: pr.title })} />}
                     {perms.canManage && <TextButton label="Düzenle" accessibilityLabel={`${pr.title}: düzenle`} onPress={() => navigation.navigate('TeamProjectEditor', { teamId, projectId: pr.id })} />}
                   </View>
                 </Card>
@@ -183,15 +184,7 @@ export function TeamDetailScreen({ navigation, route }: NativeStackScreenProps<C
         </>
       )}
 
-      {!perms.isMember && <><Divider /><View style={{ flexDirection: 'row' }}><ReportLink accessibilityLabel="Takımı bildir" onPress={() => setReport({ targetType: 'team', targetId: teamId, label: t.name })} /></View></>}
-      <ReportSheet subject={report} userId={userId} onClose={() => setReport(null)} onSignIn={() => navigation.getParent()?.getParent()?.navigate('AuthEmail')} />
-      <RecruitmentApplySheet post={applyTo} userId={userId ?? ''} onClose={() => setApplyTo(null)} />
-      <BottomSheet visible={sheet} title="Katılma isteği" onClose={() => setSheet(false)}>
-        <Text variant="bodySmall" color="textSecondary">İsteğin takımın kaptanına ve mentorlarına gider. Adın ve yazdığın not görünür; iletişim bilgilerin paylaşılmaz.</Text>
-        <TextArea label="Kısa bir not (isteğe bağlı)" value={message} onChangeText={setMessage} maxLength={500} placeholder="Neden katılmak istiyorsun, neye katkı verebilirsin?" />
-        {join.error && <Notice tone="danger" title="İsteğin gönderilmedi">{toAppError(join.error).message}</Notice>}
-        <Button label="İsteği gönder" loading={join.isPending} onPress={() => join.mutate()} />
-      </BottomSheet>
+      {!perms.isMember && <><Divider /><View style={{ flexDirection: 'row' }}><ReportLink accessibilityLabel="Takımı bildir" onPress={() => openReport({ targetType: 'team', targetId: teamId, label: t.name })} /></View></>}
     </Screen>
   );
 }

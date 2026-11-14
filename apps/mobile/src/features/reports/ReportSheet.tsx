@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
+import { Keyboard } from 'react-native';
 import { useMutation } from '@tanstack/react-query';
-import { BottomSheet, Button, Notice, Select, Text, TextArea, TextButton, useToast, colors } from '../../design-system';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { Button, Notice, Select, SheetFrame, Text, TextArea, TextButton, useToast, colors } from '../../design-system';
+import type { RootStackParamList } from '../../navigation/types';
+import { closeSheet } from '../../navigation/sheets';
+import { useSession } from '../auth/SessionProvider';
 import { toAppError } from '../../lib/errors';
 import { REPORT_DETAILS_MAX, REPORT_REASONS, submitReport, type ReportReason, type ReportTarget } from './api';
 
@@ -16,14 +21,21 @@ export function ReportLink({ label = 'Bildir', accessibilityLabel, onPress }: { 
  * "Bildir": pick a reason, optionally say more, send. The server decides everything else; its answer is shown here with the app's own
  * copy. A guest only gets a sign-in prompt: nothing is remembered and nothing is sent after sign-in. The person comes back to the same
  * screen and opens the sheet again, so a report is always filed from a sheet they are looking at.
+ * The content of the `ReportSheet` form-sheet route (see `ReportSheetScreen`).
  */
 export function ReportSheet({ subject, userId, onClose, onSignIn }: { subject: ReportSubject | null; userId: string | null; onClose: () => void; onSignIn: () => void }) {
   return (
-    <BottomSheet visible={!!subject} title="İçeriği bildir" onClose={onClose}>
-      {/* Mounted only while a subject is set, and keyed by it: every opening starts clean (no reason or text carried over). */}
+    <SheetFrame title="İçeriği bildir" onClose={onClose}>
+      {/* Keyed by the subject: every opening starts clean (no reason or text carried over). */}
       {!!subject && <ReportForm key={`${subject.targetType}:${subject.targetId}`} subject={subject} userId={userId} onClose={onClose} onSignIn={onSignIn} />}
-    </BottomSheet>
+    </SheetFrame>
   );
+}
+
+/** Root-stack form-sheet route: the subject travels as route params; a guest's "Giriş yap" swaps the sheet for the sign-in modal. */
+export function ReportSheetScreen({ navigation, route }: NativeStackScreenProps<RootStackParamList, 'ReportSheet'>) {
+  const { userId } = useSession();
+  return <ReportSheet subject={route.params} userId={userId} onClose={() => closeSheet(navigation)} onSignIn={() => { Keyboard.dismiss(); navigation.replace('AuthEmail'); }} />;
 }
 
 function ReportForm({ subject, userId, onClose, onSignIn }: { subject: ReportSubject; userId: string | null; onClose: () => void; onSignIn: () => void }) {
@@ -49,7 +61,7 @@ function ReportForm({ subject, userId, onClose, onSignIn }: { subject: ReportSub
         <>
           <Text variant="body">Bildirmek için giriş yapman gerekiyor.</Text>
           <Text variant="bodySmall" color="textSecondary">Girişten sonra bu sayfaya dönüp tekrar “Bildir”e dokunabilirsin. Giriş yapman bildirimi kendiliğinden göndermez.</Text>
-          <Button label="Giriş yap" iconRight="arrow" onPress={() => { onClose(); onSignIn(); }} />
+          <Button label="Giriş yap" iconRight="arrow" onPress={onSignIn} />
         </>
       ) : (
         already ? (

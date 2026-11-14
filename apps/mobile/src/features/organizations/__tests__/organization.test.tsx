@@ -84,19 +84,9 @@ describe('Kurum profili', () => {
     expect(tabNavigate).toHaveBeenCalledWith('OpportunitiesTab', { screen: 'OpportunityDetail', params: { opportunityId: 'p1' } });
   });
 
-  it('Bildir: signed in opens the reasons for this organisation; a guest is asked to sign in and nothing is sent', async () => {
+  it('Bildir opens the report sheet route for this organisation (a guest gets the sign-in prompt inside the sheet)', async () => {
     await open();
     await fireEvent.press(await screen.findByRole('button', { name: 'Kurumu bildir' }));
-    expect(screen.getByText('İçeriği bildir')).toBeTruthy();
-    expect(screen.getAllByRole('radio').length).toBe(7);
-  });
-
-  it('Bildir as a guest: the sign-in prompt', async () => {
-    mockUser = null;
-    await open();
-    await fireEvent.press(await screen.findByRole('button', { name: 'Kurumu bildir' }));
-    expect(screen.getByText('Bildirmek için giriş yapman gerekiyor.')).toBeTruthy();
-    await fireEvent.press(screen.getByRole('button', { name: 'Giriş yap' }));
-    expect(rootNavigate).toHaveBeenCalledWith('AuthEmail');
+    expect(rootNavigate).toHaveBeenCalledWith('ReportSheet', expect.objectContaining({ targetType: 'organization', targetId: 'o1' }));
   });
 });

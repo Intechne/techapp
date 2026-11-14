@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { Share, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
@@ -11,7 +11,7 @@ import { toAppError } from '../../lib/errors';
 import type { SharedEventParamList, SharedLearningParamList } from '../../navigation/types';
 import { useSession } from '../auth/SessionProvider';
 import { usePendingIntent } from '../auth/pendingIntent';
-import { ReportLink, ReportSheet, type ReportSubject } from '../reports/ReportSheet';
+import { ReportLink, type ReportSubject } from '../reports/ReportSheet';
 import { useBookmarks } from '../saved/useBookmarks';
 import { fetchEventCourses, learningKeys } from '../learning/api';
 import { courseMeta } from '../learning/labels';
@@ -29,7 +29,7 @@ export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<
   const { userId } = useSession();
   const intent = usePendingIntent();
   const saves = useBookmarks('event');
-  const [report, setReport] = useState<ReportSubject | null>(null);
+  const openReport = (s: ReportSubject) => navigation.getParent()?.getParent()?.navigate('ReportSheet', s);
   const event = useQuery({ queryKey: eventKeys.detail(eventId), queryFn: () => fetchEvent(eventId) });
   // Courses that prepare for this event; nothing is shown (and nothing fails loudly) when there are none or the request fails.
   const courses = useQuery({ queryKey: learningKeys.eventCourses(eventId), queryFn: () => fetchEventCourses(eventId) });
@@ -188,9 +188,8 @@ export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<
       )}
 
       <View style={{ marginTop: space[5], flexDirection: 'row' }}>
-        <ReportLink accessibilityLabel="Etkinliği bildir" onPress={() => setReport({ targetType: 'event', targetId: eventId, label: e.title })} />
+        <ReportLink accessibilityLabel="Etkinliği bildir" onPress={() => openReport({ targetType: 'event', targetId: eventId, label: e.title })} />
       </View>
-      <ReportSheet subject={report} userId={userId} onClose={() => setReport(null)} onSignIn={() => navigation.getParent()?.getParent()?.navigate('AuthEmail')} />
 
       {/* Gönüllü ol is last: the visitor's own decision (join) comes first. */}
       <View style={{ marginTop: space[7] }}>

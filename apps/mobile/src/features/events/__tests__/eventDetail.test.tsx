@@ -41,13 +41,13 @@ jest.mock('../../volunteers/VolunteerSection', () => ({ VolunteerSection: () => 
 jest.mock('@react-navigation/native', () => ({ useFocusEffect: () => {} }));
 
 const navigate = jest.fn();
-const tabNavigate = jest.fn();
-beforeEach(() => { mockCourses = []; mockEvent = { ...baseEvent }; mockEligibility = { ...baseEligibility }; navigate.mockClear(); tabNavigate.mockClear(); });
+const tabNavigate = jest.fn(); const rootNavigate = jest.fn();
+beforeEach(() => { mockCourses = []; mockEvent = { ...baseEvent }; mockEligibility = { ...baseEligibility }; navigate.mockClear(); tabNavigate.mockClear(); rootNavigate.mockClear(); });
 
 const metrics = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
 async function renderDetail() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
-  const navigation = { navigate, goBack: jest.fn(), getParent: () => ({ navigate: tabNavigate, getParent: () => ({ navigate: jest.fn() }) }) };
+  const navigation = { navigate, goBack: jest.fn(), getParent: () => ({ navigate: tabNavigate, getParent: () => ({ navigate: rootNavigate }) }) };
   const props = { navigation, route: { key: 'k', name: 'EventDetail', params: { eventId: 'e1' } } } as unknown as React.ComponentProps<typeof EventDetailScreen>;
   await render(<SafeAreaProvider initialMetrics={metrics}><QueryClientProvider client={client}><EventDetailScreen {...props} /></QueryClientProvider></SafeAreaProvider>);
   await screen.findAllByText('Robotik Günü');
@@ -176,10 +176,9 @@ describe('Etkinlik detayı — tek engel kutusu, pasif birincil düğme yok', ()
     expect(navigate).toHaveBeenCalledWith('Organization', { organizationId: 'o' });
   });
 
-  it('Bildir opens the report sheet for this event, with the server reasons', async () => {
+  it('Bildir opens the report sheet route for this event (the form itself is tested with the sheet)', async () => {
     await renderDetail();
     await fireEvent.press(screen.getByRole('button', { name: 'Etkinliği bildir' }));
-    expect(screen.getByText('İçeriği bildir')).toBeTruthy();
-    expect(screen.getAllByRole('radio')).toHaveLength(7);
+    expect(rootNavigate).toHaveBeenCalledWith('ReportSheet', { targetType: 'event', targetId: 'e1', label: 'Robotik Günü' });
   });
 });

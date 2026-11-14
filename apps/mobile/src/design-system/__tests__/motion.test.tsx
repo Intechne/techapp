@@ -1,0 +1,86 @@
+import fs from 'fs';
+import path from 'path';
+import React from 'react';
+import { AccessibilityInfo, StyleSheet, Text as RNText } from 'react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as Reanimated from 'react-native-reanimated';
+import { EASE_IN_OUT, EASE_OUT, spring, timing } from '../motion';
+import { Skeleton } from '../components/States';
+import * as Overlays from '../components/Overlays';
+import { ToastProvider, useToast } from '../components/Overlays';
+import { motion } from '../tokens';
+
+const metrics = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
+const reduce = (on: boolean) => jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(on);
+const read = (rel: string) => fs.readFileSync(path.resolve(__dirname, '..', rel), 'utf8');
+
+describe('motion.ts — the one place durations, springs and curves live', () => {
+  it('durations and springs are exactly tokens.motion, every config follows the system reduce-motion setting', () => {
+    expect(timing('fast')).toMatchObject({ duration: motion.fast, reduceMotion: Reanimated.ReduceMotion.System });
+    expect(timing('standard')).toMatchObject({ duration: motion.standard, reduceMotion: Reanimated.ReduceMotion.System });
+    expect(timing('exit')).toMatchObject({ duration: motion.exit, reduceMotion: Reanimated.ReduceMotion.System });
+    expect(spring('snappy')).toMatchObject({ ...motion.spring.snappy, reduceMotion: Reanimated.ReduceMotion.System });
+    expect(spring('gentle')).toMatchObject({ ...motion.spring.gentle, reduceMotion: Reanimated.ReduceMotion.System });
+  });
+  it('exports the two curves (no ease-in) and timings use ease-out', () => {
+    expect(EASE_OUT).toBeDefined();
+    expect(EASE_IN_OUT).toBeDefined();
+    expect(EASE_OUT).not.toBe(EASE_IN_OUT);
+    expect(timing('fast').easing).toBe(EASE_OUT);
+    expect(timing('exit').easing).toBe(EASE_OUT);
+  });
+});
+
+describe('sources', () => {
+  it('States.tsx and Overlays.tsx no longer import Animated from react-native', () => {
+    for (const f of ['components/States.tsx', 'components/Overlays.tsx']) {
+      const rn = read(f).match(/import\s*\{([^}]*)\}\s*from 'react-native';/);
+      expect(rn?.[1] ?? '').not.toMatch(/\bAnimated\b/);
+    }
+  });
+  it('the bottom sheet is gone: sheets are native form-sheet routes', () => {
+    expect((Overlays as Record<string, unknown>).BottomSheet).toBeUndefined();
+    expect(typeof Overlays.SheetFrame).toBe('function');
+  });
+});
+
+describe('Skeleton', () => {
+  afterEach(() => jest.restoreAllMocks());
+  it('pulses on the UI thread when motion is allowed', async () => {
+    reduce(false);
+    const repeat = jest.spyOn(Reanimated, 'withRepeat');
+    await render(<Skeleton />);
+    await act(async () => {});
+    expect(repeat).toHaveBeenCalled();
+  });
+  it('reduced motion: opacity stays fixed at 1', async () => {
+    reduce(true);
+    const { toJSON } = await render(<Skeleton />);
+    await act(async () => {});
+    const node = toJSON() as unknown as { props: { style: import('react-native').StyleProp<import('react-native').ViewStyle> } };
+    expect(StyleSheet.flatten(node.props.style).opacity).toBe(1);
+  });
+});
+
+describe('Toast', () => {
+  afterEach(() => jest.restoreAllMocks());
+  const Trigger = () => { const t = useToast(); return <RNText onPress={() => t.show('Kaydedildi', 'success')}>aç</RNText>; };
+  const open = async () => {
+    await render(<SafeAreaProvider initialMetrics={metrics}><ToastProvider><Trigger /></ToastProvider></SafeAreaProvider>);
+    await act(async () => {});
+    await fireEvent.press(screen.getByText('aç'));
+    return StyleSheet.flatten(screen.getByText('Kaydedildi').parent!.props.style as never) as { transform?: unknown[]; opacity?: number };
+  };
+  it('slides 8 px up and fades in when motion is allowed', async () => {
+    reduce(false);
+    const style = await open();
+    expect(style.transform).toEqual([{ translateY: expect.any(Number) }]);
+  });
+  it('reduced motion: opacity only, no translate', async () => {
+    reduce(true);
+    const style = await open();
+    expect(style.transform).toBeUndefined();
+    expect(style).toHaveProperty('opacity');
+  });
+});

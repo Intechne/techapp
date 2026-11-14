@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -6,10 +6,9 @@ import { AppHeader, Divider, ErrorState, LoadingSkeleton, DemoTag, PosterCard, R
 import { toAppError } from '../../lib/errors';
 import { openExternalUrl } from '../../lib/links';
 import type { SharedEventParamList } from '../../navigation/types';
-import { useSession } from '../auth/SessionProvider';
 import { toEventPoster } from '../events/labels';
 import { FOLLOW_LABELS, toOpportunityRow } from '../opportunities/labels';
-import { ReportLink, ReportSheet, type ReportSubject } from '../reports/ReportSheet';
+import { ReportLink, type ReportSubject } from '../reports/ReportSheet';
 import { useBookmarks } from '../saved/useBookmarks';
 import { fetchOrganization, fetchOrganizationEvents, fetchOrganizationOpportunities, organizationKeys, type OrgType } from './api';
 
@@ -25,9 +24,9 @@ type Props = NativeStackScreenProps<SharedEventParamList, 'Organization'>;
  */
 export function OrganizationScreen({ navigation, route }: Props) {
   const { organizationId } = route.params;
-  const { userId } = useSession(); const toast = useToast();
+  const toast = useToast();
   const eventSaves = useBookmarks('event'); const oppSaves = useBookmarks('opportunity');
-  const [report, setReport] = useState<ReportSubject | null>(null);
+  const openReport = (s: ReportSubject) => navigation.getParent()?.getParent()?.navigate('ReportSheet', s);
   const org = useQuery({ queryKey: organizationKeys.detail(organizationId), queryFn: () => fetchOrganization(organizationId) });
   const events = useQuery({ queryKey: organizationKeys.events(organizationId), queryFn: () => fetchOrganizationEvents(organizationId) });
   const opps = useQuery({ queryKey: organizationKeys.opportunities(organizationId), queryFn: () => fetchOrganizationOpportunities(organizationId) });
@@ -88,9 +87,8 @@ export function OrganizationScreen({ navigation, route }: Props) {
 
       <Divider />
       <View style={{ flexDirection: 'row' }}>
-        <ReportLink accessibilityLabel="Kurumu bildir" onPress={() => setReport({ targetType: 'organization', targetId: o.id, label: o.name })} />
+        <ReportLink accessibilityLabel="Kurumu bildir" onPress={() => openReport({ targetType: 'organization', targetId: o.id, label: o.name })} />
       </View>
-      <ReportSheet subject={report} userId={userId} onClose={() => setReport(null)} onSignIn={() => navigation.getParent()?.getParent()?.navigate('AuthEmail')} />
     </Screen>
   );
 }

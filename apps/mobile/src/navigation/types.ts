@@ -1,6 +1,7 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
 import type { EventFiltersTarget, EventListParams } from '../features/events/filters';
 import type { SearchGroupKey } from '../features/search/api';
+import type { ReportSubject } from '../features/reports/ReportSheet';
 
 /** Screens reachable from more than one tab (event journey). Registered in every stack that needs them. */
 export type SharedEventParamList = {
@@ -84,6 +85,14 @@ export type RootStackParamList = {
   ProfileBootstrap: undefined;
   /** Etkinlikler filters: a form sheet on the root stack so it covers the tab bar; it edits the Events list's params. */
   EventFilters: EventListParams & EventFiltersTarget;
+  /**
+   * Native form sheets (presentation 'formSheet'), all on the root stack so they cover the tab bar. The opener passes plain data;
+   * the result comes back through query invalidation or the opener's own queries, never through a callback in params.
+   */
+  ReportSheet: ReportSubject;
+  RecruitmentApply: { teamId: string; postId: string; title: string; roleLabel: string | null };
+  TeamJoinRequest: { teamId: string };
+  ExperienceVerify: { experienceId: string };
   /** Developer-only (`__DEV__ && appEnv === 'local'`): the route is never registered in any other build. */
   DesignPreview: { data?: string; state?: string } | undefined;
 };

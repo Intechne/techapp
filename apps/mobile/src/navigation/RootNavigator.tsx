@@ -13,6 +13,11 @@ import { EventDetailScreen } from '../features/events/EventDetailScreen';
 import { EventRegistrationScreen } from '../features/events/EventRegistrationScreen';
 import { EventsListScreen } from '../features/events/EventsListScreen';
 import { EventFiltersScreen } from '../features/events/EventFiltersScreen';
+import { ReportSheetScreen } from '../features/reports/ReportSheet';
+import { RecruitmentApplyScreen } from '../features/teams/RecruitmentApplySheet';
+import { TeamJoinRequestScreen } from '../features/teams/TeamJoinSheet';
+import { ExperienceVerifyScreen } from '../features/profile/ExperienceVerifySheet';
+import { fitSheet, tallSheet } from './sheets';
 import { MyRegistrationsScreen } from '../features/events/MyRegistrationsScreen';
 import { ParticipationCardScreen } from '../features/events/ParticipationCardScreen';
 import { RegistrationStatusScreen } from '../features/events/RegistrationStatusScreen';
@@ -169,6 +174,10 @@ export function RootNavigator() {
           <Root.Screen name="Main" component={MainTabs} />
           {DesignPreviewScreen && <Root.Screen name="DesignPreview" component={DesignPreviewScreen} />}
           <Root.Screen name="EventFilters" component={EventFiltersScreen} options={filterSheetOptions} />
+          <Root.Screen name="ReportSheet" component={ReportSheetScreen} options={tallSheet} />
+          <Root.Screen name="RecruitmentApply" component={RecruitmentApplyScreen} options={fitSheet} />
+          <Root.Screen name="TeamJoinRequest" component={TeamJoinRequestScreen} options={fitSheet} />
+          <Root.Screen name="ExperienceVerify" component={ExperienceVerifyScreen} options={tallSheet} />
           <Root.Group screenOptions={{ presentation: 'modal' }}>
             <Root.Screen name="AuthEmail" component={AuthEmailScreen} />
             <Root.Screen name="AuthOtp" component={AuthOtpScreen} />

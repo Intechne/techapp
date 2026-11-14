@@ -2,7 +2,6 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { makeError } from '../../../lib/errors';
 import { TeamDetailScreen } from '../TeamDetailScreen';
 
 // Save state is its own module (saved/__tests__); screens here only see ids + toggle.
@@ -41,7 +40,7 @@ jest.mock('../../auth/pendingIntent', () => ({ usePendingIntent: () => ({ set: m
 // useFocusEffect needs a navigation container; here "focused" simply means mounted.
 jest.mock('@react-navigation/native', () => ({ useFocusEffect: (cb: () => void) => jest.requireActual('react').useEffect(cb, [cb]) }));
 
-const navigate = jest.fn(); const authNavigate = jest.fn();
+const navigate = jest.fn(); const authNavigate = jest.fn(); // authNavigate = the root stack: sign-in and every sheet route
 beforeEach(() => {
   mockTeam = team(); mockProfile = profile(); mockProjects = []; mockPosts = []; mockMembership = null; mockMyApps = []; mockUser = 'u1'; mockResume = null;
   navigate.mockClear(); authNavigate.mockClear(); mockApply.mockReset(); mockIntentSet.mockClear(); mockRosterFetch.mockClear();
@@ -155,21 +154,24 @@ describe('Takım profili — yönetim ve başvuru', () => {
     expect(mockApply).not.toHaveBeenCalled();
   });
 
-  it('after signing in, the role the guest tapped opens its apply sheet on its own', async () => {
+  it('after signing in, the role the guest tapped opens its apply sheet route on its own', async () => {
     mockPosts = [post()]; mockResume = { type: 'apply_recruitment', teamId: 't1', postId: 'p1' };
     await detail();
-    expect(await screen.findByText('Role başvur')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Başvuruyu gönder' })).toBeTruthy();
-    expect(screen.getByText(/Başvurduğunda takım yöneticileri adını ve notunu görür/)).toBeTruthy();
+    await waitFor(() => expect(authNavigate).toHaveBeenCalledWith('RecruitmentApply', { teamId: 't1', postId: 'p1', title: 'Mekanik ekibine katıl', roleLabel: 'Mekanik lideri' }));
   });
 
-  it('a signed-in person applies with a note; success shows the status label from Status.tsx instead of the button', async () => {
-    mockPosts = [post()]; mockApply.mockResolvedValue({ id: 'a1' });
+  it('a signed-in person taps Başvur: the apply sheet route opens for that role (the form is tested with the sheet) and nothing is sent yet', async () => {
+    mockPosts = [post()];
     await detail();
     await fireEvent.press(await screen.findByRole('button', { name: 'Mekanik ekibine katıl: başvur' }));
-    await fireEvent.changeText(await screen.findByLabelText('Kısa bir not (isteğe bağlı)'), 'CAD biliyorum');
-    await fireEvent.press(screen.getByRole('button', { name: 'Başvuruyu gönder' }));
-    await waitFor(() => expect(mockApply).toHaveBeenCalledWith('p1', 'CAD biliyorum'));
+    expect(authNavigate).toHaveBeenCalledWith('RecruitmentApply', { teamId: 't1', postId: 'p1', title: 'Mekanik ekibine katıl', roleLabel: 'Mekanik lideri' });
+    expect(mockApply).not.toHaveBeenCalled();
+  });
+
+  it('Katılma isteği gönder opens the join-request sheet route for this team', async () => {
+    await detail();
+    await fireEvent.press(await screen.findByRole('button', { name: 'Katılma isteği gönder' }));
+    expect(authNavigate).toHaveBeenCalledWith('TeamJoinRequest', { teamId: 't1' });
   });
 
   it('an application that already exists shows GÖNDERİLDİ and no apply button', async () => {
@@ -177,15 +179,6 @@ describe('Takım profili — yönetim ve başvuru', () => {
     await detail();
     expect(await screen.findByText('GÖNDERİLDİ')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Mekanik ekibine katıl: başvur' })).toBeNull();
-  });
-
-  it('a server refusal is shown with the app copy, in the sheet, and not as a retry', async () => {
-    mockPosts = [post()]; mockApply.mockRejectedValue(makeError('already_team_member', 409));
-    await detail();
-    await fireEvent.press(await screen.findByRole('button', { name: 'Mekanik ekibine katıl: başvur' }));
-    await fireEvent.press(await screen.findByRole('button', { name: 'Başvuruyu gönder' }));
-    expect(await screen.findByText('Zaten bu takımın üyesisin.')).toBeTruthy();
-    expect(screen.queryByText('Tekrar dene')).toBeNull();
   });
 
   it('members do not get an apply button on their own team’s roles', async () => {
@@ -205,8 +198,7 @@ describe('Takım profili — Bildir', () => {
     expect(screen.getByRole('button', { name: 'Takımı bildir' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Mekanik ekibine katıl: ilanı bildir' })).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: 'Otonom şasi v2: projeyi bildir' }));
-    expect(screen.getByText('İçeriği bildir')).toBeTruthy();
-    expect(screen.getAllByText('Otonom şasi v2').length).toBeGreaterThan(1); // the sheet names the content as typed
+    expect(authNavigate).toHaveBeenCalledWith('ReportSheet', { targetType: 'team_project', targetId: 'pr1', label: 'Otonom şasi v2' });
   });
 
   it('a member of the team is not offered Bildir on its own content', async () => {
@@ -217,13 +209,11 @@ describe('Takım profili — Bildir', () => {
     expect(screen.queryByRole('button', { name: 'Otonom şasi v2: projeyi bildir' })).toBeNull();
   });
 
-  it('a guest who taps Bildir gets the sign-in prompt; the button leads to sign-in and nothing is queued', async () => {
+  it('a guest who taps Bildir still opens the sheet (it shows the sign-in prompt) and nothing is queued', async () => {
     mockUser = null; mockProjects = [project()];
     await detail();
     await fireEvent.press(await screen.findByRole('button', { name: 'Takımı bildir' }));
-    expect(screen.getByText('Bildirmek için giriş yapman gerekiyor.')).toBeTruthy();
-    await fireEvent.press(screen.getByRole('button', { name: 'Giriş yap' }));
-    expect(authNavigate).toHaveBeenCalledWith('AuthEmail');
+    expect(authNavigate).toHaveBeenCalledWith('ReportSheet', { targetType: 'team', targetId: 't1', label: 'Orbit Robotik' });
     expect(mockIntentSet).not.toHaveBeenCalled();
   });
 });

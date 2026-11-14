@@ -19,3 +19,4 @@ export * from './components/CoverImage';
 export * from './components/cards';
 export * from './components/Status';
 export * from './components/StatusTimeline';
+export * from './motion';
