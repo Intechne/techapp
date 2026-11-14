@@ -126,8 +126,12 @@ const isPlainText = (children: React.ReactNode) =>
 
 export function Notice({ tone = 'info', title, children }: { tone?: NoticeTone; title?: string; children?: React.ReactNode }) {
   const t = noticeTones[tone];
+  // One screen-reader stop: title and body are read together (the icon is decoration). Warnings and errors are alerts; rich children keep their own stops.
+  const merged = isPlainText(children);
+  const label = merged ? [title, React.Children.toArray(children).join('')].filter(Boolean).join(' ') : undefined;
   return (
-    <View style={[styles.notice, { backgroundColor: t.bg }]} accessibilityRole={tone === 'danger' ? 'alert' : undefined}>
+    <View style={[styles.notice, { backgroundColor: t.bg }]} accessible={merged || undefined} accessibilityLabel={label}
+      accessibilityRole={tone === 'danger' || tone === 'warning' ? 'alert' : undefined}>
       <TechIcon name={t.icon} size={20} color={t.fg} />
       <View style={{ flex: 1, gap: 2 }}>
         {title && <Text variant="label" style={{ color: t.fg }}>{title}</Text>}

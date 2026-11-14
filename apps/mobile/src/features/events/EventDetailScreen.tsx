@@ -89,7 +89,8 @@ export function EventDetailScreen({ navigation, route }: NativeStackScreenProps<
       onPress={() => navigation.navigate('RegistrationStatus', { registrationId: existing.id })} />
   ) : blocker ? (
     <>
-      <View testID="blocker-footer" style={styles.reasonLine} accessible accessibilityLabel={`Kayıt yapılamıyor: ${blockerCopy(blocker.reason).short}`}>
+      {/* Sighted-only echo of the notice above (same message): screen readers get it once, from the alert notice. */}
+      <View testID="blocker-footer" style={styles.reasonLine} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
         <TechIcon name="info" size={18} color={sem.text.secondary} />
         <Text variant="bodySmall" color="textSecondary" style={{ flex: 1 }}>{blockerCopy(blocker.reason).short}</Text>
       </View>

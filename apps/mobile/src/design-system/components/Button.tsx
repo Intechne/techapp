@@ -29,6 +29,9 @@ export function Button({ label, kind = 'primary', icon, iconRight, loading, disa
   return (
     <PressableScale
       accessibilityRole="button"
+      // The name never depends on what is drawn: while loading the label text is replaced by a spinner, and without an explicit
+      // label Android reads the busy state ("busy") as the whole name (and keeps it after the label is back).
+      accessibilityLabel={label}
       accessibilityState={{ disabled: !!inactive, busy: !!loading }}
       disabled={inactive}
       {...rest}

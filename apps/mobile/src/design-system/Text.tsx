@@ -16,6 +16,8 @@ export interface TextProps extends RNTextProps {
 }
 
 const HEADINGS: TypeVariant[] = ['display', 'title', 'section'];
+/** Dynamic Type ceiling per heading: the display headline may grow more (it is short and has room), other headings stay at 1.4. */
+const headingScaleCap = (variant: TypeVariant) => (variant === 'display' ? 1.6 : 1.4);
 
 /** Typography primitive. Dynamic Type is on; headings are capped so critical CTAs stay reachable. */
 export function Text({ variant = 'body', color = 'ink', center, breakStrategy, style, ...rest }: TextProps) {
@@ -29,7 +31,7 @@ export function Text({ variant = 'body', color = 'ink', center, breakStrategy, s
     <RNText
       {...android}
       accessibilityRole={HEADINGS.includes(variant) ? 'header' : rest.accessibilityRole}
-      maxFontSizeMultiplier={HEADINGS.includes(variant) ? 1.4 : 1.8}
+      maxFontSizeMultiplier={HEADINGS.includes(variant) ? headingScaleCap(variant) : 1.8}
       {...rest}
       style={[type[variant], { color: resolved }, center && { textAlign: 'center' }, web, style]}
     />

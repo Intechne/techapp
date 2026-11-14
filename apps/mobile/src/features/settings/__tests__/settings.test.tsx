@@ -160,7 +160,8 @@ describe('Gizlilik', () => {
   it('an adult sees the discoverability switch and the plain-language helper about being named on team pages', async () => {
     await openPrivacy();
     const sw = await screen.findByRole('switch', { name: 'Profilimi keşfe aç' });
-    expect(screen.getByText(DISCOVERABLE_HELP)).toBeTruthy();
+    // The helper is the switch's accessibilityHint; the visible copy is not a second screen-reader stop.
+    expect(screen.getByText(DISCOVERABLE_HELP, { includeHiddenElements: true })).toBeTruthy();
     expect(DISCOVERABLE_HELP).toMatch(/kaptanı ya da mentoru olduğun takımların sayfasında herkese görünür/);
     await fireEvent(sw, 'valueChange', true);
     await waitFor(() => expect(mockSetDiscoverable).toHaveBeenCalledWith('u1', true));

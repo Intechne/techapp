@@ -90,8 +90,8 @@ describe('Etkinlik detayı — tek engel kutusu, pasif birincil düğme yok', ()
     expect(within(notice).getByText('Kayıtlar kapandı.')).toBeTruthy();
     expect(within(notice).getByText(/Diğer nedenler: Bu etkinliğe takım olarak kayıt olunuyor\./)).toBeTruthy();
     expect(screen.getAllByTestId('blocker-notice')).toHaveLength(1);
-    const footer = screen.getByTestId('blocker-footer');
-    expect(within(footer).getByText('Kayıtlar kapandı.')).toBeTruthy();
+    const footer = screen.getByTestId('blocker-footer', { includeHiddenElements: true });
+    expect(within(footer).getByText('Kayıtlar kapandı.', { includeHiddenElements: true })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Etkinliğe katıl' })).toBeNull();
     expect(screen.queryByRole('button', { name: /Kayıt şu an yapılamıyor|Kontenjan doldu/ })).toBeNull();
     expect(disabledButtons()).toHaveLength(0);
@@ -99,11 +99,24 @@ describe('Etkinlik detayı — tek engel kutusu, pasif birincil düğme yok', ()
     expect(tabNavigate).toHaveBeenCalledWith('EventsTab', { screen: 'EventsList', params: { type: 'workshop' }, pop: true });
   });
 
+  it('F-03: a blocked event announces the reason once: one alert notice, the footer line is hidden from screen readers', async () => {
+    mockEligibility = { ...baseEligibility, eligible: false, reasons: ['registration_closed'] };
+    await renderDetail();
+    await screen.findByTestId('blocker-notice');
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    expect(screen.getByRole('alert').props.accessibilityLabel).toMatch(/^Kayıtlar kapandı\. /);
+    const footer = screen.getByTestId('blocker-footer', { includeHiddenElements: true });
+    expect(footer.props.importantForAccessibility).toBe('no-hide-descendants');
+    expect(footer.props.accessible).not.toBe(true);
+    expect(screen.queryByLabelText(/^Kayıt yapılamıyor:/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Benzer etkinlikler' })).toBeTruthy(); // the action stays reachable
+  });
+
   it('full without a waitlist: "Kontenjan doldu." decides; no disabled primary button', async () => {
     mockEligibility = { ...baseEligibility, eligible: false, is_full: true, seats_left: 0 };
     await renderDetail();
     expect(within(await screen.findByTestId('blocker-notice')).getByText('Kontenjan doldu.')).toBeTruthy();
-    expect(within(screen.getByTestId('blocker-footer')).getByText('Kontenjan doldu.')).toBeTruthy();
+    expect(within(screen.getByTestId('blocker-footer', { includeHiddenElements: true })).getByText('Kontenjan doldu.', { includeHiddenElements: true })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Benzer etkinlikler' })).toBeTruthy();
     expect(disabledButtons()).toHaveLength(0);
   });
@@ -159,7 +172,7 @@ describe('Etkinlik detayı — tek engel kutusu, pasif birincil düğme yok', ()
   it('registration not open yet: the footer offers "Kaydet" (the one thing that still helps), not a disabled button', async () => {
     mockEligibility = { ...baseEligibility, eligible: false, reasons: ['registration_not_open'] };
     await renderDetail();
-    await screen.findByTestId('blocker-footer');
+    await screen.findByTestId('blocker-footer', { includeHiddenElements: true });
     expect(screen.getAllByRole('button', { name: 'Kaydet' })).toHaveLength(2); // header + footer
     expect(disabledButtons()).toHaveLength(0);
   });

@@ -32,7 +32,7 @@ export function ParticipationCardView({ card: c, cachedAt }: { card: Participati
         <Divider />
         <Text variant="eyebrow" color="textSecondary">KATILIMCI</Text>
         <Text variant="cardTitle" breakStrategy="words" style={{ marginTop: space[1] }}>{c.holder_name ?? '—'}</Text>
-        <View accessible accessibilityRole="image" accessibilityLabel={`Giriş kodu. Kısa kod: ${c.short_code.split('').join(' ')}`} style={styles.plate}>
+        <View accessible accessibilityRole="image" accessibilityLabel={`Katılım QR kodu. Kısa kod: ${c.short_code.split('').join(' ')}`} style={styles.plate}>
           <QRCode value={c.qr_payload} size={QR_SIZE} quietZone={space[3]} color={colors.ink} backgroundColor={colors.white} ecl="M" />
           <Text testID="short-code" variant="title" accessibilityRole="text" style={styles.shortCode}>{c.short_code}</Text>
         </View>

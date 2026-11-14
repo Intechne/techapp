@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator, type NativeStackNavigationOptions } from '@react-navigation/native-stack';
-import { TechIcon, colors, fonts, layout, radius, space, type, type TechIconName } from '../design-system';
+import { TabLabel } from './TabLabel';
+import { TechIcon, colors, layout, radius, type TechIconName } from '../design-system';
 import { AuthEmailScreen } from '../features/auth/AuthEmailScreen';
 import { AuthOtpScreen } from '../features/auth/AuthOtpScreen';
 import { ProfileBootstrapScreen } from '../features/auth/ProfileBootstrapScreen';
@@ -119,9 +120,6 @@ const OpportunitiesStack = () => <Opportunities.Navigator screenOptions={stackOp
 const CommunityStack = () => <Community.Navigator screenOptions={stackOptions}><Community.Screen name="CommunityHome" component={CommunityScreen} /><Community.Screen name="TeamDetail" component={TeamDetailScreen} /><Community.Screen name="TeamWorkspace" component={TeamWorkspaceScreen} /><Community.Screen name="TeamTaskEditor" component={TeamTaskEditorScreen} /><Community.Screen name="TeamProjectEditor" component={TeamProjectEditorScreen} /><Community.Screen name="RecruitmentPostEditor" component={RecruitmentPostEditorScreen} /><Community.Screen name="CreateTeam" component={CreateTeamScreen} /></Community.Navigator>;
 const ProfileStack = () => <Profile.Navigator screenOptions={stackOptions}><Profile.Screen name="ProfileHome" component={ProfileScreen} /><Profile.Screen name="CheckIn" component={CheckInScreen} /><Profile.Screen name="Saved" component={SavedScreen} /><Profile.Screen name="Notifications" component={NotificationsScreen} /><Profile.Screen name="EditProfile" component={EditProfileScreen} /><Profile.Screen name="Settings" component={SettingsScreen} /><Profile.Screen name="NotificationSettings" component={NotificationSettingsScreen} /><Profile.Screen name="Privacy" component={PrivacyScreen} /><Profile.Screen name="ConsentCenter" component={ConsentCenterScreen} /><Profile.Screen name="ExperienceEditor" component={ExperienceEditorScreen} /><Profile.Screen name="ExperienceDetail" component={ExperienceDetailScreen} />{eventJourney(Profile)}{learningJourney(Profile)}</Profile.Navigator>;
 
-/** Bottom tab label cap (dp): wide enough for "Etkinlikler" at the 12 pt minimum (57 dp) with a little slack, narrow enough for 5 tabs at 320 dp. */
-const TAB_LABEL_MAX_WIDTH = 64;
-
 const TABS: Record<keyof MainTabParamList, { label: string; icon: TechIconName }> = {
   DiscoverTab: { label: 'Keşfet', icon: 'discover' },
   EventsTab: { label: 'Etkinlikler', icon: 'event' },
@@ -139,13 +137,11 @@ function MainTabs() {
         tabBarPosition: sideNavigation ? 'left' : 'bottom',
         tabBarVariant: sideNavigation ? 'material' : 'uikit',
         tabBarLabelPosition: sideNavigation ? 'below-icon' : undefined,
-        tabBarLabel: TABS[route.name].label, // always visible: icons never stand alone
+        title: TABS[route.name].label, // the label string handed to TabLabel and the tab's accessible name; always visible: icons never stand alone
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
-        // 5 tabs at 320 dp leave 54 dp of label width after the item's 5 dp padding, but "Etkinlikler" needs 57 dp at the 12 pt minimum:
-        // let the label use the padding (negative margin) instead of shrinking the font or hiding the text.
-        tabBarLabelStyle: { fontFamily: fonts.bodySemibold, fontSize: type.caption.fontSize, ...(sideNavigation ? null : { alignSelf: 'stretch' as const, maxWidth: TAB_LABEL_MAX_WIDTH, textAlign: 'center' as const, marginHorizontal: -space[1] }) },
-        tabBarAllowFontScaling: false,
+        // The label follows the system font scale (TabLabel clamps it to 1.3, and lower on windows where "Etkinlikler" would leave its tab).
+        tabBarLabel: ({ color, focused, position, children }) => <TabLabel color={color} focused={focused} position={position}>{children}</TabLabel>,
         tabBarStyle: sideNavigation
           ? { backgroundColor: colors.surface, borderRightColor: colors.border, borderRightWidth: 1, minWidth: 96, paddingTop: 24 }
           : { backgroundColor: colors.surface, borderTopColor: colors.border, minHeight: layout.bottomNavHeight, paddingTop: 6 },

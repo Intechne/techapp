@@ -7,13 +7,16 @@ import { ShakeOnError } from './ShakeOnError';
 
 interface FieldShellProps { label: string; error?: string; help?: string; children: React.ReactNode }
 
+// The field itself carries its name (accessibilityLabel) and help (accessibilityHint); the visible copies are not extra screen-reader stops.
+const OFF_TREE = { accessibilityElementsHidden: true, importantForAccessibility: 'no' } as const;
+
 function FieldShell({ label, error, help, children }: FieldShellProps) {
   return (
     <View style={{ gap: space[2] }}>
-      <Text variant="label">{label}</Text>
+      <Text variant="label" {...OFF_TREE}>{label}</Text>
       {children}
       {error ? <Text variant="caption" color="danger" accessibilityLiveRegion="polite">{error}</Text>
-        : help ? <Text variant="caption" color="textSecondary">{help}</Text> : null}
+        : help ? <Text variant="caption" color="textSecondary" {...OFF_TREE}>{help}</Text> : null}
     </View>
   );
 }
@@ -29,6 +32,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input({ label, e
         <TextInput
           ref={ref}
           accessibilityLabel={label}
+          accessibilityHint={error ? undefined : help}
           placeholderTextColor={colors.textSecondary}
           {...rest}
           onFocus={(e) => { setFocused(true); onFocus?.(e); }}
@@ -76,10 +80,10 @@ export function SwitchRow({ label, description, value, onValueChange }: { label:
   return (
     <View style={styles.switchRow}>
       <View style={{ flex: 1, gap: 2 }}>
-        <Text variant="label" breakStrategy="words">{label}</Text>
-        {description && <Text variant="caption" color="textSecondary">{description}</Text>}
+        <Text variant="label" breakStrategy="words" {...OFF_TREE}>{label}</Text>
+        {description && <Text variant="caption" color="textSecondary" {...OFF_TREE}>{description}</Text>}
       </View>
-      <Switch value={value} onValueChange={onValueChange} accessibilityLabel={label}
+      <Switch value={value} onValueChange={onValueChange} accessibilityLabel={label} accessibilityHint={description}
         trackColor={{ false: colors.borderStrong, true: colors.primary }} thumbColor={colors.white} />
     </View>
   );
