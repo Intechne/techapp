@@ -1,6 +1,7 @@
 # App Store Connect — TechApp listeleme metni (TR)
 
 > Uygulamanın gerçek işlevlerinden yazıldı; olmayan özellik iddia edilmez. Karakter sınırları App Store Connect'e göredir.
+> Veri beyanları yalnız `docs/store/data-inventory.md` tablosundan türetilir (satır numaraları oradaki #). Mağazaya gönderim: **hukuk metni yayımlanmadan yapılmaz** (aşağıda "Gönderim önkoşulları").
 
 ## Ad ve alt başlık
 - **Uygulama adı** (≤30): `TechApp`
@@ -58,14 +59,54 @@ etkinlik,hackathon,robotik,girişim,takım,gönüllü,staj,burs,yarışma,cv,ö�
 ## Sürüm notu (What’s New — 5.0.0)
 İlk sürüm. Etkinlik keşfi ve kaydı, QR katılım kartı, fırsat ve son tarih takibi, takım ve görev yönetimi, doğrulanmış dijital CV ve gönüllülük.
 
-## İnceleme notları (App Review Notes) — ÖNEMLİ
-Giriş e-posta ile tek kullanımlık koda (OTP) dayanır; şifre yoktur. İnceleme ekibi kendi e-postasına kod alamayacağı için **sabit bir inceleme hesabı** ve kod sağlanmalıdır. İki seçenek:
-1. Backend’de inceleme için sabit kodlu bir test e-postası tanımla ve notlara e-posta + kodu yaz.
-2. Ya da inceleme süresince kodu bir uç noktadan/panelden okunabilir kıl.
-Ayrıca: 18 yaş altı için veli onayı akışını göstermek istersen, örnek bir akış ekran kaydı eklenebilir.
+## Gizlilik etiketi (App Privacy) taslağı — data-inventory.md'den
+Tüm veriler Supabase'e giden, hesapla bağlı veridir. **Tracking: Hayır** (reklam/analytics SDK'sı, reklam kimliği yok; veri aracılara satılmaz/paylaşılmaz — paylaşım yok: kod).
 
-## Yaş derecesi / gizlilik beyanı için notlar
-- Toplanan veri: e-posta (kimlik doğrulama), profil bilgileri, kullanıcının girdiği deneyim/CV içeriği. Reklam yok, izleme (tracking) yok.
-- Kamera: yalnızca etkinlik girişinde QR okutmak için. Mikrofon/konum/rehber kullanılmaz.
-- Push bildirimi bu sürümde yoktur.
-- Asgari yaş ve veli onayı hukuki karara bağlıdır; gizlilik metniyle beyanların uyumu yayından önce doğrulanmalı.
+| App Store veri türü | Toplanıyor mu | Kullanıcıya bağlı | Tracking | Amaç | Envanter # |
+|---|---|---|---|---|---|
+| Contact Info › Email Address | Evet | Evet | Hayır | App Functionality (giriş) | 1 (+2 özet), 18 (veli e-postası) |
+| Contact Info › Name | Evet | Evet | Hayır | App Functionality | 3, 18 (veli adı) |
+| User Content › Other User Content | Evet | Evet | Hayır | App Functionality | 7, 9, 12–15, 17, 20, 21, 22, 25 |
+| Identifiers › User ID | Evet | Evet | Hayır | App Functionality | 27, 28 |
+| Usage Data › Product Interaction | Evet (ders ilerlemesi) | Evet | Hayır | App Functionality | 23 |
+| Other Data Types (doğum tarihi, eğitim aşaması, ilgi alanı, rıza/bildirim/denetim kayıtları) | Evet | Evet | Hayır | App Functionality | 4, 5, 6, 19, 24, 26 |
+| Diagnostics › Crash Data | **Yalnız Sentry bağlanırsa** (bugün kapalı) | **Hayır** (kişiye bağlanmaz) | Hayır | App Functionality | 31 |
+
+Toplanmayan: konum, rehber, fotoğraf/video, ses, sağlık, finans, tarama/arama geçmişi, reklam verisi (envanter "Kapsam dışı"). Kamera: yalnız görevli hesabında QR okutmak için; görüntü kaydedilmez/gönderilmez (#30) → "toplanmıyor".
+Sentry kararına bağlı satır: Sentry production'a bağlanmadan sürüm çıkarsa "Crash Data" satırı beyandan çıkarılır; bağlanırsa eklenir. Beyanın sürüm anındaki durumu `CRASH-REPORTING.md` ile birebir tutulur.
+Kullanıcı/hukuk teyidi bekleyen kategori eşlemeleri: envanter satır 2 (izin listesi özeti), 6 (ilgi alanı kategorisi), 26 (denetim kaydı).
+
+## Yaş derecelendirmesi anketi (taslak yanıtlar)
+> App Store Connect'in güncel soru listesine göre kullanıcı formda doğrular; aşağıda kodla desteklenen yanıtlar. Sürüm başına soru adları değişebilir.
+
+| Konu | Yanıt | Dayanak |
+|---|---|---|
+| Şiddet, korku, cinsel içerik, çıplaklık, alkol/uyuşturucu/tütün, kumar, küfür, tıbbi içerik | Yok | Uygulamada üretilmiş/barındırılan böyle bir içerik türü yok (etkinlik/fırsat/takım listeleri) |
+| Uygulama içi satın alma / reklam / loot box | Yok | Kodda ödeme/reklam bağımlılığı yok |
+| Kullanıcı tarafından üretilen içerik | **Var, sınırlı:** takım/proje/ilan metinleri, profil, deneyim, katılma mesajı | Envanter 7, 9, 20 |
+| Serbest mesajlaşma / sohbet | **Yok** — yalnız tek yönlü formlar (katılma mesajı ≤500, ilan başvurusu mesajı ≤1000, motivasyon ≤2000) ilgili takım/kuruma gider | `team_memberships.message`, `recruitment_applications.message`, `applications.motivation` |
+| Kullanıcı içeriğini bildirme | **Var (istemci):** raporlar `reports` tablosuna yazılır. **Yönetim konsolu yok** (aşağıda önkoşul) | `features/reports/api.ts`; `docs/KNOWN-ISSUES.md` |
+| Kullanıcı engelleme | Yok (kodda engelleme özelliği bulunmadı) | — |
+| Konum paylaşımı | Yok | — |
+| Sınırsız web erişimi | Yok (uygulama içi tarayıcı yok; bağlantılar sistem tarayıcısında) | — |
+| Çocuklara yönelik kategori | **Hayır** — hedef kitle 13+ | `app.min_account_age() = 13` (`20260919000100`), sunucu `below_min_age` 422; 18 yaş altı için etkinlik başına veli onayı |
+| Yaş doğrulaması | Beyan edilen doğum tarihi, sunucuda yaş hesabı; ID doğrulama yok | `complete_profile_bootstrap` |
+
+Not: Önerilen derece 13+ / 12+ bandı sonucu **mağaza formundan çıkan değerdir**; burada tahmin edilmez. Asgari yaş 13 ve veli onayı yaş eşiği (varsayılan 18) **kullanıcı/hukuk teyidi bekliyor** (`GUARDIAN-CONSENT.md` açık soru 5). 13 altı hesap yok → Kids Category dışında.
+
+## İnceleme notları
+Ayrıntı ve karar seçenekleri: `docs/store/review-notes.md`. **Karar gelmeden inceleme hesabı yok, gönderim yok.**
+
+## Gönderim önkoşulları (hâlâ açık — durum 14 Kasım 2026)
+1. **Hukuk metinleri** (gizlilik, KVKK aydınlatma, kullanım koşulları, saklama, veli onay metni): web `/gizlilik` ve `/kosullar` yer tutucu. Hukuk metni yayımlanmadan mağaza gönderimi yapılmaz (`docs/legal/LEGAL-GATE.md`).
+2. **Yönetim: rapor/moderasyon konsolu** — kullanıcı içeriği (takım, proje, ilan) raporlanabiliyor ama `apps/admin`'de raporu okuyup işlem yapan ekran yok. Mağaza inceleme beklentisi (UGC: bildirme + tepki) için gerekli; açık.
+3. **Before User Created kancası production'da açık** (hesap birikimini önler; `LEGAL-GATE.md` "Auth kancasını açma").
+4. **Hesap silme web yolu**: bkz. `google-play-tr.md` (Play zorunluluğu; `/hesap-silme` bugün uygulama içi akışı anlatıyor, uygulamaya erişemeyenler için çalışan talep kanalı yok).
+5. Ekran görüntüleri: **bekliyor: pilot sonrası staging + `is_demo` içermeyen hesap** (aşağıda).
+6. (Mağazayı bloklamaz, not) Giriş alanı kenarlık kontrastı kararı (WCAG 1.4.11).
+
+## Ekran görüntüleri
+Bekliyor: pilot sonrası staging + `is_demo` içermeyen hesap. Yalnız gerçek ekran görüntüsü; "ÖRNEK" etiketli içerik görüntüye girmez. Şimdi alınmadı.
+
+## Hesap silme (App Store 5.1.1(v))
+Uygulama içi: Profil → Ayarlar → **Hesabımı sil** (onay penceresi; `SettingsScreen.tsx` → `delete-account` Edge Function). Ayrıca Ayarlar'da "Hesap silme" satırı `/hesap-silme` web sayfasını açar. Sunucu davranışı: profil, kayıt, başvuru, rıza, veli isteği, deneyim ve kullanıcı dosyaları silinir; moderasyon geçmişi olan hesap uygulamadan silinemez, destek gerekir (`account_deletion_requires_support`); denetim kayıtları kimlik numarasıyla kalır (envanter notları).
